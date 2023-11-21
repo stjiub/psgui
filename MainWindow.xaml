@@ -3,82 +3,48 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
 	Title="PSGUI"
-    Height="1000"
-	Width="1300"
     Style="{DynamicResource MaterialDesignWindow}"
 	WindowStartupLocation="CenterScreen"
 	ResizeMode="CanResize"
+    Width="900"
+    Height="700"
+    MaxWidth="{x:Static SystemParameters.PrimaryScreenWidth}"
+    MaxHeight="{x:Static SystemParameters.PrimaryScreenHeight}"
 	TextElement.Foreground="{DynamicResource MaterialDesignBody}"
     TextElement.FontFamily="Calibri"
 	TextOptions.TextFormattingMode="Ideal"
 	TextOptions.TextRenderingMode="Auto"
-    WindowStyle="None"
-    AllowsTransparency="True"
-    Background="Transparent">
+    Background="Transparent"
+    >
 
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <md:BundledTheme BaseTheme="Dark" PrimaryColor="Blue" SecondaryColor="Lime" />
+                <md:BundledTheme BaseTheme="Light" PrimaryColor="Blue" SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
-
-            <Style TargetType="Window">
-                <Style.Triggers>
-                    <Trigger Property="IsActive" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}"/>
-                    </Trigger>
-                    <Trigger Property="IsActive" Value="False">
-                        <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.InactiveBorderBrushKey}}"/>
-                    </Trigger>
-                </Style.Triggers>
-            </Style>
-
-            <Style TargetType="Border">
-                <Setter Property="BorderBrush" Value="#FF1A1A1A"/>
-                <Setter Property="BorderThickness" Value="5"/> 
-                <Setter Property="CornerRadius" Value="8"/>
-            </Style>
-
-            <Style TargetType="Grid" x:Key="Command">
-                <Setter Property="Background" Value="#FF252526"/>
-            </Style>
-
-            <Style TargetType="StackPanel">
-                <Setter Property="Background" Value="#FF1A1A1A"/>
-            </Style>
-
-            <Style TargetType="DataGrid" BasedOn="{StaticResource MaterialDesignDataGrid}">
-                <Setter Property="Background" Value="{DynamicResource MaterialDesignPaper}"/>
-                <Setter Property="AlternatingRowBackground" Value="LightBlue"/>
-            </Style>
-
-            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MaterialDesignDataGridColumnHeader}">
-                <Setter Property="FontWeight" Value="Bold" />
-                <Setter Property="FontSize" Value="14"/>
-            </Style>
             
             <Style TargetType="TabItem">
-                <Setter Property="Background" Value="LightBlue"/>
+                <Setter Property="Background" Value="#2096F4"/>
                 <Setter Property="Foreground" Value="White"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type TabItem}">
                             <Grid>
-                                <Border Name="Border" Background="#FF303030"  CornerRadius="8,8,0,0" TextElement.FontSize="14" MinWidth="50">
+                                <Border Name="Border" Background="#909090"  CornerRadius="4,4,0,0" Margin="1 0 0 0" TextElement.FontSize="14" MinWidth="50">
                                     <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center" HorizontalAlignment="Center" ContentSource="Header" Margin="12,2,12,2"/>
                                 </Border>
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsFocused" Value="True" >
-                                    <Setter Property="Background" TargetName="Border" Value="#FF9E9E9E" />
+                                    <Setter Property="Background" TargetName="Border" Value="#909090" />
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True" >
-                                    <Setter Property="Background" TargetName="Border" Value="#FF9E9E9E" />
+                                    <Setter Property="Background" TargetName="Border" Value="#909090" />
                                     <Setter Property="Cursor" TargetName="Border" Value="Hand" />
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True" >
-                                    <Setter Property="Background" TargetName="Border" Value="#FF2096F4" />
+                                    <Setter Property="Background" TargetName="Border" Value="#2096F4" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -94,111 +60,97 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="25" />
-    </WindowChrome.WindowChrome>
+    <Grid>
+        <Grid Background="{DynamicResource MaterialDesignPaper}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="40"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-    <Border>
-        <Grid>
-            <Grid Background="{DynamicResource MaterialDesignPaper}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="40"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Margin="20 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
+                <Button Name="BtnAdd" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform  ScaleX="0.95" ScaleY="0.95"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="AddBox" Foreground="Green"/>
+                </Button>
+                <Button Name="BtnRemove" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="TrashCan" Foreground="Red"/>
+                </Button>
+                <Button Name="BtnSave" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="Floppy" Foreground="Blue"/>
+                </Button>
+                <ToggleButton Name="BtnEdit" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
+                    <ToggleButton.LayoutTransform>
+                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
+                    </ToggleButton.LayoutTransform>
+                    <ToggleButton.Content>
+                        <md:PackIcon Kind="Edit" Foreground="Orange"/>
+                    </ToggleButton.Content>
+                    <md:ToggleButtonAssist.OnContent >
+                        <md:PackIcon Kind="EditOff" Foreground="Black"/>
+                    </md:ToggleButtonAssist.OnContent>
+                </ToggleButton>
+            </StackPanel>
 
-                <StackPanel Grid.Row="0" Height="25" Orientation="Horizontal" FlowDirection="RightToLeft">
-                    <Button Name="BtnClose" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Exit" Style="{StaticResource MaterialDesignIconForegroundButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
-                        <md:PackIcon Kind="Close" Height="20" Width="20"/>
-                    </Button>
-                    <Button Name="BtnMaximize" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Maximize" Style="{StaticResource MaterialDesignIconForegroundButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
-                        <md:PackIcon Kind="WindowMaximize" Height="20" Width="20"/>
-                    </Button>
-                    <Button Name="BtnMinimize" IsEnabled="True" Margin="0 0 0 4" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Minimize" Style="{StaticResource MaterialDesignIconForegroundButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
-                        <md:PackIcon Kind="WindowMinimize" Height="20" Width="20"/>
-                    </Button>
-                </StackPanel>
+            <Grid Name="CommandDialog" Grid.Row="1" Panel.ZIndex="1000" Background="White" Visibility="Hidden" VerticalAlignment="Center" HorizontalAlignment="Center" >
+                <Border BorderBrush="Black" BorderThickness="1">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="1" Margin="20 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
-                    <Button Name="BtnAdd" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
-                        <Button.LayoutTransform>
-                            <ScaleTransform  ScaleX="0.95" ScaleY="0.95"/>
-                        </Button.LayoutTransform>
-                        <md:PackIcon Kind="AddBox" Foreground="LightGreen"/>
-                    </Button>
-                    <Button Name="BtnRemove" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
-                        <Button.LayoutTransform>
-                            <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
-                        </Button.LayoutTransform>
-                        <md:PackIcon Kind="TrashCan" Foreground="IndianRed"/>
-                    </Button>
-                    <Button Name="BtnSave" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
-                        <Button.LayoutTransform>
-                            <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
-                        </Button.LayoutTransform>
-                        <md:PackIcon Kind="Floppy" Foreground="CornflowerBlue"/>
-                    </Button>
-                    <ToggleButton Name="BtnEdit" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
-                        <ToggleButton.LayoutTransform>
-                            <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
-                        </ToggleButton.LayoutTransform>
-                        <ToggleButton.Content>
-                            <md:PackIcon Kind="Edit" Foreground="Orange"/>
-                        </ToggleButton.Content>
-                        <md:ToggleButtonAssist.OnContent >
-                            <md:PackIcon Kind="EditOff" Foreground="White"/>
-                        </md:ToggleButtonAssist.OnContent>
-                    </ToggleButton>
-                </StackPanel>
-
-                <Grid Name="CommandDialog" Grid.Row="2" Panel.ZIndex="1000" Visibility="Hidden" VerticalAlignment="Center" HorizontalAlignment="Center" >
-                    <Border>
-                        <Grid Style ="{StaticResource Command}">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <StackPanel Grid.Row="0" Height="20" Orientation="Horizontal" Background="#FF1A1A1A" FlowDirection="RightToLeft">
-                                <Button Name="BtnCommandClose" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Exit" Style="{StaticResource MaterialDesignIconForegroundButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
-                                    <md:PackIcon Kind="Close" Height="20" Width="20"/>
-                                </Button>
-                            </StackPanel>
-
-                            <Grid Name="CommandGrid" Grid.Row="1" Style ="{StaticResource Command}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
-                                    <ColumnDefinition Width="200"/>
-                                </Grid.ColumnDefinitions>
-                                <!-- <Button Name="BtnCommonParameters" Content="Fold/Expand"/> -->
-                            </Grid>
-                            <Grid Grid.Row="2">
-                                <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" Width="300" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
-                            </Grid>
+                        <Grid Grid.Row="0" Height="25">
+                            <TextBox Name="BoxCommandName" HorizontalAlignment="Center" BorderThickness="0,0,0,0" Margin="4 0 0 0" TextElement.FontSize="14" />
+                            <Button Name="BtnCommandClose" HorizontalAlignment="Right" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Exit" Style="{StaticResource MaterialDesignIconForegroundButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
+                                <md:PackIcon Kind="Close" Height="20" Width="20"/>
+                            </Button>
                         </Grid>
-                    </Border>
-                </Grid>
 
-                <Grid Name="Main" Grid.Row="2">
-                    <Border Margin="12 0 12 0">
-                        <TabControl Name="TabControl" HorizontalContentAlignment="Left"/>
-                    </Border>
-                </Grid>
+                        <Grid Name="CommandGrid" Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="100"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="250"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- <Button Name="BtnCommonParameters" Content="Fold/Expand"/> -->
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="300" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
 
-                <Button Name="BtnRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" Grid.Row="3" Width="300" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10" />
-                <Grid Name="Spinner" Visibility="Hidden" Grid.Row="3" Margin="350 0 0 0" HorizontalAlignment="Center"  Height="30" Width="30">
-                    <ProgressBar Foreground="White" Style="{StaticResource MaterialDesignCircularProgressBar}" IsIndeterminate="True"/>
-                </Grid>
+            <Grid Name="Main" Grid.Row="1">
+                    <TabControl Name="TabControl" Margin="1 0 0 0" HorizontalContentAlignment="Left"/>
+            </Grid>
 
-                <md:Snackbar Name="Snackbar" Grid.Row="3" Height="70" Opacity="1" Margin="0 0 15 0" Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" MessageQueue="{Binding materialDesign:MessageQueue}" HorizontalAlignment="Right"/>
+            <Grid Grid.Row="2" Height="70">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                <Grid Name="DebugGrid" Visibility="Visible" Grid.Row="3" Height="70" Width="480" HorizontalAlignment="Left">
+                <Grid Name="DebugGrid" Grid.Column="0" Visibility="Visible"  >
                     <TextBox Name="DebugBox" BorderThickness="0,0,0,0"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
                 </Grid>
+
+                <Button Name="BtnRun" Grid.Column="1" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Margin="0,10,0,10" />
+
+                <md:Snackbar Name="Snackbar" Grid.Column="2" Opacity="1" Margin="0 0 15 0" Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" MessageQueue="{Binding materialDesign:MessageQueue}" />
             </Grid>
         </Grid>
-    </Border>
+    </Grid>
 </Window>
