@@ -115,7 +115,6 @@ function BtnAddClick($TabControl, $Tabs) {
     $grid.SelectedItem = $newRow
     $grid.ScrollIntoView($newRow)
     $grid.BeginEdit()
-    #AddRowLostFocusHandler -Grid $grid -Tabs $Tabs
 }
 
 function BtnRemoveClick($TabControl, $Tabs) {
