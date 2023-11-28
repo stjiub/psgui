@@ -201,11 +201,10 @@ function CellEditingHandler($sender, $e, $TabControl, $Tabs) {
     $allData = $allGrid.ItemsSource
     $allIndex = GetGridIndexOfId -Grid $allGrid -Id $id
 
-    $categoryGrid = $Tabs[$category].Content
-    $categoryData = $categoryGrid.ItemsSource
-
     # Sync values between All and Category tabs
     if (-not $newObject) {
+        $categoryGrid = $Tabs[$category].Content
+        $categoryData = $categoryGrid.ItemsSource
         $categoryIndex = GetGridIndexOfId -Grid $categoryGrid -Id $id
         $categoryData[$categoryIndex] = $editedObject
     }
