@@ -365,6 +365,7 @@ function BuildCommandGrid($Grid, $Parameters) {
         SetGridPosition -Element $label -Row $i -Column 0
         $label.ToolTip = NewToolTip -Content ""
 
+        # Set asterisk next to values that are mandatory
         if ($isMandatory) {
             $asterisk = NewLabel -Content "*" -HAlign "Right" -VAlign "Center"
             $asterisk.Foreground = "Red"
@@ -373,14 +374,22 @@ function BuildCommandGrid($Grid, $Parameters) {
         }
 
         if (ContainsAttributeType -Parameter $param -TypeName "ValidateSet") {
+            # Get valid values from validate set and create dropdown box of them
             $validValues = GetValidateSetValues -Parameter $param
             $paramSource = $validValues -split "','"
             $box = NewComboBox -Name $paramName -ItemsSource $paramSource -SelectedItem $paramDefault
         }
         elseif (ContainsAttributeType -Parameter $param -TypeName "switch") {
-            $box = NewCheckBox -Name $paramName -IsChecked $false
+            # If switch is true by default then check the box
+            if ($param.DefaultValue) {
+                $box = NewCheckBox -Name $paramName -IsChecked $true
+            }
+            else {
+                $box = NewCheckBox -Name $paramName -IsChecked $false
+            }
         }
         else {
+            # Fill text box with any default values
             $box = NewTextBox -Name $paramName -Text $paramDefault
         }
         AddToGrid -Grid $Grid -Element $box
