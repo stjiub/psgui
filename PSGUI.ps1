@@ -26,6 +26,7 @@ $App.MainTabsReadOnly = $true
 # Get display resolution for initial window scaling
 $App.MaxDisplayResolution = Get-CimInstance CIM_VideoController | Select SystemName, CurrentHorizontalResolution, CurrentVerticalResolution
 
+# Load external resources
 Add-Type -AssemblyName PresentationFramework
 [Void][System.Reflection.Assembly]::LoadFrom($App.MaterialDesignThemes)
 [Void][System.Reflection.Assembly]::LoadFrom($App.MaterialDesignColors)
@@ -273,6 +274,12 @@ function BtnCommandRunClick($Command, $CommandEx, $Parameters, $Grid) {
         }
         elseif (ContainsAttributeType -Parameter $param -TypeName "switch") {
             if ($selection.IsChecked) {
+                $isSwitch = $true
+            }
+            elseif (-not ($selection.IsChecked) -and ($param.DefaultValue)) {
+                # If switch isn't checked and by default it is, then explicitly set
+                # the switch value to false
+                $paramName = $paramName.ToString() + ':$false'
                 $isSwitch = $true
             }
         }
