@@ -347,7 +347,7 @@ function GetValidateSetValues($Parameter) {
     }
     foreach ($value in $values) {
         # We need to convert from AST object to string so we can remove extra quotes
-        $valueStr = $($value.ToString()).Replace("'","")
+        $valueStr = $($value.ToString()).Replace("'","").Replace("`"","")
         [void]$validValues.Add($valueStr)
     }
 
