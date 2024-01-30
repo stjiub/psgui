@@ -365,7 +365,15 @@ function BuildCommandGrid($Grid, $Parameters) {
 
         $param = $Parameters[$i]
         $paramName = $param.Name.VariablePath
-        $paramDefault = $param.DefaultValue.Value
+
+        # In instances such as when the parameter is an array the value is stored
+        # in DefaultValue rather than DefaultValue.Value
+        if ((-not $param.DefaultValue.Value) -and ($param.DefaultValue)) {
+            $paramDefault = $param.DefaultValue
+        }
+        else {
+            $paramDefault = $param.DefaultValue.Value
+        }
         $isMandatory = [System.Convert]::ToBoolean($param.Attributes.NamedArguments.Argument.VariablePath.Userpath)
 
         $label = NewLabel -Content $paramName -HAlign "Left" -VAlign "Center"
