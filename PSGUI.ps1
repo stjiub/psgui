@@ -336,7 +336,9 @@ function ContainsAttributeType($Parameter, $TypeName) {
 }
 
 function GetValidateSetValues($Parameter) {
-    $validValues = New-Object -TypeName "System.Collections.ArrayList"
+    # Start with an empty string value so that we can "deselect" values when
+    # displayed in the drop-down box
+    $validValues = [System.Collections.ArrayList]@("")
 
     # Check if the parameter has ValidateSet attribute
     foreach ($attribute in $Parameter.Attributes) {
