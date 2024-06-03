@@ -19,7 +19,7 @@ $App.DefaultConfigFile = Join-Path $App.Path "data.json"
 # Initializing variables
 $App.UI = $null
 $App.Command = @{}
-$App.LastAddedId = 0
+$App.HighestId = 0
 $App.LastCommandId = 0
 $App.MainTabsReadOnly = $true
 
@@ -59,19 +59,13 @@ function MainWindow {
 
     $App.CurrentConfigFile = $App.DefaultConfigFile
     $json = LoadConfig $App.CurrentConfigFile
+    $App.HighestId = GetHighestId -Json $json
 
     # The "All" tab is the primary tab and so it must be created first
     $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
     $allTab = NewDataTab -Name "All" -ItemsSource $itemsSource -TabControl $App.UI.TabControl
     $App.UI.Tabs = @{}
     $App.UI.Tabs.Add("All", $allTab)
-
-    # Determine current highest id number
-    foreach ($value in ($json | Select-Object -ExpandProperty id -Unique)) {
-        if ($value -gt $App.LastAddedId) {
-            $App.LastAddedId = $value
-        }
-    }
 
     # Generate tabs and grids for each category
     foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique)) {
@@ -107,7 +101,7 @@ function MainWindow {
 
 function BtnAddClick($TabControl, $Tabs) {
     $newRow = [RowData]::New()
-    $newRow.Id = ++$App.LastAddedId
+    $newRow.Id = ++$App.HighestId
     $tab = $Tabs["All"]
     $grid = $tab.Content
     $grid.ItemsSource.Add($newRow)
@@ -604,6 +598,16 @@ function SetTabsReadOnly($Tabs) {
         $grid = $tab.Value.Content
         $grid.IsReadOnly = $App.MainTabsReadOnly
     }
+}
+
+function GetHighestId($Json) {
+    $highest = 0
+    foreach ($value in ($json | Select-Object -ExpandProperty id -Unique)) {
+        if ($value -gt $greatest) {
+            $highest = $value
+        }
+    }
+    return $highest
 }
 
 function InitializeConfig($File) {
