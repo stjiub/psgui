@@ -81,6 +81,9 @@ function MainWindow {
             CellEditingHandler -Sender $sender -E $e -TabControl $App.UI.TabControl -Tabs $App.UI.Tabs
         })
     }
+
+    # Sort the tabs
+    SortTabControl -TabControl $App.UI.TabControl
     
     # Register button events
     $App.UI.BtnAdd.Add_Click({ BtnAddClick -TabControl $App.UI.TabControl -Tabs $App.UI.Tabs })
@@ -90,9 +93,8 @@ function MainWindow {
     $App.UI.BtnRun.Add_Click({ BtnMainRunClick -TabControl $App.UI.TabControl })
 
     $App.UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
-    $App.UI.BtnCommandRun.Add_Click({
-        BtnCommandRunClick -Command $App.Command.Root -CommandEx $App.Command.Full -Parameters $App.Command.Parameters -Grid $App.UI.CommandGrid
-    })
+    $App.UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $App.Command.Root -CommandEx $App.Command.Full -Parameters $App.Command.Parameters -Grid $App.UI.CommandGrid })
+    $App.UI.BtnCommandHelp.Add_Click({ Get-Help -Name $App.Command.Root -ShowWindow })
 
     # Set content and display the window
     $App.UI.Window.DataContext = $App.UI.Tabs
@@ -230,6 +232,7 @@ function CellEditingHandler($sender, $e, $TabControl, $Tabs) {
             })
         }
         $newTab.Content.ItemsSource.Add($editedObject)
+        SortTabControl -TabControl $App.UI.TabControl
     }
 }
 
@@ -608,6 +611,17 @@ function GetHighestId($Json) {
         }
     }
     return $highest
+}
+
+function SortTabControl($TabControl) {
+    $tabItems = $TabControl.Items
+    $allTabItem = $tabItems | Where-Object { $_.Header -eq "All" }
+    $sortedTabItems = $tabItems | Where-Object { $_.Header -ne "All" } | Sort-Object -Property { $_.Header.ToString() }
+    $TabControl.Items.Clear()
+    [void]$tabControl.Items.Add($allTabItem)
+    foreach ($tabItem in $sortedTabItems) {
+        [void]$TabControl.Items.Add($tabItem)
+    }
 }
 
 function InitializeConfig($File) {
