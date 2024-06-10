@@ -57,6 +57,29 @@
                 <Setter Property="HorizontalAlignment" Value="Center"/>
             </Style>
 
+            <Style x:Key="ActionButton" TargetType="Button">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <Ellipse x:Name="Background"
+                                         Fill="{DynamicResource SecondaryHueMidBrush}"
+                                         Stroke="Transparent"
+                                         StrokeThickness="0"/>
+                                <ContentPresenter HorizontalAlignment="Center" 
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"/>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
         </ResourceDictionary>
     </Window.Resources>
 
@@ -66,6 +89,7 @@
                 <RowDefinition Height="40"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="50"/>
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="20 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
@@ -127,6 +151,9 @@
                         </Grid>
                         <Grid Grid.Row="2">
                             <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="300" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
+                            <Button Name="BtnCommandHelp" Style="{StaticResource ActionButton}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,15,0">
+                <md:PackIcon Kind="Help" Foreground="White"/>
+            </Button>
                         </Grid>
                     </Grid>
                 </Border>
@@ -136,19 +163,18 @@
                     <TabControl Name="TabControl" Margin="1 0 0 0" HorizontalContentAlignment="Left"/>
             </Grid>
 
-            <Grid Grid.Row="2" Height="70">
+            <Grid Name="DebugGrid" Grid.Row="2" Height="50" Visibility="Collapsed">
+                <TextBox Name="DebugBox" BorderThickness="0,0,0,0"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
+            </Grid>
+
+            <Grid Grid.Row="3">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="200" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Grid Name="DebugGrid" Grid.Column="0" Visibility="Visible"  >
-                    <TextBox Name="DebugBox" BorderThickness="0,0,0,0"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
-                </Grid>
-
                 <Button Name="BtnRun" Grid.Column="1" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Margin="0,10,0,10" />
-
                 <md:Snackbar Name="Snackbar" Grid.Column="2" Opacity="1" Margin="0 0 15 0" Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" MessageQueue="{Binding materialDesign:MessageQueue}" />
             </Grid>
         </Grid>
