@@ -1,4 +1,12 @@
 $App = @{}
+$App.Version = "1.1.0"
+$App.UI = $null
+$App.Command = @{}
+$App.HighestId = 0
+$App.LastCommandId = 0
+$App.TabsReadOnly = $true
+$App.ExtraColumnsVisibility = "Collapsed"
+$App.ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
 
 # Determine app pathing whether running as PS script or EXE
 if ($PSScriptRoot) {
@@ -10,18 +18,10 @@ else {
 
 # Source files
 $App.MainWindowXamlFile = Join-Path $App.Path "MainWindow.xaml"
-$App.CommandWindowXamlFile = Join-Path $App.Path "CommandWindow.xaml"
-$App.DebugWindowXamlFile = Join-Path $App.Path "DebugWindow.xaml"
 $App.MaterialDesignThemes = Join-Path $App.Path "Assembly\MaterialDesignThemes.Wpf.dll"
 $App.MaterialDesignColors = Join-Path $App.Path "Assembly\MaterialDesignColors.dll"
 $App.DefaultConfigFile = Join-Path $App.Path "data.json"
-
-# Initializing variables
-$App.UI = $null
-$App.Command = @{}
-$App.HighestId = 0
-$App.LastCommandId = 0
-$App.MainTabsReadOnly = $true
+$App.IconFile = Join-Path $App.Path "icon.ico"
 
 # Get display resolution for initial window scaling
 $App.MaxDisplayResolution = Get-CimInstance CIM_VideoController | Select SystemName, CurrentHorizontalResolution, CurrentVerticalResolution
@@ -53,16 +53,12 @@ function MainWindow {
         exit(1)
     }
 
-    $App.UI.Window.add_Loaded({
-        $App.UI.Window.Icon = Join-Path $App.Path "icon.ico"
-    })
-
     $App.CurrentConfigFile = $App.DefaultConfigFile
     $json = LoadConfig $App.CurrentConfigFile
     $App.HighestId = GetHighestId -Json $json
+    $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
 
     # The "All" tab is the primary tab and so it must be created first
-    $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
     $allTab = NewDataTab -Name "All" -ItemsSource $itemsSource -TabControl $App.UI.TabControl
     $App.UI.Tabs = @{}
     $App.UI.Tabs.Add("All", $allTab)
@@ -76,10 +72,7 @@ function MainWindow {
     
     # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
     foreach ($tab in $App.UI.Tabs.Values) {
-        $tab.Content.Add_CellEditEnding({ 
-            param($sender,$e) 
-            CellEditingHandler -Sender $sender -E $e -TabControl $App.UI.TabControl -Tabs $App.UI.Tabs
-        })
+        $tab.Content.Add_CellEditEnding({ param($sender,$e) CellEditingHandler -Sender $sender -E $e -TabControl $App.UI.TabControl -Tabs $App.UI.Tabs })
     }
 
     # Sort the tabs
@@ -90,13 +83,17 @@ function MainWindow {
     $App.UI.BtnRemove.Add_Click({ BtnRemoveClick -TabControl $App.UI.TabControl -Tabs $App.UI.Tabs })
     $App.UI.BtnSave.Add_Click({ BtnSaveClick -File $App.CurrentConfigFile -Data ($App.UI.Tabs["All"].Content.ItemsSource) -SnackBar $App.UI.Snackbar })
     $App.UI.BtnEdit.Add_Click({ BtnEditClick -Tabs $App.UI.Tabs })
+    $App.UI.BtnDebug.Add_Click({ BtnDebugClick })
     $App.UI.BtnRun.Add_Click({ BtnMainRunClick -TabControl $App.UI.TabControl })
-
     $App.UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
     $App.UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $App.Command.Root -CommandEx $App.Command.Full -Parameters $App.Command.Parameters -Grid $App.UI.CommandGrid })
     $App.UI.BtnCommandHelp.Add_Click({ Get-Help -Name $App.Command.Root -ShowWindow })
 
     # Set content and display the window
+    $App.UI.Window.Add_Loaded({ 
+        $App.UI.Window.Icon = $App.IconFile
+        $App.UI.Window.Title = "PSGUI - v$($App.Version)"
+    })
     $App.UI.Window.DataContext = $App.UI.Tabs
     $App.UI.Window.Dispatcher.InvokeAsync{ $App.UI.Window.ShowDialog() }.Wait() | Out-Null
 }
@@ -158,6 +155,14 @@ function BtnSaveClick($File, $Data, $Snackbar) {
 
 function BtnEditClick($Tabs) {
     SetTabsReadOnly -Tabs $Tabs
+    SetTabsExtraColumnsVisibility -Tabs $Tabs
+}
+
+function BtnDebugClick() {
+    switch ($App.UI.DebugGrid.Visibility) {
+        "Visible" { $App.UI.DebugGrid.Visibility = "Collapsed" }
+        "Collapsed" { $App.UI.DebugGrid.Visibility = "Visible" }
+    }
 }
 
 function BtnMainRunClick($TabControl) {
@@ -490,12 +495,25 @@ function NewTab($Name) {
 function NewDataGrid($Name, $ItemsSource) {
     $grid = New-Object System.Windows.Controls.DataGrid
     $grid.Name = $Name
-    #$grid.AlternatingRowBackground = $App.AlternatingRowBackgroundColor
     $grid.Margin = New-Object System.Windows.Thickness(5)
     $grid.ItemsSource = $ItemsSource
-    $grid.AutoGenerateColumns = $true
+    $grid.AutoGenerateColumns = $false
     $grid.CanUserAddRows = $false
-    $grid.IsReadOnly = $App.MainTabsReadOnly
+    $grid.IsReadOnly = $App.TabsReadOnly
+
+    # Get the properties of the RowData class
+    $rowType = [RowData]
+    $properties = $rowType.GetProperties()
+
+    foreach ($prop in $properties) {
+        $column = New-Object System.Windows.Controls.DataGridTextColumn
+        $column.Header = $prop.Name
+        $column.Binding = New-Object System.Windows.Data.Binding $prop.Name
+        $grid.Columns.Add($column)
+    }
+
+    SortGridByColumn -Grid $grid -ColumnName "Name"
+    SetGridExtraColumnsVisibility -Grid $grid
     return $grid
 }
 
@@ -593,13 +611,35 @@ function NewButton($Content, $HAlign, $Width) {
 }
 
 function SetTabsReadOnly($Tabs) {
-    $App.UI.BtnEdit.IsChecked = $App.MainTabsReadOnly
+    $App.UI.BtnEdit.IsChecked = $App.TabsReadOnly
 
-    $App.MainTabsReadOnly = (-not $App.MainTabsReadOnly)
+    $App.TabsReadOnly = (-not $App.TabsReadOnly)
 
     foreach ($tab in $Tabs.GetEnumerator()) {
         $grid = $tab.Value.Content
-        $grid.IsReadOnly = $App.MainTabsReadOnly
+        $grid.IsReadOnly = $App.TabsReadOnly
+    }
+}
+
+function SetTabsExtraColumnsVisibility($Tabs) {
+    switch ($App.ExtraColumnsVisibility) {
+        "Visible" { $App.ExtraColumnsVisibility = "Collapsed" }
+        "Collapsed" { $App.ExtraColumnsVisibility = "Visible" }
+    }
+
+    foreach ($tab in $Tabs.GetEnumerator()) {
+        $grid = $tab.Value.Content
+        SetGridExtraColumnsVisibility -Grid $grid
+    }
+}
+
+function SetGridExtraColumnsVisibility($Grid) {
+    foreach ($column in $grid.Columns) {
+        foreach ($extraCol in $App.ExtraColumns) {
+            if ($column.Header -eq $extraCol) {
+                $column.Visibility = $App.ExtraColumnsVisibility
+            }
+        }
     }
 }
 
@@ -622,6 +662,13 @@ function SortTabControl($TabControl) {
     foreach ($tabItem in $sortedTabItems) {
         [void]$TabControl.Items.Add($tabItem)
     }
+}
+
+function SortGridByColumn([System.Windows.Controls.DataGrid]$grid, [string]$columnName) {
+    $grid.Items.SortDescriptions.Clear()
+    $sort = New-Object System.ComponentModel.SortDescription($columnName, [System.ComponentModel.ListSortDirection]::Ascending)
+    $grid.Items.SortDescriptions.Add($sort)
+    $grid.Items.Refresh()
 }
 
 function InitializeConfig($File) {
