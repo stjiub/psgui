@@ -120,15 +120,15 @@
                         <md:PackIcon Kind="EditOff" Foreground="Black"/>
                     </md:ToggleButtonAssist.OnContent>
                 </ToggleButton>
-                <ToggleButton Name="BtnDebug" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
+                <ToggleButton Name="BtnLog" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
                     <ToggleButton.LayoutTransform>
                         <ScaleTransform   ScaleX="1.15" ScaleY="1.15"/>
                     </ToggleButton.LayoutTransform>
                     <ToggleButton.Content>
-                        <md:PackIcon Kind="BugOutline" Foreground="Black"/>
+                        <md:PackIcon Kind="StickerTextOutline" Foreground="Black"/>
                     </ToggleButton.Content>
                     <md:ToggleButtonAssist.OnContent >
-                        <md:PackIcon Kind="Bug" Foreground="Black"/>
+                        <md:PackIcon Kind="StickerText" Foreground="Black"/>
                     </md:ToggleButtonAssist.OnContent>
                 </ToggleButton>
             </StackPanel>
@@ -172,8 +172,8 @@
                     <TabControl Name="TabControl" Margin="1 0 0 0" HorizontalContentAlignment="Left"/>
             </Grid>
 
-            <Grid Name="DebugGrid" Grid.Row="2" Height="200" Margin="10,10,10,0" Visibility="Collapsed">
-                <TextBox Name="DebugBox" BorderThickness="0" Background="LightGray"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
+            <Grid Name="LogGrid" Grid.Row="2" Height="200" Margin="10,10,10,0" Visibility="Collapsed">
+                <TextBox Name="LogBox" BorderThickness="0" Background="LightGray"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
             </Grid>
 
             <Grid Grid.Row="3">
