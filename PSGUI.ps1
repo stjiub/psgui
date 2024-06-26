@@ -1,121 +1,101 @@
-$App = @{}
-$App.Version = "1.1.0"
-$App.UI = $null
-$App.Command = @{}
-$App.HighestId = 0
-$App.LastCommandId = 0
-$App.TabsReadOnly = $true
-$App.ExtraColumnsVisibility = "Collapsed"
-$App.ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
+$script:Version = "1.1.1"
+$script:ExtraColumnsVisibility = "Collapsed"
+$script:ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
 
-# Determine app pathing whether running as PS script or EXE
-if ($PSScriptRoot) {
-    $App.Path = $PSScriptRoot
-}
-else {
-    $App.Path = Split-Path -Parent (Convert-Path ([environment]::GetCommandLineArgs()[0]))
-}
+function Initialize() {
+    # Determine app pathing whether running as PS script or EXE
+    if ($PSScriptRoot) {
+        $script:Path = $PSScriptRoot
+    }
+    else {
+        $script:Path = Split-Path -Parent (Convert-Path ([environment]::GetCommandLineArgs()[0]))
+    }
 
-# Source files
-$App.MainWindowXamlFile = Join-Path $App.Path "MainWindow.xaml"
-$App.MaterialDesignThemes = Join-Path $App.Path "Assembly\MaterialDesignThemes.Wpf.dll"
-$App.MaterialDesignColors = Join-Path $App.Path "Assembly\MaterialDesignColors.dll"
-$App.DefaultConfigFile = Join-Path $App.Path "data.json"
-$App.IconFile = Join-Path $App.Path "icon.ico"
-
-# Get display resolution for initial window scaling
-$App.MaxDisplayResolution = Get-CimInstance CIM_VideoController | Select SystemName, CurrentHorizontalResolution, CurrentVerticalResolution
-
-# Load external resources
-Add-Type -AssemblyName PresentationFramework
-[Void][System.Reflection.Assembly]::LoadFrom($App.MaterialDesignThemes)
-[Void][System.Reflection.Assembly]::LoadFrom($App.MaterialDesignColors)
-
-class RowData {
-    [int] $Id
-    [string] $Name
-    [string] $Description
-    [string] $Category
-    [string] $Command
-    [bool] $SkipParameterSelect
-    [string] $PreCommand
+    $script:CurrentCommand = $null
+    $script:HighestId = 0
+    $script:TabsReadOnly = $true
+    $script:MainWindowXamlFile = Join-Path $script:Path "MainWindow.xaml"
+    $script:MaterialDesignThemes = Join-Path $script:Path "Assembly\MaterialDesignThemes.Wpf.dll"
+    $script:MaterialDesignColors = Join-Path $script:Path "Assembly\MaterialDesignColors.dll"
+    $script:DefaultConfigFile = Join-Path $script:Path "data.json"
+    $script:IconFile = Join-Path $script:Path "icon.ico"
+    Add-Type -AssemblyName PresentationFramework
+    [Void][System.Reflection.Assembly]::LoadFrom($script:MaterialDesignThemes)
+    [Void][System.Reflection.Assembly]::LoadFrom($script:MaterialDesignColors)
 }
 
 function MainWindow {
     # We create a new window and load all the window elements to variables of 
-    # the same name and assign the window and all its elements under $App.UI 
-    # e.g. $App.UI.Window, $App.UI.TabControl
+    # the same name and assign the window and all its elements under $script:UI 
+    # e.g. $script:UI.Window, $script:UI.TabControl
     try {
-        $App.UI = NewWindow -File $App.MainWindowXamlFile -ErrorAction Stop
+        $script:UI = NewWindow -File $script:MainWindowXamlFile -ErrorAction Stop
     }
     catch {
-        Show-ErrorMessageBox "Failed to create window from $($App.MainWindowXamlFile): $_"
+        Show-ErrorMessageBox "Failed to create window from $($script:MainWindowXamlFile): $_"
         exit(1)
     }
 
-    $App.CurrentConfigFile = $App.DefaultConfigFile
-    $json = LoadConfig $App.CurrentConfigFile
-    $App.HighestId = GetHighestId -Json $json
+    $script:CurrentConfigFile = $script:DefaultConfigFile
+    $json = LoadConfig $script:CurrentConfigFile
+    $script:HighestId = GetHighestId -Json $json
     $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
 
     # The "All" tab is the primary tab and so it must be created first
-    $allTab = NewDataTab -Name "All" -ItemsSource $itemsSource -TabControl $App.UI.TabControl
-    $App.UI.Tabs = @{}
-    $App.UI.Tabs.Add("All", $allTab)
+    $allTab = NewDataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl
+    $script:UI.Tabs = @{}
+    $script:UI.Tabs.Add("All", $allTab)
 
     # Generate tabs and grids for each category
     foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique)) {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
-        $tab = NewDataTab -Name $category -ItemsSource $itemsSource -TabControl $App.UI.TabControl
-        $App.UI.Tabs.Add($category, $tab)
+        $tab = NewDataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
+        $tab.Content.Add_CellEditEnding({ param($sender,$e) CellEditingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
+        $script:UI.Tabs.Add($category, $tab) 
     }
-    
-    # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
-    foreach ($tab in $App.UI.Tabs.Values) {
-        $tab.Content.Add_CellEditEnding({ param($sender,$e) CellEditingHandler -Sender $sender -E $e -TabControl $App.UI.TabControl -Tabs $App.UI.Tabs })
-    }
-
-    # Sort the tabs
-    SortTabControl -TabControl $App.UI.TabControl
+    SortTabControl -TabControl $script:UI.TabControl
     
     # Register button events
-    $App.UI.BtnAdd.Add_Click({ BtnAddClick -TabControl $App.UI.TabControl -Tabs $App.UI.Tabs })
-    $App.UI.BtnRemove.Add_Click({ BtnRemoveClick -TabControl $App.UI.TabControl -Tabs $App.UI.Tabs })
-    $App.UI.BtnSave.Add_Click({ BtnSaveClick -File $App.CurrentConfigFile -Data ($App.UI.Tabs["All"].Content.ItemsSource) -SnackBar $App.UI.Snackbar })
-    $App.UI.BtnEdit.Add_Click({ BtnEditClick -Tabs $App.UI.Tabs })
-    $App.UI.BtnDebug.Add_Click({ BtnDebugClick })
-    $App.UI.BtnRun.Add_Click({ BtnMainRunClick -TabControl $App.UI.TabControl })
-    $App.UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
-    $App.UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $App.Command.Root -CommandEx $App.Command.Full -Parameters $App.Command.Parameters -Grid $App.UI.CommandGrid })
-    $App.UI.BtnCommandHelp.Add_Click({ Get-Help -Name $App.Command.Root -ShowWindow })
+    $script:UI.BtnAdd.Add_Click({ BtnAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnRemove.Add_Click({ BtnRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnSave.Add_Click({ BtnSaveClick -File $script:CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) -SnackBar $script:UI.Snackbar })
+    $script:UI.BtnEdit.Add_Click({ BtnEditClick -Tabs $script:UI.Tabs })
+    $script:UI.BtnLog.Add_Click({ BtnLogClick })
+    $script:UI.BtnRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
+    $script:UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
+    $script:UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $script:CurrentCommand -Grid $script:UI.CommandGrid })
+    $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:CurrentCommand.Root -ShowWindow })
 
     # Set content and display the window
-    $App.UI.Window.Add_Loaded({ 
-        $App.UI.Window.Icon = $App.IconFile
-        $App.UI.Window.Title = "PSGUI - v$($App.Version)"
+    $script:UI.Window.Add_Loaded({ 
+        $script:UI.Window.Icon = $script:IconFile
+        $script:UI.Window.Title = "PSGUI - v$($script:Version)"
     })
-    $App.UI.Window.DataContext = $App.UI.Tabs
-    $App.UI.Window.Dispatcher.InvokeAsync{ $App.UI.Window.ShowDialog() }.Wait() | Out-Null
+    $script:UI.Window.DataContext = $script:UI.Tabs
+    $script:UI.Window.Dispatcher.InvokeAsync{ $script:UI.Window.ShowDialog() }.Wait() | Out-Null
 }
 
-function BtnAddClick($TabControl, $Tabs) {
-    $newRow = [RowData]::New()
-    $newRow.Id = ++$App.HighestId
-    $tab = $Tabs["All"]
+function BtnAddClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
+    $newRow = New-Object RowData
+    $newRow.Id = ++$script:HighestId
+    $tab = $tabs["All"]
     $grid = $tab.Content
     $grid.ItemsSource.Add($newRow)
-    $TabControl.SelectedItem = $tab
-    SetTabsReadOnly -Tabs $Tabs
+    $tabControl.SelectedItem = $tab
+    # We don't want to change the tabs read only status if they are already in edit mode
+    if ($script:TabsReadOnly) {
+        SetTabsReadOnlyStatus -Tabs $tabs
+    }
     $grid.SelectedItem = $newRow
     $grid.ScrollIntoView($newRow)
     $grid.BeginEdit()
 }
 
-function BtnRemoveClick($TabControl, $Tabs) {
-    $allGrid = $Tabs["All"].Content
+function BtnRemoveClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
+    $allGrid = $tabs["All"].Content
     $allData = $allGrid.ItemsSource
 
-    $grid = $TabControl.SelectedItem.Content
+    $grid = $tabControl.SelectedItem.Content
 
     # We want to make a copy of the selected items to avoid issues 
     # with the collection being modified while still enumerating
@@ -128,7 +108,7 @@ function BtnRemoveClick($TabControl, $Tabs) {
         $category = $item.Category
         $id = $item.Id
 
-        $categoryGrid = $Tabs[$category].Content
+        $categoryGrid = $tabs[$category].Content
         $categoryData = $categoryGrid.ItemsSource
         $categoryIndex = GetGridIndexOfId -Grid $categoryGrid -Id $id
         $allIndex = GetGridIndexOfId -Grid $allGrid -Id $Id
@@ -137,55 +117,56 @@ function BtnRemoveClick($TabControl, $Tabs) {
         $categoryData.RemoveAt($categoryIndex)
 
         if ($categoryData.Count -eq 0) {
-            $TabControl.Items.Remove($Tabs[$category])
-            $Tabs.Remove($category)
+            $tabControl.Items.Remove($tabs[$category])
+            $tabs.Remove($category)
         }
     }
 }
 
-function BtnSaveClick($File, $Data, $Snackbar) {
+function BtnSaveClick([string]$filePath, [System.Collections.ObjectModel.ObservableCollection[RowData]]$data, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
     try {
-        SaveConfig $File $Data
-        NewSnackBar -Snackbar $Snackbar -Text "Configuration saved"
+        SaveConfig -FilePath $filePath -Data $data
+        NewSnackBar -Snackbar $snackbar -Text "Configuration saved"
     }
     catch {
-        NewSnackBar -Snackbar $Snackbar -Text "Configuration save failed"
+        NewSnackBar -Snackbar $snackbar -Text "Configuration save failed"
     }
 }
 
-function BtnEditClick($Tabs) {
-    SetTabsReadOnly -Tabs $Tabs
-    SetTabsExtraColumnsVisibility -Tabs $Tabs
+function BtnEditClick([hashtable]$tabs) {
+    SetTabsReadOnlyStatus -Tabs $tabs
+    SetTabsExtraColumnsVisibility -Tabs $tabs
 }
 
-function BtnDebugClick() {
-    switch ($App.UI.DebugGrid.Visibility) {
-        "Visible" { $App.UI.DebugGrid.Visibility = "Collapsed" }
-        "Collapsed" { $App.UI.DebugGrid.Visibility = "Visible" }
+function BtnLogClick() {
+    switch ($script:UI.LogGrid.Visibility) {
+        "Visible" { $script:UI.LogGrid.Visibility = "Collapsed" }
+        "Collapsed" { $script:UI.LogGrid.Visibility = "Visible" }
     }
 }
 
-function BtnMainRunClick($TabControl) {
-    $grid = $TabControl.SelectedItem.Content
+function BtnMainRunClick([System.Windows.Controls.TabControl]$tabControl) {
+    $grid = $tabControl.SelectedItem.Content
     $selection = $grid.SelectedItems
-    $App.Command.Full = ""
-    $App.Command.Root = $selection.Command
+    $command = New-Object Command
+    $command.Full = ""
+    $command.Root = $selection.Command
 
-    if ($App.Command.Root) {
+    if ($command.Root) {
         if ($selection.PreCommand) {
-            $App.Command.Full = $selection.PreCommand + "; "
+            $command.Full = $selection.PreCommand + "; "
         }
 
         if ($selection.SkipParameterSelect) {
-            RunCommand $App.Command.Full
+            RunCommand $command.Full
         }
         else {
-            CommandDialog
+            CommandDialog -Command $command
         }
     }
 }
 
-function CellEditingHandler($sender, $e, $TabControl, $Tabs) {
+function CellEditingHandler($sender, $e, [System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
     $editedObject = $e.Row.Item
     $category = $editedObject.Category
     $columnHeader = $e.Column.Header
@@ -199,13 +180,13 @@ function CellEditingHandler($sender, $e, $TabControl, $Tabs) {
         $newObject = $true
     }
 
-    $allGrid = $Tabs["All"].Content
+    $allGrid = $tabs["All"].Content
     $allData = $allGrid.ItemsSource
     $allIndex = GetGridIndexOfId -Grid $allGrid -Id $id
 
     # Sync values between All and Category tabs
     if (-not $newObject) {
-        $categoryGrid = $Tabs[$category].Content
+        $categoryGrid = $tabs[$category].Content
         $categoryData = $categoryGrid.ItemsSource
         $categoryIndex = GetGridIndexOfId -Grid $categoryGrid -Id $id
         $categoryData[$categoryIndex] = $editedObject
@@ -220,54 +201,53 @@ function CellEditingHandler($sender, $e, $TabControl, $Tabs) {
         if (-not $newObject) {
             $categoryData.RemoveAt($categoryIndex)
             if ($categoryData.Count -eq 0) {
-                $TabControl.Items.Remove($Tabs[$category])
-                $Tabs.Remove($category)
+                $tabControl.Items.Remove($tabs[$category])
+                $tabs.Remove($category)
             }
         }
 
         # Add the object to the new category tab
-        $newTab = $Tabs[$newCategory]
+        $newTab = $tabs[$newCategory]
         if (-not $newTab) {
             $itemsSource = New-Object System.Collections.ObjectModel.ObservableCollection[RowData]
-            $newTab = NewDataTab -Name $newCategory -ItemsSource $itemsSource -TabControl $TabControl
-            $Tabs.Add($newCategory, $newTab)
-            $Tab.Content.Add_CellEditEnding({ 
-                param($sender,$e) 
-                CellEditingHandler -Sender $sender -E $e -TabControl $TabControl -Tabs $tabs
-            })
+            $newTab = NewDataTab -Name $newCategory -ItemsSource $itemsSource -TabControl $tabControl
+            $tabs.Add($newCategory, $newTab)
+
+            # Assign the CellEditEnding event to the new tab. We must use $script level vars here for TabControl and Tabs because the way events are handled if we use the local version
+            # they will no longer exist when the event actually triggers
+            $newTab.Content.Add_CellEditEnding({ param($sender,$e) CellEditingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
         }
         $newTab.Content.ItemsSource.Add($editedObject)
-        SortTabControl -TabControl $App.UI.TabControl
+        SortTabControl -TabControl $tabControl
     }
 }
 
-function CommandDialog() {
-    # We must make a copy of the empty grid object
-    #$emptyGrid = CopyObject -InputObject $App.UI.CommandGrid
-
-    $App.UI.BoxCommandName.Text = $App.Command.Root
-
+function CommandDialog([Command]$command) {
     # We only want to process the command if it is a PS script or function
-    $type = GetCommandType -Command $App.Command.Root
+    $type = GetCommandType -Command $command.Root
     if (($type -ne "Function") -and ($type -ne "External Script")) {
         return
     }
 
     # Parse the command for parameters and build the grid with them
-    $App.Command.Parameters = GetScriptBlockParameters -Command $App.Command.Root
-    BuildCommandGrid -Grid $App.UI.CommandGrid -Parameters $App.Command.Parameters
+    $command.Parameters = GetScriptBlockParameters -Command $command.Root
+    BuildCommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
 
+    # Assign the command as the current command so that BtnCommandRun can obtain it
+    $script:CurrentCommand = $command
+
+    $script:UI.BoxCommandName.Text = $command.Root
     OpenCommandDialog
 }
 
-function BtnCommandRunClick($Command, $CommandEx, $Parameters, $Grid) {
+function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$grid) {
     $args = @{}
-    $CommandEx += "$($Command)"
+    $command.Full += "$($command.Root)"
 
-    foreach ($param in $Parameters) {
+    foreach ($param in $command.Parameters) {
         $isSwitch = $false
         $paramName = $param.Name.VariablePath
-        $selection = $Grid.Children | Where-Object { $_.Name -eq $paramName }
+        $selection = $grid.Children | Where-Object { $_.Name -eq $paramName }
         
         if (ContainsAttributeType -Parameter $param -TypeName "ValidateSet") {
             if ($selection.SelectedItem) {
@@ -290,60 +270,59 @@ function BtnCommandRunClick($Command, $CommandEx, $Parameters, $Grid) {
         }
 
         if ($isSwitch) {
-            $CommandEx += " -$paramName"
+            $command.Full += " -$paramName"
         }
         elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
-            $CommandEx += " -$paramName `"$($args[$paramName])`""
+            $command.Full += " -$paramName `"$($args[$paramName])`""
         }
     }
 
-    WriteDebug $CommandEx
-    RunCommand $CommandEx
+    WriteLog $command.Full
+    RunCommand $command.Full
     CloseCommandDialog
 }
 
 function OpenCommandDialog {
-    $App.UI.Main.Opacity = "0.5"
-    $App.UI.CommandDialog.Visibility = "Visible"
+    $script:UI.Main.Opacity = "0.5"
+    $script:UI.CommandDialog.Visibility = "Visible"
 }
 
 function CloseCommandDialog() {
-    $App.UI.Main.Opacity = "100"
-    $App.UI.CommandDialog.Visibility = "Hidden"
-    $App.UI.CommandGrid.Children.Clear()
-    $App.UI.CommandGrid.RowDefinitions.Clear()
+    $script:UI.Main.Opacity = "100"
+    $script:UI.CommandDialog.Visibility = "Hidden"
+    $script:UI.CommandGrid.Children.Clear()
+    $script:UI.CommandGrid.RowDefinitions.Clear()
 }
 
-function GetCommandType($Command) {
-    $type = (Get-Command $Command).CommandType 
+function GetCommandType([string]$command) {
+    $type = (Get-Command $command).CommandType 
     return $type
 }
 
-function GetScriptBlockParameters($Command) {
-    $scriptBlock = (Get-Command $Command).ScriptBlock
-    $parsed = [System.Management.Automation.Language.Parser]::ParseInput($ScriptBlock.ToString(), [ref]$null, [ref]$null)
+function GetScriptBlockParameters([string]$command) {
+    $scriptBlock = (Get-Command $command).ScriptBlock
+    $parsed = [System.Management.Automation.Language.Parser]::ParseInput($scriptBlock.ToString(), [ref]$null, [ref]$null)
     $parameters = $parsed.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)
 
     return $parameters
 }
 
-function ContainsAttributeType($Parameter, $TypeName) {
-    foreach ($attribute in $Parameter.Attributes) {
-        if ($attribute.TypeName.FullName -eq $TypeName) {
+function ContainsAttributeType([System.Management.Automation.Language.ParameterAst]$parameter, [string]$typeName) {
+    foreach ($attribute in $parameter.Attributes) {
+        if ($attribute.TypeName.FullName -eq $typeName) {
             return $true
         }
     }
-
     return $false
 }
 
-function GetValidateSetValues($Parameter) {
+function GetValidateSetValues([System.Management.Automation.Language.ParameterAst]$parameter) {
     # Start with an empty string value so that we can "deselect" values when
     # displayed in the drop-down box
     $validValues = [System.Collections.ArrayList]@("")
 
     # Check if the parameter has ValidateSet attribute
-    foreach ($attribute in $Parameter.Attributes) {
+    foreach ($attribute in $parameter.Attributes) {
         if ($attribute.TypeName.FullName -eq 'ValidateSet') {
             $values = $attribute.PositionalArguments
             break
@@ -358,15 +337,15 @@ function GetValidateSetValues($Parameter) {
     return $validValues
 }
 
-function BuildCommandGrid($Grid, $Parameters) {
-    for ($i = 0; $i -lt $Parameters.Count; $i++) {
+function BuildCommandGrid([System.Windows.Controls.Grid]$grid, [System.Object[]]$parameters) {
+    for ($i = 0; $i -lt $parameters.Count; $i++) {
+        $param = $parameters[$i]
+        $paramName = $param.Name.VariablePath
+
         # Because there isn't a static number of rows and we need to iterate over the row index
         # we need to manually add a row for each parameter
-        $rowDefinition = [System.Windows.Controls.RowDefinition]::New()
+        $rowDefinition = New-Object System.Windows.Controls.RowDefinition
         [void]$Grid.RowDefinitions.Add($rowDefinition)
-
-        $param = $Parameters[$i]
-        $paramName = $param.Name.VariablePath
 
         # In instances such as when the parameter is an array the value is stored
         # in DefaultValue rather than DefaultValue.Value
@@ -415,252 +394,78 @@ function BuildCommandGrid($Grid, $Parameters) {
     }
 }
 
-function RunCommand($CommandEx) {      
+function RunCommand([string]$command) {      
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
-    $CommandEx = $CommandEx -replace '"', '\"'
-    Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $CommandEx } `""
+    $command = $command -replace '"', '\"'
+    Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $command } `""
 }
 
-function NewWindow($File) {
-    try {
-        [xml]$xaml = (Get-Content $File)
-        $window = [System.Collections.Hashtable]::New()
-        $nodeReader = [System.Xml.XmlNodeReader]::New($xaml)
-        $xamlReader = [Windows.Markup.XamlReader]::Load($nodeReader)
-        [void]$window.Add('Window', $xamlReader)
-
-        $elements = $xaml.SelectNodes("//*[@Name]")
-        foreach ($element in $elements) {
-            $VarName = $element.Name
-            $VarValue = $window.Window.FindName($Element.Name)
-            [void]$window.Add($VarName, $VarValue)
-        }
-        
-        return $window
-    } 
-    catch {
-        Show-ErrorMessageBox("Error building Xaml data or loading window data.`n$_")
-        exit
-    }
+function AddToGrid([System.Windows.Controls.Grid]$grid, $element) {
+    [void]$grid.Children.Add($element)
 }
 
-function NewSnackBar {
-    param (
-        $Snackbar,
-        $Text,
-        $ButtonCaption
-    )
-    try {
-        # Create queue for snackbar (popup messages)
-        $MessageQueue = [MaterialDesignThemes.Wpf.SnackbarMessageQueue]::new()
-        $MessageQueue.DiscardDuplicates = $true
-
-        if ($ButtonCaption) {       
-            $MessageQueue.Enqueue($Text, $ButtonCaption, {$null}, $null, $false, $false, [TimeSpan]::FromHours( 9999 ))
-        }
-        else {
-            $MessageQueue.Enqueue($Text, $null, $null, $null, $false, $false, $null)
-        }
-        $Snackbar.MessageQueue = $MessageQueue
-    }
-    catch {
-        Write-Error "No MessageQueue was declared in the window.`n$_"
-    }
-}
-
-function BtnCloseWindowClick($Window) {
-    $Window.Close()
-}
-
-function BtnMinimizeWindowClick($Window) {
-    $Window.WindowState = 'Minimized'
-}
-
-function BtnMaximizeWindowClick($Window) {
-    if ($Window.WindowState -eq 'Normal') {
-        $Window.WindowState = 'Maximized'
-    } 
-    else {
-        $Window.WindowState = 'Normal'
-    }
-}
-
-function NewTab($Name) {
-    $tabItem = New-Object System.Windows.Controls.TabItem
-    $tabItem.Header = $Name
-
-    return $tabItem
-}
-
-function NewDataGrid($Name, $ItemsSource) {
-    $grid = New-Object System.Windows.Controls.DataGrid
-    $grid.Name = $Name
-    $grid.Margin = New-Object System.Windows.Thickness(5)
-    $grid.ItemsSource = $ItemsSource
-    $grid.AutoGenerateColumns = $false
-    $grid.CanUserAddRows = $false
-    $grid.IsReadOnly = $App.TabsReadOnly
-
-    # Get the properties of the RowData class
-    $rowType = [RowData]
-    $properties = $rowType.GetProperties()
-
-    foreach ($prop in $properties) {
-        $column = New-Object System.Windows.Controls.DataGridTextColumn
-        $column.Header = $prop.Name
-        $column.Binding = New-Object System.Windows.Data.Binding $prop.Name
-        $grid.Columns.Add($column)
-    }
-
-    SortGridByColumn -Grid $grid -ColumnName "Name"
-    SetGridExtraColumnsVisibility -Grid $grid
-    return $grid
-}
-
-function NewDataTab($Name, $ItemsSource, $TabControl) {
-    $grid = NewDataGrid -Name $Name -ItemsSource $ItemsSource
-    $tab = NewTab -Name $Name
-    $tab.Content = $grid
-    [void]$TabControl.Items.Add($tab)
-    return $tab
-}
-
-function AddToGrid($Grid, $Element) {
-    [void]$Grid.Children.Add($Element)
-}
-
-function GetGridIndexOfId($Grid, $Id) {
-    $itemsSource = $Grid.ItemsSource
-
+function GetGridIndexOfId([System.Windows.Controls.DataGrid]$grid, [int]$id) {
+    $itemsSource = $grid.ItemsSource
     $index = -1
     for ($i = 0; $i -lt $itemsSource.Count; $i++) {
-        if ($itemsSource[$i].Id -eq $Id) {
+        if ($itemsSource[$i].Id -eq $id) {
             $index = $i
             break
         }
     }
-
     return $index
 }
 
-function SetGridPosition($Element, $Row, $Column, $ColumnSpan) {
-    if ($Row) {
-        [System.Windows.Controls.Grid]::SetRow($Element, $Row)
+function SetGridPosition([System.Windows.Controls.Control]$element, [int]$row, [int]$column, [int]$columnSpan) {
+    if ($row) {
+        [System.Windows.Controls.Grid]::SetRow($element, $row)
     }
-    if ($Column) {
-        [System.Windows.Controls.Grid]::SetColumn($Element, $Column)
+    if ($column) {
+        [System.Windows.Controls.Grid]::SetColumn($element, $column)
     }
-    if ($ColumnSpan) {
-        [System.Windows.Controls.Grid]::SetColumnSpan($Element, $ColumnSpan)
+    if ($columnSpan) {
+        [System.Windows.Controls.Grid]::SetColumnSpan($element, $columnSpan)
     }   
 }
 
-function NewLabel($Content, $HAlign, $VAlign) {
-    $label = New-Object System.Windows.Controls.Label
-    $label.Content = $Content
-    $label.HorizontalAlignment = $HAlign
-    $label.VerticalAlignment = $VAlign
-    $label.Margin = New-Object System.Windows.Thickness(3)
-
-    return $label
-}
-
-function NewToolTip($Content) {
-    $tooltip = New-Object System.Windows.Controls.ToolTip
-    $tooltip.Content = $Content
-
-    return $tooltip
-}
-
-function NewComboBox($Name, $ItemsSource, $SelectedItem) {
-    $comboBox = New-Object System.Windows.Controls.ComboBox
-    $comboBox.Name = $Name
-    $comboBox.Margin = New-Object System.Windows.Thickness(5)
-    $comboBox.ItemsSource = $ItemsSource
-    $comboBox.SelectedItem = $SelectedItem
-    
-    return $comboBox
-}
-
-function NewTextBox($Name, $Text) {
-    $textBox = New-Object System.Windows.Controls.TextBox
-    $textBox.Name = $Name
-    $textBox.Margin = New-Object System.Windows.Thickness(5)
-    $textBox.Text = $Text
-
-    return $textBox
-}
-
-function NewCheckBox($Name, $IsChecked) {
-    $checkbox = [System.Windows.Controls.CheckBox]::New()
-    $checkbox.Name = $Name
-    $checkbox.IsChecked = $IsChecked
-
-    return $checkbox
-}
-
-function NewButton($Content, $HAlign, $Width) {
-    $button = New-Object System.Windows.Controls.Button
-    $button.Content = $Content
-    $button.Margin = New-Object System.Windows.Thickness(10)
-    $button.HorizontalAlignment = $HAlign
-    $button.Width = $Width
-    $button.IsDefault = $true
-
-    return $button
-}
-
-function SetTabsReadOnly($Tabs) {
-    $App.UI.BtnEdit.IsChecked = $App.TabsReadOnly
-
-    $App.TabsReadOnly = (-not $App.TabsReadOnly)
-
-    foreach ($tab in $Tabs.GetEnumerator()) {
+function SetTabsReadOnlyStatus([hashtable]$tabs) {
+    $script:UI.BtnEdit.IsChecked = $script:TabsReadOnly
+    $script:TabsReadOnly = (-not $script:TabsReadOnly)
+    foreach ($tab in $tabs.GetEnumerator()) {
         $grid = $tab.Value.Content
-        $grid.IsReadOnly = $App.TabsReadOnly
+        $grid.IsReadOnly = $script:TabsReadOnly
     }
 }
 
-function SetTabsExtraColumnsVisibility($Tabs) {
-    switch ($App.ExtraColumnsVisibility) {
-        "Visible" { $App.ExtraColumnsVisibility = "Collapsed" }
-        "Collapsed" { $App.ExtraColumnsVisibility = "Visible" }
+function SetTabsExtraColumnsVisibility([hashtable]$tabs) {
+    switch ($script:ExtraColumnsVisibility) {
+        "Visible" { $script:ExtraColumnsVisibility = "Collapsed" }
+        "Collapsed" { $script:ExtraColumnsVisibility = "Visible" }
     }
-
-    foreach ($tab in $Tabs.GetEnumerator()) {
+    foreach ($tab in $tabs.GetEnumerator()) {
         $grid = $tab.Value.Content
         SetGridExtraColumnsVisibility -Grid $grid
     }
 }
 
-function SetGridExtraColumnsVisibility($Grid) {
+function SetGridExtraColumnsVisibility([System.Windows.Controls.DataGrid]$grid) {
     foreach ($column in $grid.Columns) {
-        foreach ($extraCol in $App.ExtraColumns) {
+        foreach ($extraCol in $script:ExtraColumns) {
             if ($column.Header -eq $extraCol) {
-                $column.Visibility = $App.ExtraColumnsVisibility
+                $column.Visibility = $script:ExtraColumnsVisibility
             }
         }
     }
 }
 
-function GetHighestId($Json) {
-    $highest = 0
-    foreach ($value in ($json | Select-Object -ExpandProperty id -Unique)) {
-        if ($value -gt $greatest) {
-            $highest = $value
-        }
-    }
-    return $highest
-}
-
-function SortTabControl($TabControl) {
-    $tabItems = $TabControl.Items
+function SortTabControl([System.Windows.Controls.TabControl]$tabControl) {
+    $tabItems = $tabControl.Items
     $allTabItem = $tabItems | Where-Object { $_.Header -eq "All" }
     $sortedTabItems = $tabItems | Where-Object { $_.Header -ne "All" } | Sort-Object -Property { $_.Header.ToString() }
-    $TabControl.Items.Clear()
+    $tabControl.Items.Clear()
     [void]$tabControl.Items.Add($allTabItem)
     foreach ($tabItem in $sortedTabItems) {
-        [void]$TabControl.Items.Add($tabItem)
+        [void]$tabControl.Items.Add($tabItem)
     }
 }
 
@@ -671,62 +476,207 @@ function SortGridByColumn([System.Windows.Controls.DataGrid]$grid, [string]$colu
     $grid.Items.Refresh()
 }
 
-function InitializeConfig($File) {
-    if (-not (Test-Path $File)) {
+function GetHighestId([System.Object[]]$json) {
+    $highest = 0
+    foreach ($value in ($json | Select-Object -ExpandProperty id -Unique)) {
+        if ($value -gt $greatest) {
+            $highest = $value
+        }
+    }
+    return $highest
+}
+
+function NewWindow([string]$filePath) {
+    try {
+        [xml]$xaml = (Get-Content $filePath)
+        $window = New-Object System.Collections.Hashtable
+        $nodeReader = [System.Xml.XmlNodeReader]::New($xaml)
+        $xamlReader = [Windows.Markup.XamlReader]::Load($nodeReader)
+        [void]$window.Add('Window', $xamlReader)
+        $elements = $xaml.SelectNodes("//*[@Name]")
+        foreach ($element in $elements) {
+            $varName = $element.Name
+            $varValue = $window.Window.FindName($Element.Name)
+            [void]$window.Add($varName, $varValue)
+        }
+        return $window
+    } 
+    catch {
+        Show-ErrorMessageBox("Error building Xaml data or loading window data.`n$_")
+        exit
+    }
+}
+
+function NewSnackBar([MaterialDesignThemes.Wpf.Snackbar]$snackbar, [string]$text, [string]$caption) {
+    try {
+        $queue = New-Object MaterialDesignThemes.Wpf.SnackbarMessageQueue
+        $queue.DiscardDuplicates = $true
+        if ($caption) {       
+            $queue.Enqueue($text, $caption, {$null}, $null, $false, $false, [TimeSpan]::FromHours(9999))
+        }
+        else {
+            $queue.Enqueue($text, $null, $null, $null, $false, $false, $null)
+        }
+        $snackbar.MessageQueue = $queue
+    }
+    catch {
+        Write-Error "No MessageQueue was declared in the window.`n$_"
+    }
+}
+
+function NewTab([string]$name) {
+    $tabItem = New-Object System.Windows.Controls.TabItem
+    $tabItem.Header = $name
+    return $tabItem
+}
+
+function NewDataGrid([string]$name, [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource) {
+    $grid = New-Object System.Windows.Controls.DataGrid
+    $grid.Name = $name
+    $grid.Margin = New-Object System.Windows.Thickness(5)
+    $grid.ItemsSource = $itemsSource
+    $grid.CanUserAddRows = $false
+    $grid.IsReadOnly = $script:TabsReadOnly
+
+    # Rather than autogenerate columns we want to manually create them based on the properties of RowData
+    # as autogenerated columns cannot have their visibility set
+    $grid.AutoGenerateColumns = $false
+    $rowType = [RowData]
+    $properties = $rowType.GetProperties()
+    foreach ($prop in $properties) {
+        $column = New-Object System.Windows.Controls.DataGridTextColumn
+        $column.Header = $prop.Name
+        $column.Binding = New-Object System.Windows.Data.Binding $prop.Name
+        $grid.Columns.Add($column)
+    }
+    SetGridExtraColumnsVisibility -Grid $grid
+    SortGridByColumn -Grid $grid -ColumnName "Name"
+    return $grid
+}
+
+function NewDataTab([string]$name, [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource, [System.Windows.Controls.TabControl]$tabControl) {
+    $grid = NewDataGrid -Name $name -ItemsSource $itemsSource
+    $tab = NewTab -Name $name
+    $tab.Content = $grid
+    [void]$tabControl.Items.Add($tab)
+    return $tab
+}
+
+function NewLabel([string]$content, [string]$halign, [string]$valign) {
+    $label = New-Object System.Windows.Controls.Label
+    $label.Content = $content
+    $label.HorizontalAlignment = $halign
+    $label.VerticalAlignment = $valign
+    $label.Margin = New-Object System.Windows.Thickness(3)
+    return $label
+}
+
+function NewToolTip([string]$content) {
+    $tooltip = New-Object System.Windows.Controls.ToolTip
+    $tooltip.Content = $content
+    return $tooltip
+}
+
+function NewComboBox([string]$name, [System.String[]]$itemsSource, [string]$selectedItem) {
+    $comboBox = New-Object System.Windows.Controls.ComboBox
+    $comboBox.Name = $name
+    $comboBox.Margin = New-Object System.Windows.Thickness(5)
+    $comboBox.ItemsSource = $itemsSource
+    $comboBox.SelectedItem = $selectedItem
+    return $comboBox
+}
+
+function NewTextBox([string]$name, [string]$text) {
+    $textBox = New-Object System.Windows.Controls.TextBox
+    $textBox.Name = $name
+    $textBox.Margin = New-Object System.Windows.Thickness(5)
+    $textBox.Text = $text
+    return $textBox
+}
+
+function NewCheckBox([string]$name, [bool]$isChecked) {
+    $checkbox = New-Object System.Windows.Controls.CheckBox
+    $checkbox.Name = $name
+    $checkbox.IsChecked = $isChecked
+    return $checkbox
+}
+
+function NewButton([string]$content, [string]$halign, [int]$width) {
+    $button = New-Object System.Windows.Controls.Button
+    $button.Content = $content
+    $button.Margin = New-Object System.Windows.Thickness(10)
+    $button.HorizontalAlignment = $halign
+    $button.Width = $width
+    $button.IsDefault = $true
+    return $button
+}
+
+function InitializeConfig([string]$filePath) {
+    if (-not (Test-Path $filePath)) {
         try {
-            New-Item -Path $File -ItemType "File" | Out-Null
+            New-Item -Path $filePath -ItemType "File" | Out-Null
         }
         catch {
-            Show-ErrorMessageBox("Failed to create configuration file at path: $File")
+            Show-ErrorMessageBox("Failed to create configuration file at path: $filePath")
             exit(1)
         }
     }
 }
 
-function LoadConfig($File) {
+function LoadConfig([string]$filePath) {
     try {
-        [string]$contentRaw = (Get-Content $File -Raw -ErrorAction Stop)
+        [string]$contentRaw = (Get-Content $filePath -Raw -ErrorAction Stop)
         if ($contentRaw) {
             [array]$contentJson = $contentRaw | ConvertFrom-Json
             return $contentJson
         }
         else {
-            Write-Verbose "Config file $file is empty."
+            Write-Verbose "Config file $filePath is empty."
             return
         }
     }
     catch {
-        Show-ErrorMessageBox("Failed to load configuration from: $File")
+        Show-ErrorMessageBox("Failed to load configuration from: $filePath")
         return
     }
 }
 
-function SaveConfig($File, $Data) {
+function SaveConfig([string]$filePath, [System.Collections.ObjectModel.ObservableCollection[RowData]]$data) {
     try {
-        $populatedRows = $Data | Where-Object { $_.Name -ne $null }
+        $populatedRows = $data | Where-Object { $_.Name -ne $null }
         $json = ConvertTo-Json $populatedRows
-        Set-Content -Path $File -Value $json
+        Set-Content -Path $filePath -Value $json
     }
     catch {
-        Show-ErrorMessageBox("Failed to save configuration to: $File")
+        Show-ErrorMessageBox("Failed to save configuration to: $filePath")
         return
     }
 }
 
-function Show-ErrorMessageBox($Message) {
-    Write-Error $Message
-    [System.Windows.MessageBox]::Show($Message, "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+function Show-ErrorMessageBox([string]$message) {
+    Write-Error $message
+    [System.Windows.MessageBox]::Show($message, "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
 }
 
-function CopyObject($InputObject) {
-    $SerialObject = [System.Management.Automation.PSSerializer]::Serialize($InputObject)
-    return [System.Management.Automation.PSSerializer]::Deserialize($SerialObject)
+function WriteLog([string]$output) {
+    $script:UI.Window.Dispatcher.Invoke([action]{$script:UI.LogBox.AppendText("$output`n")}, "Normal")
 }
 
-function WriteDebug($Output) {
-    #if ($App.UI.DebugGrid.Visibility = "Visible") {
-        $App.UI.Window.Dispatcher.Invoke([action]{$App.UI.DebugBox.AppendText("$Output`n")}, "Normal")
-    #}
+class RowData {
+    [int]$Id
+    [string]$Name
+    [string]$Description
+    [string]$Category
+    [string]$Command
+    [bool]$SkipParameterSelect
+    [string]$PreCommand
 }
 
+class Command {
+    [string]$Root
+    [string]$Full
+    [System.Object[]]$Parameters
+}
+
+Initialize
 MainWindow
