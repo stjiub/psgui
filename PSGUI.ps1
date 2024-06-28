@@ -14,6 +14,7 @@ function Initialize() {
     }
 
     $script:CurrentCommand = $null
+    $script:LastCommand = $null
     $script:HighestId = 0
     $script:TabsReadOnly = $true
     $script:MainWindowXamlFile = Join-Path $script:Path "MainWindow.xaml"
@@ -65,6 +66,8 @@ function MainWindow {
     $script:UI.BtnMainEdit.Add_Click({ BtnMainEditClick -Tabs $script:UI.Tabs })
     $script:UI.BtnMainLog.Add_Click({ BtnMainLogClick })
     $script:UI.BtnMainRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
+    $script:UI.BtnMainReopenLast.Add_Click({ CommandDialog -Command $script:LastCommand })
+    $script:UI.BtnMainRerunLast.Add_Click({ RunCommand -Command $script:LastCommand.Full })
     $script:UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
     $script:UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $script:CurrentCommand -Grid $script:UI.CommandGrid })
     $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:CurrentCommand.Root -ShowWindow })
@@ -235,14 +238,18 @@ function CellEditEndingHandler($sender, $e, [System.Windows.Controls.TabControl]
 
 # Process the CommandDialog dialog grid to show command parameter list
 function CommandDialog([Command]$command) {
-    # We only want to process the command if it is a PS script or function
-    $type = GetCommandType -Command $command.Root
-    if (($type -ne "Function") -and ($type -ne "External Script")) {
-        return
-    }
 
-    # Parse the command for parameters and build the grid with them
-    $command.Parameters = GetScriptBlockParameters -Command $command.Root
+    # If we are rerunning the command then the parameters are already saved
+    if (-not $command.Parameters) {
+        # We only want to process the command if it is a PS script or function
+        $type = GetCommandType -Command $command.Root
+        if (($type -ne "Function") -and ($type -ne "External Script")) {
+            return
+        }
+
+        # Parse the command for parameters to build command grid with
+        $command.Parameters = GetScriptBlockParameters -Command $command.Root
+    }
     BuildCommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
 
     # Assign the command as the current command so that BtnCommandRun can obtain it
@@ -326,6 +333,10 @@ function CloseCommandDialog() {
 
 # Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
 function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$grid) {
+    # Clear if it existed from rerunning previous command
+    if ($command.Full) {
+        $command.Full = ""
+    }
     $args = @{}
     $command.Full += "$($command.Root)"
 
@@ -362,6 +373,7 @@ function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$gr
         }
     }
 
+    $script:LastCommand = $command
     WriteLog $command.Full
     RunCommand $command.Full
     CloseCommandDialog
