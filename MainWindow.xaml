@@ -96,18 +96,33 @@
                         <ScaleTransform  ScaleX="0.95" ScaleY="0.95"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="AddBox" Foreground="Green"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Add row</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
                 </Button>
                 <Button Name="BtnMainRemove" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
                     <Button.LayoutTransform>
                         <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="TrashCan" Foreground="Red"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Remove row(s)</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
                 </Button>
                 <Button Name="BtnMainSave" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
                     <Button.LayoutTransform>
                         <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="Floppy" Foreground="Blue"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Save</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
                 </Button>
                 <ToggleButton Name="BtnMainEdit" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
                     <ToggleButton.LayoutTransform>
@@ -119,8 +134,15 @@
                     <md:ToggleButtonAssist.OnContent >
                         <md:PackIcon Kind="EditOff" Foreground="Black"/>
                     </md:ToggleButtonAssist.OnContent>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Edit</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
                 </ToggleButton>
-                <ToggleButton Name="BtnMainLog" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
+            </StackPanel>
+            <StackPanel Grid.Row="0" Margin="0 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Right">
+            <ToggleButton Name="BtnMainLog" VerticalAlignment="Center" Margin="0 0 5 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
                     <ToggleButton.LayoutTransform>
                         <ScaleTransform   ScaleX="1.15" ScaleY="1.15"/>
                     </ToggleButton.LayoutTransform>
@@ -130,7 +152,45 @@
                     <md:ToggleButtonAssist.OnContent >
                         <md:PackIcon Kind="StickerText" Foreground="Black"/>
                     </md:ToggleButtonAssist.OnContent>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Log</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
                 </ToggleButton>
+                <Button Name="BtnMainCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Gray"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Copy Last Command to Clipboard</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
+                <Button Name="BtnMainReopenLast" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="OpenInApp" Foreground="MediumPurple"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Reopen Last Command</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
+                <Button Name="BtnMainRerunLast" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="Refresh" Foreground="Black"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Rerun Last Command</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
             </StackPanel>
 
             <Grid Name="CommandDialog" Grid.Row="1" Panel.ZIndex="1000" Background="White" Visibility="Hidden" VerticalAlignment="Center" HorizontalAlignment="Center" >
@@ -161,7 +221,7 @@
                         <Grid Grid.Row="2">
                             <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="300" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
                             <Button Name="BtnCommandHelp" Style="{StaticResource ActionButton}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
-                                <md:PackIcon Kind="Help" Foreground="White" />
+                                <md:PackIcon Kind="Help" Foreground="White" Background="MediumPurple"/>
                             </Button>
                         </Grid>
                     </Grid>
