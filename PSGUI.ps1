@@ -85,6 +85,7 @@ function BtnAddClick([System.Windows.Controls.TabControl]$tabControl, [hashtable
     # We don't want to change the tabs read only status if they are already in edit mode
     if ($script:TabsReadOnly) {
         SetTabsReadOnlyStatus -Tabs $tabs
+        SetTabsExtraColumnsVisibility -Tabs $tabs
     }
     $grid.SelectedItem = $newRow
     $grid.ScrollIntoView($newRow)
