@@ -242,6 +242,7 @@ function CommandDialog([Command]$command) {
 
     # If we are rerunning the command then the parameters are already saved
     if (-not $command.Parameters) {
+        ClearGrid $script:UI.CommandGrid
         # We only want to process the command if it is a PS script or function
         $type = GetCommandType -Command $command.Root
         if (($type -ne "Function") -and ($type -ne "External Script")) {
@@ -250,9 +251,9 @@ function CommandDialog([Command]$command) {
 
         # Parse the command for parameters to build command grid with
         $command.Parameters = GetScriptBlockParameters -Command $command.Root
+        BuildCommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
     }
-    BuildCommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
-
+    
     # Assign the command as the current command so that BtnCommandRun can obtain it
     $script:CurrentCommand = $command
 
@@ -328,8 +329,11 @@ function OpenCommandDialog {
 function CloseCommandDialog() {
     $script:UI.Main.Opacity = "100"
     $script:UI.CommandDialog.Visibility = "Hidden"
-    $script:UI.CommandGrid.Children.Clear()
-    $script:UI.CommandGrid.RowDefinitions.Clear()
+}
+
+function ClearGrid([System.Windows.Controls.Grid]$grid) {
+    $grid.Children.Clear()
+    $grid.RowDefinitions.Clear()
 }
 
 # Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
