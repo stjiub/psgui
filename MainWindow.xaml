@@ -91,25 +91,25 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="20 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
-                <Button Name="BtnAdd" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                <Button Name="BtnMainAdd" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
                     <Button.LayoutTransform>
                         <ScaleTransform  ScaleX="0.95" ScaleY="0.95"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="AddBox" Foreground="Green"/>
                 </Button>
-                <Button Name="BtnRemove" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                <Button Name="BtnMainRemove" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
                     <Button.LayoutTransform>
                         <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="TrashCan" Foreground="Red"/>
                 </Button>
-                <Button Name="BtnSave" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                <Button Name="BtnMainSave" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
                     <Button.LayoutTransform>
                         <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="Floppy" Foreground="Blue"/>
                 </Button>
-                <ToggleButton Name="BtnEdit" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
+                <ToggleButton Name="BtnMainEdit" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
                     <ToggleButton.LayoutTransform>
                         <ScaleTransform   ScaleX="1.15" ScaleY="1.15"/>
                     </ToggleButton.LayoutTransform>
@@ -120,7 +120,7 @@
                         <md:PackIcon Kind="EditOff" Foreground="Black"/>
                     </md:ToggleButtonAssist.OnContent>
                 </ToggleButton>
-                <ToggleButton Name="BtnLog" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
+                <ToggleButton Name="BtnMainLog" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
                     <ToggleButton.LayoutTransform>
                         <ScaleTransform   ScaleX="1.15" ScaleY="1.15"/>
                     </ToggleButton.LayoutTransform>
@@ -183,7 +183,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Button Name="BtnRun" Grid.Column="1" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Margin="0,10,0,10" />
+                <Button Name="BtnMainRun" Grid.Column="1" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Margin="0,10,0,10" />
                 <md:Snackbar Name="Snackbar" Grid.Column="2" Opacity="1" Margin="0 0 15 0" Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" MessageQueue="{Binding materialDesign:MessageQueue}" />
             </Grid>
         </Grid>

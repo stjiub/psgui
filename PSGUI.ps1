@@ -56,12 +56,12 @@ function MainWindow {
     SortTabControl -TabControl $script:UI.TabControl
     
     # Register button events
-    $script:UI.BtnAdd.Add_Click({ BtnAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $script:UI.BtnRemove.Add_Click({ BtnRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $script:UI.BtnSave.Add_Click({ BtnSaveClick -File $script:CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) -SnackBar $script:UI.Snackbar })
-    $script:UI.BtnEdit.Add_Click({ BtnEditClick -Tabs $script:UI.Tabs })
-    $script:UI.BtnLog.Add_Click({ BtnLogClick })
-    $script:UI.BtnRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
+    $script:UI.BtnMainAdd.Add_Click({ BtnMainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMainRemove.Add_Click({ BtnMainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMainSave.Add_Click({ BtnMainSaveClick -File $script:CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) -SnackBar $script:UI.Snackbar })
+    $script:UI.BtnMainEdit.Add_Click({ BtnMainEditClick -Tabs $script:UI.Tabs })
+    $script:UI.BtnMainLog.Add_Click({ BtnMainLogClick })
+    $script:UI.BtnMainRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
     $script:UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
     $script:UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $script:CurrentCommand -Grid $script:UI.CommandGrid })
     $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:CurrentCommand.Root -ShowWindow })
@@ -75,7 +75,7 @@ function MainWindow {
     $script:UI.Window.Dispatcher.InvokeAsync{ $script:UI.Window.ShowDialog() }.Wait() | Out-Null
 }
 
-function BtnAddClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
+function BtnMainAddClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
     $newRow = New-Object RowData
     $newRow.Id = ++$script:HighestId
     $tab = $tabs["All"]
@@ -92,10 +92,9 @@ function BtnAddClick([System.Windows.Controls.TabControl]$tabControl, [hashtable
     $grid.BeginEdit()
 }
 
-function BtnRemoveClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
+function BtnMainRemoveClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
     $allGrid = $tabs["All"].Content
     $allData = $allGrid.ItemsSource
-
     $grid = $tabControl.SelectedItem.Content
 
     # We want to make a copy of the selected items to avoid issues 
@@ -104,27 +103,28 @@ function BtnRemoveClick([System.Windows.Controls.TabControl]$tabControl, [hashta
     foreach ($item in $grid.SelectedItems) {
         $selectedItems += $item
     }
-
     foreach ($item in $selectedItems) {
-        $category = $item.Category
         $id = $item.Id
 
-        $categoryGrid = $tabs[$category].Content
-        $categoryData = $categoryGrid.ItemsSource
-        $categoryIndex = GetGridIndexOfId -Grid $categoryGrid -Id $id
-        $allIndex = GetGridIndexOfId -Grid $allGrid -Id $Id
-
-        $allData.RemoveAt($allIndex)
-        $categoryData.RemoveAt($categoryIndex)
-
-        if ($categoryData.Count -eq 0) {
-            $tabControl.Items.Remove($tabs[$category])
-            $tabs.Remove($category)
+        # If item has a category then remove from category's tab and remove the tab
+        # if it was the only item of that category
+        $category = $item.Category
+        if ($category) {
+            $categoryGrid = $tabs[$category].Content
+            $categoryData = $categoryGrid.ItemsSource
+            $categoryIndex = GetGridIndexOfId -Grid $categoryGrid -Id $id
+            $categoryData.RemoveAt($categoryIndex)
+            if ($categoryData.Count -eq 0) {
+                $tabControl.Items.Remove($tabs[$category])
+                $tabs.Remove($category)
+            }
         }
+        $allIndex = GetGridIndexOfId -Grid $allGrid -Id $Id
+        $allData.RemoveAt($allIndex)        
     }
 }
 
-function BtnSaveClick([string]$filePath, [System.Collections.ObjectModel.ObservableCollection[RowData]]$data, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
+function BtnMainSaveClick([string]$filePath, [System.Collections.ObjectModel.ObservableCollection[RowData]]$data, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
     try {
         SaveConfig -FilePath $filePath -Data $data
         NewSnackBar -Snackbar $snackbar -Text "Configuration saved"
@@ -134,12 +134,12 @@ function BtnSaveClick([string]$filePath, [System.Collections.ObjectModel.Observa
     }
 }
 
-function BtnEditClick([hashtable]$tabs) {
+function BtnMainEditClick([hashtable]$tabs) {
     SetTabsReadOnlyStatus -Tabs $tabs
     SetTabsExtraColumnsVisibility -Tabs $tabs
 }
 
-function BtnLogClick() {
+function BtnMainLogClick() {
     switch ($script:UI.LogGrid.Visibility) {
         "Visible" { $script:UI.LogGrid.Visibility = "Collapsed" }
         "Collapsed" { $script:UI.LogGrid.Visibility = "Visible" }
@@ -430,7 +430,7 @@ function SetGridPosition([System.Windows.Controls.Control]$element, [int]$row, [
 }
 
 function SetTabsReadOnlyStatus([hashtable]$tabs) {
-    $script:UI.BtnEdit.IsChecked = $script:TabsReadOnly
+    $script:UI.BtnMainEdit.IsChecked = $script:TabsReadOnly
     $script:TabsReadOnly = (-not $script:TabsReadOnly)
     foreach ($tab in $tabs.GetEnumerator()) {
         $grid = $tab.Value.Content
