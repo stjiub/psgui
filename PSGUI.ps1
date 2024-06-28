@@ -2,6 +2,8 @@ $script:Version = "1.1.1"
 $script:ExtraColumnsVisibility = "Collapsed"
 $script:ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
 
+
+# Initialize variables and load resources for application 
 function Initialize() {
     # Determine app pathing whether running as PS script or EXE
     if ($PSScriptRoot) {
@@ -24,6 +26,7 @@ function Initialize() {
     [Void][System.Reflection.Assembly]::LoadFrom($script:MaterialDesignColors)
 }
 
+# Load and process main application window
 function MainWindow {
     # We create a new window and load all the window elements to variables of 
     # the same name and assign the window and all its elements under $script:UI 
@@ -50,7 +53,7 @@ function MainWindow {
     foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique)) {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
         $tab = NewDataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
-        $tab.Content.Add_CellEditEnding({ param($sender,$e) CellEditingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
+        $tab.Content.Add_CellEditEnding({ param($sender,$e) CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
         $script:UI.Tabs.Add($category, $tab) 
     }
     SortTabControl -TabControl $script:UI.TabControl
@@ -75,6 +78,7 @@ function MainWindow {
     $script:UI.Window.Dispatcher.InvokeAsync{ $script:UI.Window.ShowDialog() }.Wait() | Out-Null
 }
 
+# Handle the Main Window Add Button click event to add a new RowData object to the collection
 function BtnMainAddClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
     $newRow = New-Object RowData
     $newRow.Id = ++$script:HighestId
@@ -92,6 +96,7 @@ function BtnMainAddClick([System.Windows.Controls.TabControl]$tabControl, [hasht
     $grid.BeginEdit()
 }
 
+# Handle the Main Window Remove Button click event to remove one or multiple RowData objects from the collection
 function BtnMainRemoveClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
     $allGrid = $tabs["All"].Content
     $allData = $allGrid.ItemsSource
@@ -124,6 +129,7 @@ function BtnMainRemoveClick([System.Windows.Controls.TabControl]$tabControl, [ha
     }
 }
 
+# Handle the Main Save Button click event to save the current RoWData collection to the data file
 function BtnMainSaveClick([string]$filePath, [System.Collections.ObjectModel.ObservableCollection[RowData]]$data, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
     try {
         SaveConfig -FilePath $filePath -Data $data
@@ -134,11 +140,13 @@ function BtnMainSaveClick([string]$filePath, [System.Collections.ObjectModel.Obs
     }
 }
 
+# Handle the Main Edit Button click event to enable or disable editing of the grids
 function BtnMainEditClick([hashtable]$tabs) {
     SetTabsReadOnlyStatus -Tabs $tabs
     SetTabsExtraColumnsVisibility -Tabs $tabs
 }
 
+# Handle the Main Log Button click event to view or hide the log grid
 function BtnMainLogClick() {
     switch ($script:UI.LogGrid.Visibility) {
         "Visible" { $script:UI.LogGrid.Visibility = "Collapsed" }
@@ -146,6 +154,7 @@ function BtnMainLogClick() {
     }
 }
 
+# Handle the Main Run Button click event to run the selected command/launch the CommandDialog
 function BtnMainRunClick([System.Windows.Controls.TabControl]$tabControl) {
     $grid = $tabControl.SelectedItem.Content
     $selection = $grid.SelectedItems
@@ -167,7 +176,8 @@ function BtnMainRunClick([System.Windows.Controls.TabControl]$tabControl) {
     }
 }
 
-function CellEditingHandler($sender, $e, [System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
+# Handle the Cell Edit ending event to make sure all tabs are updated properly for cell changes
+function CellEditEndingHandler($sender, $e, [System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
     $editedObject = $e.Row.Item
     $category = $editedObject.Category
     $columnHeader = $e.Column.Header
@@ -216,13 +226,14 @@ function CellEditingHandler($sender, $e, [System.Windows.Controls.TabControl]$ta
 
             # Assign the CellEditEnding event to the new tab. We must use $script level vars here for TabControl and Tabs because the way events are handled if we use the local version
             # they will no longer exist when the event actually triggers
-            $newTab.Content.Add_CellEditEnding({ param($sender,$e) CellEditingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+            $newTab.Content.Add_CellEditEnding({ param($sender,$e) CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
         }
         $newTab.Content.ItemsSource.Add($editedObject)
         SortTabControl -TabControl $tabControl
     }
 }
 
+# Process the CommandDialog dialog grid to show command parameter list
 function CommandDialog([Command]$command) {
     # We only want to process the command if it is a PS script or function
     $type = GetCommandType -Command $command.Root
@@ -241,103 +252,7 @@ function CommandDialog([Command]$command) {
     OpenCommandDialog
 }
 
-function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$grid) {
-    $args = @{}
-    $command.Full += "$($command.Root)"
-
-    foreach ($param in $command.Parameters) {
-        $isSwitch = $false
-        $paramName = $param.Name.VariablePath
-        $selection = $grid.Children | Where-Object { $_.Name -eq $paramName }
-        
-        if (ContainsAttributeType -Parameter $param -TypeName "ValidateSet") {
-            if ($selection.SelectedItem) {
-                $args[$paramName] = $selection.SelectedItem.ToString()
-            }
-        }
-        elseif (ContainsAttributeType -Parameter $param -TypeName "switch") {
-            if ($selection.IsChecked) {
-                $isSwitch = $true
-            }
-            elseif (-not ($selection.IsChecked) -and ($param.DefaultValue)) {
-                # If switch isn't checked and by default it is, then explicitly set
-                # the switch value to false
-                $paramName = $paramName.ToString() + ':$false'
-                $isSwitch = $true
-            }
-        }
-        else {
-            $args[$paramName] = $selection.Text
-        }
-
-        if ($isSwitch) {
-            $command.Full += " -$paramName"
-        }
-        elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
-            $command.Full += " -$paramName `"$($args[$paramName])`""
-        }
-    }
-
-    WriteLog $command.Full
-    RunCommand $command.Full
-    CloseCommandDialog
-}
-
-function OpenCommandDialog {
-    $script:UI.Main.Opacity = "0.5"
-    $script:UI.CommandDialog.Visibility = "Visible"
-}
-
-function CloseCommandDialog() {
-    $script:UI.Main.Opacity = "100"
-    $script:UI.CommandDialog.Visibility = "Hidden"
-    $script:UI.CommandGrid.Children.Clear()
-    $script:UI.CommandGrid.RowDefinitions.Clear()
-}
-
-function GetCommandType([string]$command) {
-    $type = (Get-Command $command).CommandType 
-    return $type
-}
-
-function GetScriptBlockParameters([string]$command) {
-    $scriptBlock = (Get-Command $command).ScriptBlock
-    $parsed = [System.Management.Automation.Language.Parser]::ParseInput($scriptBlock.ToString(), [ref]$null, [ref]$null)
-    $parameters = $parsed.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)
-
-    return $parameters
-}
-
-function ContainsAttributeType([System.Management.Automation.Language.ParameterAst]$parameter, [string]$typeName) {
-    foreach ($attribute in $parameter.Attributes) {
-        if ($attribute.TypeName.FullName -eq $typeName) {
-            return $true
-        }
-    }
-    return $false
-}
-
-function GetValidateSetValues([System.Management.Automation.Language.ParameterAst]$parameter) {
-    # Start with an empty string value so that we can "deselect" values when
-    # displayed in the drop-down box
-    $validValues = [System.Collections.ArrayList]@("")
-
-    # Check if the parameter has ValidateSet attribute
-    foreach ($attribute in $parameter.Attributes) {
-        if ($attribute.TypeName.FullName -eq 'ValidateSet') {
-            $values = $attribute.PositionalArguments
-            break
-        }
-    }
-    foreach ($value in $values) {
-        # We need to convert from AST object to string so we can remove extra quotes
-        $valueStr = $($value.ToString()).Replace("'","").Replace("`"","")
-        [void]$validValues.Add($valueStr)
-    }
-
-    return $validValues
-}
-
+# Construct the CommandDialog grid to show the correct content for each parameter
 function BuildCommandGrid([System.Windows.Controls.Grid]$grid, [System.Object[]]$parameters) {
     for ($i = 0; $i -lt $parameters.Count; $i++) {
         $param = $parameters[$i]
@@ -395,16 +310,123 @@ function BuildCommandGrid([System.Windows.Controls.Grid]$grid, [System.Object[]]
     }
 }
 
+# Display the hidden CommandDialog grid
+function OpenCommandDialog {
+    $script:UI.Main.Opacity = "0.5"
+    $script:UI.CommandDialog.Visibility = "Visible"
+}
+
+# Hide the CommandDialog grid and clear for reuse
+function CloseCommandDialog() {
+    $script:UI.Main.Opacity = "100"
+    $script:UI.CommandDialog.Visibility = "Hidden"
+    $script:UI.CommandGrid.Children.Clear()
+    $script:UI.CommandGrid.RowDefinitions.Clear()
+}
+
+# Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
+function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$grid) {
+    $args = @{}
+    $command.Full += "$($command.Root)"
+
+    foreach ($param in $command.Parameters) {
+        $isSwitch = $false
+        $paramName = $param.Name.VariablePath
+        $selection = $grid.Children | Where-Object { $_.Name -eq $paramName }
+        
+        if (ContainsAttributeType -Parameter $param -TypeName "ValidateSet") {
+            if ($selection.SelectedItem) {
+                $args[$paramName] = $selection.SelectedItem.ToString()
+            }
+        }
+        elseif (ContainsAttributeType -Parameter $param -TypeName "switch") {
+            if ($selection.IsChecked) {
+                $isSwitch = $true
+            }
+            elseif (-not ($selection.IsChecked) -and ($param.DefaultValue)) {
+                # If switch isn't checked and by default it is, then explicitly set
+                # the switch value to false
+                $paramName = $paramName.ToString() + ':$false'
+                $isSwitch = $true
+            }
+        }
+        else {
+            $args[$paramName] = $selection.Text
+        }
+
+        if ($isSwitch) {
+            $command.Full += " -$paramName"
+        }
+        elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
+            $command.Full += " -$paramName `"$($args[$paramName])`""
+        }
+    }
+
+    WriteLog $command.Full
+    RunCommand $command.Full
+    CloseCommandDialog
+}
+
+# Execute a command string in an external PowerShell window
 function RunCommand([string]$command) {      
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
     $command = $command -replace '"', '\"'
     Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $command } `""
 }
 
+# Determine the PowerShell command type (Function,Script,Cmdlet)
+function GetCommandType([string]$command) {
+    $type = (Get-Command $command).CommandType 
+    return $type
+}
+
+# Parse the command's script block to extract parameter info
+function GetScriptBlockParameters([string]$command) {
+    $scriptBlock = (Get-Command $command).ScriptBlock
+    $parsed = [System.Management.Automation.Language.Parser]::ParseInput($scriptBlock.ToString(), [ref]$null, [ref]$null)
+    $parameters = $parsed.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)
+
+    return $parameters
+}
+
+# Determine if a parameter contains a certain attribute type (Switch,ValidateSet)
+function ContainsAttributeType([System.Management.Automation.Language.ParameterAst]$parameter, [string]$typeName) {
+    foreach ($attribute in $parameter.Attributes) {
+        if ($attribute.TypeName.FullName -eq $typeName) {
+            return $true
+        }
+    }
+    return $false
+}
+
+# Retrieve the list of values from a parameter's ValidateSet 
+function GetValidateSetValues([System.Management.Automation.Language.ParameterAst]$parameter) {
+    # Start with an empty string value so that we can "deselect" values when
+    # displayed in the drop-down box
+    $validValues = [System.Collections.ArrayList]@("")
+
+    # Check if the parameter has ValidateSet attribute
+    foreach ($attribute in $parameter.Attributes) {
+        if ($attribute.TypeName.FullName -eq 'ValidateSet') {
+            $values = $attribute.PositionalArguments
+            break
+        }
+    }
+    foreach ($value in $values) {
+        # We need to convert from AST object to string so we can remove extra quotes
+        $valueStr = $($value.ToString()).Replace("'","").Replace("`"","")
+        [void]$validValues.Add($valueStr)
+    }
+
+    return $validValues
+}
+
+# Add a WPF element to a grid
 function AddToGrid([System.Windows.Controls.Grid]$grid, $element) {
     [void]$grid.Children.Add($element)
 }
 
+# Determine a grid row index of a specific command id on a particular datagrid
 function GetGridIndexOfId([System.Windows.Controls.DataGrid]$grid, [int]$id) {
     $itemsSource = $grid.ItemsSource
     $index = -1
@@ -417,6 +439,7 @@ function GetGridIndexOfId([System.Windows.Controls.DataGrid]$grid, [int]$id) {
     return $index
 }
 
+# Assign the row/column position of a WPF element to a grid
 function SetGridPosition([System.Windows.Controls.Control]$element, [int]$row, [int]$column, [int]$columnSpan) {
     if ($row) {
         [System.Windows.Controls.Grid]::SetRow($element, $row)
@@ -429,6 +452,7 @@ function SetGridPosition([System.Windows.Controls.Control]$element, [int]$row, [
     }   
 }
 
+# Enable or disable editing of all main datagrids and update the visual status of the edit button to match
 function SetTabsReadOnlyStatus([hashtable]$tabs) {
     $script:UI.BtnMainEdit.IsChecked = $script:TabsReadOnly
     $script:TabsReadOnly = (-not $script:TabsReadOnly)
@@ -438,6 +462,7 @@ function SetTabsReadOnlyStatus([hashtable]$tabs) {
     }
 }
 
+# Show or hide the 'extra columns' on all tabs' grids
 function SetTabsExtraColumnsVisibility([hashtable]$tabs) {
     switch ($script:ExtraColumnsVisibility) {
         "Visible" { $script:ExtraColumnsVisibility = "Collapsed" }
@@ -449,6 +474,7 @@ function SetTabsExtraColumnsVisibility([hashtable]$tabs) {
     }
 }
 
+# Show or hide the 'extra columns' on a single grid
 function SetGridExtraColumnsVisibility([System.Windows.Controls.DataGrid]$grid) {
     foreach ($column in $grid.Columns) {
         foreach ($extraCol in $script:ExtraColumns) {
@@ -459,6 +485,7 @@ function SetGridExtraColumnsVisibility([System.Windows.Controls.DataGrid]$grid) 
     }
 }
 
+# Sort the order of the tabs in tab control alphabetically by their header
 function SortTabControl([System.Windows.Controls.TabControl]$tabControl) {
     $tabItems = $tabControl.Items
     $allTabItem = $tabItems | Where-Object { $_.Header -eq "All" }
@@ -470,6 +497,7 @@ function SortTabControl([System.Windows.Controls.TabControl]$tabControl) {
     }
 }
 
+# Sort a grid alphabetically by a specific column
 function SortGridByColumn([System.Windows.Controls.DataGrid]$grid, [string]$columnName) {
     $grid.Items.SortDescriptions.Clear()
     $sort = New-Object System.ComponentModel.SortDescription($columnName, [System.ComponentModel.ListSortDirection]::Ascending)
@@ -477,6 +505,7 @@ function SortGridByColumn([System.Windows.Controls.DataGrid]$grid, [string]$colu
     $grid.Items.Refresh()
 }
 
+# Determine the current highest Id that exists in the collection
 function GetHighestId([System.Object[]]$json) {
     $highest = 0
     foreach ($value in ($json | Select-Object -ExpandProperty id -Unique)) {
@@ -487,6 +516,7 @@ function GetHighestId([System.Object[]]$json) {
     return $highest
 }
 
+# Create a new WPF window from an XML file and load all WPF elements and return them under one variable
 function NewWindow([string]$filePath) {
     try {
         [xml]$xaml = (Get-Content $filePath)
@@ -508,6 +538,7 @@ function NewWindow([string]$filePath) {
     }
 }
 
+# Create new popup snackbar message
 function NewSnackBar([MaterialDesignThemes.Wpf.Snackbar]$snackbar, [string]$text, [string]$caption) {
     try {
         $queue = New-Object MaterialDesignThemes.Wpf.SnackbarMessageQueue
@@ -525,12 +556,14 @@ function NewSnackBar([MaterialDesignThemes.Wpf.Snackbar]$snackbar, [string]$text
     }
 }
 
+# Create new tabitem element
 function NewTab([string]$name) {
     $tabItem = New-Object System.Windows.Controls.TabItem
     $tabItem.Header = $name
     return $tabItem
 }
 
+# Create new datagrid element for the main window
 function NewDataGrid([string]$name, [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource) {
     $grid = New-Object System.Windows.Controls.DataGrid
     $grid.Name = $name
@@ -555,6 +588,7 @@ function NewDataGrid([string]$name, [System.Collections.ObjectModel.ObservableCo
     return $grid
 }
 
+# Create a new tabitem that contains a datagrid and assign to the main tabcontrol
 function NewDataTab([string]$name, [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource, [System.Windows.Controls.TabControl]$tabControl) {
     $grid = NewDataGrid -Name $name -ItemsSource $itemsSource
     $tab = NewTab -Name $name
@@ -563,6 +597,7 @@ function NewDataTab([string]$name, [System.Collections.ObjectModel.ObservableCol
     return $tab
 }
 
+# Create a new text label element
 function NewLabel([string]$content, [string]$halign, [string]$valign) {
     $label = New-Object System.Windows.Controls.Label
     $label.Content = $content
@@ -572,12 +607,14 @@ function NewLabel([string]$content, [string]$halign, [string]$valign) {
     return $label
 }
 
+# Create a new tooltip element
 function NewToolTip([string]$content) {
     $tooltip = New-Object System.Windows.Controls.ToolTip
     $tooltip.Content = $content
     return $tooltip
 }
 
+# Create a new combo box element
 function NewComboBox([string]$name, [System.String[]]$itemsSource, [string]$selectedItem) {
     $comboBox = New-Object System.Windows.Controls.ComboBox
     $comboBox.Name = $name
@@ -587,6 +624,7 @@ function NewComboBox([string]$name, [System.String[]]$itemsSource, [string]$sele
     return $comboBox
 }
 
+# Create a new text box element
 function NewTextBox([string]$name, [string]$text) {
     $textBox = New-Object System.Windows.Controls.TextBox
     $textBox.Name = $name
@@ -595,6 +633,7 @@ function NewTextBox([string]$name, [string]$text) {
     return $textBox
 }
 
+# Create a new check box element
 function NewCheckBox([string]$name, [bool]$isChecked) {
     $checkbox = New-Object System.Windows.Controls.CheckBox
     $checkbox.Name = $name
@@ -602,6 +641,7 @@ function NewCheckBox([string]$name, [bool]$isChecked) {
     return $checkbox
 }
 
+# Create a new button element
 function NewButton([string]$content, [string]$halign, [int]$width) {
     $button = New-Object System.Windows.Controls.Button
     $button.Content = $content
@@ -612,6 +652,7 @@ function NewButton([string]$content, [string]$halign, [int]$width) {
     return $button
 }
 
+# Create a blank data file if it doesn't already exist
 function InitializeConfig([string]$filePath) {
     if (-not (Test-Path $filePath)) {
         try {
@@ -624,6 +665,7 @@ function InitializeConfig([string]$filePath) {
     }
 }
 
+# Load an existing data file
 function LoadConfig([string]$filePath) {
     try {
         [string]$contentRaw = (Get-Content $filePath -Raw -ErrorAction Stop)
@@ -642,6 +684,7 @@ function LoadConfig([string]$filePath) {
     }
 }
 
+# Save the data collection to the data file
 function SaveConfig([string]$filePath, [System.Collections.ObjectModel.ObservableCollection[RowData]]$data) {
     try {
         $populatedRows = $data | Where-Object { $_.Name -ne $null }
@@ -654,15 +697,18 @@ function SaveConfig([string]$filePath, [System.Collections.ObjectModel.Observabl
     }
 }
 
+# Show a GUI error popup so important or application breaking errors can be seen
 function Show-ErrorMessageBox([string]$message) {
     Write-Error $message
     [System.Windows.MessageBox]::Show($message, "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
 }
 
+# Write text to the LogBox
 function WriteLog([string]$output) {
     $script:UI.Window.Dispatcher.Invoke([action]{$script:UI.LogBox.AppendText("$output`n")}, "Normal")
 }
 
+# Define the RowData object. This is the object that is used on all the Main window tabitem grids
 class RowData {
     [int]$Id
     [string]$Name
@@ -673,11 +719,13 @@ class RowData {
     [string]$PreCommand
 }
 
+# Define the Command object. This is used by the CommandDialog to construct the grid and run the command
 class Command {
     [string]$Root
     [string]$Full
     [System.Object[]]$Parameters
 }
 
+# Run the application
 Initialize
 MainWindow
