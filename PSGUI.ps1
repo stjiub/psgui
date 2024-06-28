@@ -66,8 +66,8 @@ function MainWindow {
     $script:UI.BtnMainEdit.Add_Click({ BtnMainEditClick -Tabs $script:UI.Tabs })
     $script:UI.BtnMainLog.Add_Click({ BtnMainLogClick })
     $script:UI.BtnMainRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
-    $script:UI.BtnMainReopenLast.Add_Click({ CommandDialog -Command $script:LastCommand })
-    $script:UI.BtnMainRerunLast.Add_Click({ RunCommand -Command $script:LastCommand.Full })
+    $script:UI.BtnMainReopenLast.Add_Click({ if ($script:LastCommand) { CommandDialog -Command $script:LastCommand } })
+    $script:UI.BtnMainRerunLast.Add_Click({ if ($script:LastCommand) { RunCommand -Command $script:LastCommand.Full } })
     $script:UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
     $script:UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $script:CurrentCommand -Grid $script:UI.CommandGrid })
     $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:CurrentCommand.Root -ShowWindow })
@@ -171,6 +171,7 @@ function BtnMainRunClick([System.Windows.Controls.TabControl]$tabControl) {
         }
 
         if ($selection.SkipParameterSelect) {
+            $script:LastCommand = $command
             RunCommand $command.Full
         }
         else {
@@ -374,13 +375,13 @@ function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$gr
     }
 
     $script:LastCommand = $command
-    WriteLog $command.Full
     RunCommand $command.Full
     CloseCommandDialog
 }
 
 # Execute a command string in an external PowerShell window
 function RunCommand([string]$command) {      
+    WriteLog $command
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
     $command = $command -replace '"', '\"'
     Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $command } `""
