@@ -66,6 +66,7 @@ function MainWindow {
     $script:UI.BtnMainEdit.Add_Click({ BtnMainEditClick -Tabs $script:UI.Tabs })
     $script:UI.BtnMainLog.Add_Click({ BtnMainLogClick })
     $script:UI.BtnMainRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
+    $script:UI.BtnMainCopyToClipboard.Add_Click({ if ($script:LastCommand) { Set-ClipBoard -Value $script:LastCommand.Full } })
     $script:UI.BtnMainReopenLast.Add_Click({ if ($script:LastCommand) { CommandDialog -Command $script:LastCommand } })
     $script:UI.BtnMainRerunLast.Add_Click({ if ($script:LastCommand) { RunCommand -Command $script:LastCommand.Full } })
     $script:UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
