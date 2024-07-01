@@ -162,7 +162,7 @@
                     <Button.LayoutTransform>
                         <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
                     </Button.LayoutTransform>
-                    <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Gray"/>
+                    <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Black"/>
                     <Button.ToolTip>
                         <ToolTip>
                             <TextBlock>Copy Last Command to Clipboard</TextBlock>
@@ -173,7 +173,7 @@
                     <Button.LayoutTransform>
                         <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
                     </Button.LayoutTransform>
-                    <md:PackIcon Kind="OpenInApp" Foreground="MediumPurple"/>
+                    <md:PackIcon Kind="OpenInApp" Foreground="Black"/>
                     <Button.ToolTip>
                         <ToolTip>
                             <TextBlock>Reopen Last Command</TextBlock>
