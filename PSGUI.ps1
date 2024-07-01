@@ -1,4 +1,4 @@
-$script:Version = "1.1.1"
+$script:Version = "1.2.1"
 $script:ExtraColumnsVisibility = "Collapsed"
 $script:ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
 
