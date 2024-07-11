@@ -1,7 +1,10 @@
+param(
+    [string]$StartCommand
+)
+
 $script:Version = "1.2.1"
 $script:ExtraColumnsVisibility = "Collapsed"
 $script:ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
-
 
 # Initialize variables and load resources for application 
 function Initialize() {
@@ -65,18 +68,25 @@ function MainWindow {
     $script:UI.BtnMainSave.Add_Click({ BtnMainSaveClick -File $script:CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) -SnackBar $script:UI.Snackbar })
     $script:UI.BtnMainEdit.Add_Click({ BtnMainEditClick -Tabs $script:UI.Tabs })
     $script:UI.BtnMainLog.Add_Click({ BtnMainLogClick })
-    $script:UI.BtnMainRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
-    $script:UI.BtnMainCopyToClipboard.Add_Click({ if ($script:LastCommand) { Set-ClipBoard -Value $script:LastCommand.Full } })
+    $script:UI.BtnMainCopyToClipboard.Add_Click({ if ($script:LastCommand) { CopyToClipBoard -String $script:LastCommand.Full -SnackBar $script:UI.Snackbar } })
     $script:UI.BtnMainReopenLast.Add_Click({ if ($script:LastCommand) { CommandDialog -Command $script:LastCommand } })
     $script:UI.BtnMainRerunLast.Add_Click({ if ($script:LastCommand) { RunCommand -Command $script:LastCommand.Full } })
+    $script:UI.BtnMainRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
     $script:UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
     $script:UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $script:CurrentCommand -Grid $script:UI.CommandGrid })
+    $script:UI.BtnCommandCopyToClipboard.Add_Click({ BtnCommandCopyToClipboard -CurrentCommand $script:CurrentCommand -Grid $script:UI.CommandGrid -SnackBar $script:UI.Snackbar })
     $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:CurrentCommand.Root -ShowWindow })
 
     # Set content and display the window
     $script:UI.Window.Add_Loaded({ 
         $script:UI.Window.Icon = $script:IconFile
         $script:UI.Window.Title = "PSGUI - v$($script:Version)"
+        if ($StartCommand) {
+            $command = New-Object Command
+            $command.Full = ""
+            $command.Root = $script:StartCommand
+            CommandDialog -Command $command
+        }
     })
     $script:UI.Window.DataContext = $script:UI.Tabs
     $script:UI.Window.Dispatcher.InvokeAsync{ $script:UI.Window.ShowDialog() }.Wait() | Out-Null
@@ -165,14 +175,15 @@ function BtnMainRunClick([System.Windows.Controls.TabControl]$tabControl) {
     $command = New-Object Command
     $command.Full = ""
     $command.Root = $selection.Command
+    $command.PreCommand = $selection.PreCommand
 
     if ($command.Root) {
-        if ($selection.PreCommand) {
-            $command.Full = $selection.PreCommand + "; "
-        }
-
         if ($selection.SkipParameterSelect) {
             $script:LastCommand = $command
+            if ($command.PreCommand) {
+                $command.Full = $command.PreCommand + "; "
+            }
+            $command.Full += $command.Root
             RunCommand $command.Full
         }
         else {
@@ -337,10 +348,12 @@ function ClearGrid([System.Windows.Controls.Grid]$grid) {
     $grid.RowDefinitions.Clear()
 }
 
-# Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
-function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$grid) {
+function CompileCommand([Command]$command, [System.Windows.Controls.Grid]$grid) {
     # Clear if it existed from rerunning previous command
-    if ($command.Full) {
+    if ($command.PreCommand) {
+        $command.Full = $command.PreCommand + "; "
+    }
+    else {
         $command.Full = ""
     }
     $args = @{}
@@ -378,15 +391,26 @@ function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$gr
             $command.Full += " -$paramName `"$($args[$paramName])`""
         }
     }
+}
 
+# Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
+function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$grid) {
+    CompileCommand -Command $command -Grid $grid
     $script:LastCommand = $command
     RunCommand $command.Full
     CloseCommandDialog
 }
 
+function BtnCommandCopyToClipboard([command]$currentCommand, [System.Windows.Controls.Grid]$grid, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
+    if ($currentCommand) {
+        CompileCommand -Command $currentCommand -Grid $grid 
+        CopyToClipBoard -String $currentCommand.Full -SnackBar $snackbar
+    }
+}
+
 # Execute a command string in an external PowerShell window
 function RunCommand([string]$command) {      
-    WriteLog $command
+    WriteLog "Running: $command"
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
     $command = $command -replace '"', '\"'
     Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $command } `""
@@ -532,6 +556,13 @@ function GetHighestId([System.Object[]]$json) {
         }
     }
     return $highest
+}
+
+# Copy a string to the system clipboard
+function CopyToClipBoard([string]$string, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
+    WriteLog "Copied to clipboard: $string"
+    NewSnackBar -Snackbar $snackbar -Text "Copied to clipboard"
+    Set-ClipBoard -Value $string
 }
 
 # Create a new WPF window from an XML file and load all WPF elements and return them under one variable
@@ -741,6 +772,7 @@ class RowData {
 class Command {
     [string]$Root
     [string]$Full
+    [string]$PreCommand
     [System.Object[]]$Parameters
 }
 
