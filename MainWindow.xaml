@@ -60,15 +60,12 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Grid>
-                                <Ellipse x:Name="Background"
-                                         Fill="{DynamicResource SecondaryHueMidBrush}"
-                                         Stroke="Transparent"
-                                         StrokeThickness="0"/>
+                            <Border Background="Transparent">
                                 <ContentPresenter HorizontalAlignment="Center" 
-                                                  VerticalAlignment="Center"
-                                                  RecognizesAccessKey="True"/>
-                            </Grid>
+                                                VerticalAlignment="Center"
+                                                RecognizesAccessKey="True"
+                                                Margin="5,0,5,0"/>
+                            </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Cursor" Value="Hand"/>
@@ -91,36 +88,36 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="20 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
-                <Button Name="BtnMainAdd" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                <Button Name="BtnMainAdd" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
                     <Button.LayoutTransform>
-                        <ScaleTransform  ScaleX="0.95" ScaleY="0.95"/>
+                        <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="AddBox" Foreground="Green"/>
                     <Button.ToolTip>
                         <ToolTip>
-                            <TextBlock>Add row</TextBlock>
+                            <TextBlock>Add New Command</TextBlock>
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>
-                <Button Name="BtnMainRemove" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                <Button Name="BtnMainRemove" VerticalAlignment="Center" Style="{StaticResource ActionButton}" Background="Transparent" >
                     <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
+                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="TrashCan" Foreground="Red"/>
                     <Button.ToolTip>
                         <ToolTip>
-                            <TextBlock>Remove row(s)</TextBlock>
+                            <TextBlock>Remove Selected Command(s)</TextBlock>
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>
-                <Button Name="BtnMainSave" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
+                <Button Name="BtnMainSave" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
                     <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
+                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="Floppy" Foreground="Blue"/>
                     <Button.ToolTip>
                         <ToolTip>
-                            <TextBlock>Save</TextBlock>
+                            <TextBlock>Save Commands</TextBlock>
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>
@@ -136,62 +133,46 @@
                     </md:ToggleButtonAssist.OnContent>
                     <Button.ToolTip>
                         <ToolTip>
-                            <TextBlock>Edit</TextBlock>
+                            <TextBlock>Edit Commands</TextBlock>
                         </ToolTip>
                     </Button.ToolTip>
                 </ToggleButton>
             </StackPanel>
-            <StackPanel Grid.Row="0" Margin="0 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Right">
-            <ToggleButton Name="BtnMainLog" VerticalAlignment="Center" Margin="0 0 5 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
-                    <ToggleButton.LayoutTransform>
-                        <ScaleTransform   ScaleX="1.15" ScaleY="1.15"/>
-                    </ToggleButton.LayoutTransform>
-                    <ToggleButton.Content>
-                        <md:PackIcon Kind="StickerTextOutline" Foreground="Black"/>
-                    </ToggleButton.Content>
-                    <md:ToggleButtonAssist.OnContent >
-                        <md:PackIcon Kind="StickerText" Foreground="Black"/>
-                    </md:ToggleButtonAssist.OnContent>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Log</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </ToggleButton>
-                <Button Name="BtnMainCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
-                    <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
-                    </Button.LayoutTransform>
-                    <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Black"/>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Copy Last Command to Clipboard</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-                <Button Name="BtnMainReopenLast" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
-                    <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
-                    </Button.LayoutTransform>
-                    <md:PackIcon Kind="OpenInApp" Foreground="Black"/>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Reopen Last Command</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-                <Button Name="BtnMainRerunLast" VerticalAlignment="Center" Style="{StaticResource MaterialDesignIconForegroundButton}">
-                    <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="0.95" ScaleY="0.95"/>
-                    </Button.LayoutTransform>
-                    <md:PackIcon Kind="Refresh" Foreground="Black"/>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Rerun Last Command</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-            </StackPanel>
+            <StackPanel Grid.Row="0" Margin="0 0 20 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Right">
+                    <Button Name="BtnMainReopenLast" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                        <Button.LayoutTransform>
+                            <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                        </Button.LayoutTransform>
+                        <md:PackIcon Kind="OpenInApp" Foreground="Black"/>
+                        <Button.ToolTip>
+                            <ToolTip>
+                                <TextBlock>Reopen Last Command</TextBlock>
+                            </ToolTip>
+                        </Button.ToolTip>
+                    </Button>
+                    <Button Name="BtnMainRerunLast" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                        <Button.LayoutTransform>
+                            <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                        </Button.LayoutTransform>
+                        <md:PackIcon Kind="Refresh" Foreground="Black"/>
+                        <Button.ToolTip>
+                            <ToolTip>
+                                <TextBlock>Rerun Last Command</TextBlock>
+                            </ToolTip>
+                        </Button.ToolTip>
+                    </Button>
+                    <Button Name="BtnMainCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                        <Button.LayoutTransform>
+                            <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                        </Button.LayoutTransform>
+                        <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Black"/>
+                        <Button.ToolTip>
+                            <ToolTip>
+                                <TextBlock>Copy Last Command to Clipboard</TextBlock>
+                            </ToolTip>
+                        </Button.ToolTip>
+                    </Button>
+                </StackPanel>
 
             <Grid Name="CommandDialog" Grid.Row="1" Panel.ZIndex="1000" Background="White" Visibility="Hidden" VerticalAlignment="Center" HorizontalAlignment="Center" >
                 <Border BorderBrush="Black" BorderThickness="1">
@@ -205,7 +186,7 @@
 
                         <Grid Grid.Row="0" Height="25">
                             <TextBlock Name="BoxCommandName" HorizontalAlignment="Center" Margin="4 0 0 0" TextElement.FontSize="14" />
-                            <Button Name="BtnCommandClose" HorizontalAlignment="Right" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Exit" Style="{StaticResource MaterialDesignIconForegroundButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
+                            <Button Name="BtnCommandClose" HorizontalAlignment="Right" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Exit" Style="{StaticResource ActionButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
                                 <md:PackIcon Kind="Close" Height="20" Width="20"/>
                             </Button>
                         </Grid>
@@ -219,10 +200,26 @@
                             <!-- <Button Name="BtnCommonParameters" Content="Fold/Expand"/> -->
                         </Grid>
                         <Grid Grid.Row="2">
-                            <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="300" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
-                            <Button Name="BtnCommandHelp" Style="{StaticResource ActionButton}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
-                                <md:PackIcon Kind="Help" Foreground="White" Background="MediumPurple"/>
-                            </Button>
+                            <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
+                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" HorizontalAlignment="Right" >
+                                <Button Name="BtnCommandCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                                <Button.LayoutTransform>
+                                    <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                                </Button.LayoutTransform>
+                                    <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Black"/>
+                                    <Button.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock>Copy Current Command to Clipboard</TextBlock>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                </Button>
+                                <Button Name="BtnCommandHelp" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource ActionButton}" >
+                                <Button.LayoutTransform>
+                                    <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                                </Button.LayoutTransform>
+                                    <md:PackIcon Kind="Help" Foreground="Black"/>
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </Grid>
                 </Border>
@@ -242,7 +239,22 @@
                     <ColumnDefinition Width="200" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-
+                <ToggleButton Name="BtnMainLog" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
+                    <ToggleButton.LayoutTransform>
+                        <ScaleTransform   ScaleX="1.15" ScaleY="1.15"/>
+                    </ToggleButton.LayoutTransform>
+                    <ToggleButton.Content>
+                        <md:PackIcon Kind="StickerTextOutline" Foreground="Black"/>
+                    </ToggleButton.Content>
+                    <md:ToggleButtonAssist.OnContent >
+                        <md:PackIcon Kind="StickerText" Foreground="Black"/>
+                    </md:ToggleButtonAssist.OnContent>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Show Log</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </ToggleButton>
                 <Button Name="BtnMainRun" Grid.Column="1" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Margin="0,10,0,10" />
                 <md:Snackbar Name="Snackbar" Grid.Column="2" Opacity="1" Margin="0 0 15 0" Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" MessageQueue="{Binding materialDesign:MessageQueue}" />
             </Grid>
