@@ -5,8 +5,8 @@
     Style="{DynamicResource MaterialDesignWindow}"
 	WindowStartupLocation="CenterScreen"
 	ResizeMode="CanResize"
-    Width="900"
-    Height="700"
+    Width="1200"
+    Height="1000"
     MaxWidth="{x:Static SystemParameters.PrimaryScreenWidth}"
     MaxHeight="{x:Static SystemParameters.PrimaryScreenHeight}"
     Background="{DynamicResource MaterialDesignPaper}"
@@ -84,10 +84,11 @@
                 <RowDefinition Height="40"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="50"/>
+                <RowDefinition Height="300"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="20 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
+            <StackPanel Grid.Row="0" Margin="10 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
                 <Button Name="BtnMainAdd" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
                     <Button.LayoutTransform>
                         <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
@@ -101,7 +102,7 @@
                 </Button>
                 <Button Name="BtnMainRemove" VerticalAlignment="Center" Style="{StaticResource ActionButton}" Background="Transparent" >
                     <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                        <ScaleTransform ScaleX="1.5" ScaleY="1.5"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="TrashCan" Foreground="Red"/>
                     <Button.ToolTip>
@@ -137,127 +138,179 @@
                         </ToolTip>
                     </Button.ToolTip>
                 </ToggleButton>
+                <Button Name="BtnMainSettings" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="CogOutline" Foreground="Black"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Save Commands</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
             </StackPanel>
-            <StackPanel Grid.Row="0" Margin="0 0 20 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Right">
-                    <Button Name="BtnMainReopenLast" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+            <StackPanel Grid.Row="0" Margin="0 0 10 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Right">
+                    <Button Name="BtnMainRun" IsDefault="True" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
                         <Button.LayoutTransform>
                             <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
                         </Button.LayoutTransform>
-                        <md:PackIcon Kind="OpenInApp" Foreground="Black"/>
+                        <md:PackIcon Kind="Play" Foreground="Green"/>
                         <Button.ToolTip>
                             <ToolTip>
-                                <TextBlock>Reopen Last Command</TextBlock>
+                                <TextBlock>Run Command</TextBlock>
                             </ToolTip>
                         </Button.ToolTip>
                     </Button>
-                    <Button Name="BtnMainRerunLast" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                    <Button Name="BtnMainRunMenu" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
                         <Button.LayoutTransform>
                             <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
                         </Button.LayoutTransform>
-                        <md:PackIcon Kind="Refresh" Foreground="Black"/>
-                        <Button.ToolTip>
-                            <ToolTip>
-                                <TextBlock>Rerun Last Command</TextBlock>
-                            </ToolTip>
-                        </Button.ToolTip>
-                    </Button>
-                    <Button Name="BtnMainCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                        <Button.LayoutTransform>
-                            <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                        </Button.LayoutTransform>
-                        <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Black"/>
-                        <Button.ToolTip>
-                            <ToolTip>
-                                <TextBlock>Copy Last Command to Clipboard</TextBlock>
-                            </ToolTip>
-                        </Button.ToolTip>
+                        <md:PackIcon Kind="Menu" Foreground="Black"/>
+                        <Button.ContextMenu>
+                            <ContextMenu Name="ContextMenuMainRunMenu">
+                                <MenuItem Name="MenuItemMainRunExternal" Header="Run External"/>
+                                <MenuItem Name="MenuItemMainRunInternal" Header="Run Internal"/>
+                                <MenuItem Name="MenuItemMainRunReopenLast" Header="Reopen Last"/>
+                                <MenuItem Name="MenuItemMainRunRerunLast" Header="Rerun Last"/>
+                                <MenuItem Name="MenuItemMainRunCopyToClipboard" Header="Copy Last To Clipboard"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
                     </Button>
                 </StackPanel>
 
-            <Grid Name="CommandDialog" Grid.Row="1" Panel.ZIndex="1000" Background="White" Visibility="Hidden" VerticalAlignment="Center" HorizontalAlignment="Center" >
+            <Grid Name="Main" Grid.Row="1">
+                    <TabControl Name="TabControl" Margin="1 0 0 0" HorizontalContentAlignment="Left" />
+            </Grid>
+
+            <GridSplitter Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Gray"/>
+
+            <Grid Name="Sub" Grid.Row="3" Margin="10,0,10,0" Visibility="Visible" >
+                <TabControl Name="SubGrid" HorizontalContentAlignment="Left" TabStripPlacement="Bottom">
+                    <TabItem Header="Shell">
+                        <TabControl Name="PSTabControl" HorizontalContentAlignment="Left">
+                            <TabItem Header="+" Name="PSAddTab"/>
+                        </TabControl>
+                    </TabItem>
+                    <TabItem Header="Log">
+                        <Grid ClipToBounds="True">
+                            <TextBox Name="LogBox" BorderThickness="0" Background="LightGray" Foreground="Black"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+
+            <Grid Grid.Row="4">
+                <TextBlock Name="StatusBox" Text="Ready" Height="20" HorizontalAlignment="Right" Margin="0,0,10,0"/>
+            </Grid>
+        </Grid>
+
+        <Rectangle Name="Overlay" Fill="Black" Opacity="0.5" Visibility="Collapsed" Panel.ZIndex="999"/>
+
+        <Grid Name="CommandDialog" Panel.ZIndex="1000" Background="White" Visibility="Hidden" VerticalAlignment="Center" HorizontalAlignment="Center" >
+            <Border BorderBrush="Black" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Height="25">
+                        <TextBlock Name="BoxCommandName" HorizontalAlignment="Center" Margin="4 0 0 0" FontSize="20" FontWeight="Bold" />
+                        <Button Name="BtnCommandClose" HorizontalAlignment="Right" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource ActionButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
+                            <md:PackIcon Kind="Close" Height="20" Width="20"/>
+                        </Button>
+                    </Grid>
+
+                    <Grid Name="CommandGrid" Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="100"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="250"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- <Button Name="BtnCommonParameters" Content="Fold/Expand"/> -->
+                    </Grid>
+                    <Grid Grid.Row="2">
+                        <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
+                        <StackPanel VerticalAlignment="Center" Orientation="Horizontal" HorizontalAlignment="Right" >
+                            <Button Name="BtnCommandCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                            <Button.LayoutTransform>
+                                <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                            </Button.LayoutTransform>
+                                <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Black"/>
+                                <Button.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock>Copy Current Command to Clipboard</TextBlock>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                            </Button>
+                            <Button Name="BtnCommandHelp" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource ActionButton}" >
+                            <Button.LayoutTransform>
+                                <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                            </Button.LayoutTransform>
+                                <md:PackIcon Kind="Help" Foreground="Black"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Name="SettingsDialog" Panel.ZIndex="1000" Background="White" Visibility="Hidden" VerticalAlignment="Center" HorizontalAlignment="Center">
                 <Border BorderBrush="Black" BorderThickness="1">
-                    <Grid>
+                    <Grid Margin="10">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Grid Grid.Row="0" Height="25">
-                            <TextBlock Name="BoxCommandName" HorizontalAlignment="Center" Margin="4 0 0 0" TextElement.FontSize="14" />
-                            <Button Name="BtnCommandClose" HorizontalAlignment="Right" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Exit" Style="{StaticResource ActionButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
+                            <TextBlock Text="Settings" HorizontalAlignment="Center" Margin="4 0 0 0" FontSize="20" FontWeight="Bold" />
+                            <Button Name="BtnCloseSettings" HorizontalAlignment="Right" IsEnabled="True" Margin="0 0 4 4" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource ActionButton}" VerticalAlignment="Center" Height="25" Width="25" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#9E9E9E">
                                 <md:PackIcon Kind="Close" Height="20" Width="20"/>
                             </Button>
                         </Grid>
 
-                        <Grid Name="CommandGrid" Grid.Row="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" MinWidth="100"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="250"/>
-                            </Grid.ColumnDefinitions>
-                            <!-- <Button Name="BtnCommonParameters" Content="Fold/Expand"/> -->
-                        </Grid>
-                        <Grid Grid.Row="2">
-                            <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
-                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" HorizontalAlignment="Right" >
-                                <Button Name="BtnCommandCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                                <Button.LayoutTransform>
-                                    <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                                </Button.LayoutTransform>
-                                    <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="Black"/>
-                                    <Button.ToolTip>
-                                        <ToolTip>
-                                            <TextBlock>Copy Current Command to Clipboard</TextBlock>
-                                        </ToolTip>
-                                    </Button.ToolTip>
-                                </Button>
-                                <Button Name="BtnCommandHelp" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource ActionButton}" >
-                                <Button.LayoutTransform>
-                                    <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                                </Button.LayoutTransform>
-                                    <md:PackIcon Kind="Help" Foreground="Black"/>
-                                </Button>
-                            </StackPanel>
-                        </Grid>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="400">
+                            <Grid Name="SettingsGrid">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <Label Grid.Row="0" Grid.Column="0" Content="Default Shell:"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Name="TxtDefaultShell" Margin="5"/>
+
+                                <Label Grid.Row="1" Grid.Column="0" Content="Default Shell Args:"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Name="TxtDefaultShellArgs" Margin="5"/>
+
+                                <Label Grid.Row="2" Grid.Column="0" Content="Run Command Internal:"/>
+                                <CheckBox Grid.Row="2" Grid.Column="1" Name="ChkRunCommandInternal" Margin="5" VerticalAlignment="Center"/>
+
+                                <Label Grid.Row="3" Grid.Column="0" Content="Open Shell At Start:"/>
+                                <CheckBox Grid.Row="3" Grid.Column="1" Name="ChkOpenShellAtStart" Margin="5" VerticalAlignment="Center"/>
+
+                                <Label Grid.Row="4" Grid.Column="0" Content="Extra Column Visibility:"/>
+                                <ComboBox Grid.Row="4" Grid.Column="1" Name="CmbExtraColumnVisibility" Margin="5">
+                                    <ComboBoxItem Content="Visible"/>
+                                    <ComboBoxItem Content="Collapsed"/>
+                                </ComboBox>
+                            </Grid>
+                        </ScrollViewer>
+
+                        <Button Grid.Row="2" Name="BtnApplySettings" Content="Apply" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" HorizontalAlignment="Center" Margin="0,10,0,10"/>
                     </Grid>
                 </Border>
             </Grid>
-
-            <Grid Name="Main" Grid.Row="1">
-                    <TabControl Name="TabControl" Margin="1 0 0 0" HorizontalContentAlignment="Left"/>
-            </Grid>
-
-            <Grid Name="LogGrid" Grid.Row="2" Height="200" Margin="10,10,10,0" Visibility="Collapsed">
-                <TextBox Name="LogBox" BorderThickness="0" Background="LightGray"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
-            </Grid>
-
-            <Grid Grid.Row="3">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="200" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <ToggleButton Name="BtnMainLog" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
-                    <ToggleButton.LayoutTransform>
-                        <ScaleTransform   ScaleX="1.15" ScaleY="1.15"/>
-                    </ToggleButton.LayoutTransform>
-                    <ToggleButton.Content>
-                        <md:PackIcon Kind="StickerTextOutline" Foreground="Black"/>
-                    </ToggleButton.Content>
-                    <md:ToggleButtonAssist.OnContent >
-                        <md:PackIcon Kind="StickerText" Foreground="Black"/>
-                    </md:ToggleButtonAssist.OnContent>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Show Log</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </ToggleButton>
-                <Button Name="BtnMainRun" Grid.Column="1" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Margin="0,10,0,10" />
-                <md:Snackbar Name="Snackbar" Grid.Column="2" Opacity="1" Margin="0 0 15 0" Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" MessageQueue="{Binding materialDesign:MessageQueue}" />
-            </Grid>
-        </Grid>
     </Grid>
 </Window>
