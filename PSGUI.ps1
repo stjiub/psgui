@@ -20,6 +20,7 @@ $script:ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
 # Constants
 $script:GWL_STYLE = -16
 $script:WS_BORDERLESS = 0x800000  # WS_POPUP without WS_BORDER, WS_CAPTION, etc.
+$script:WS_OVERLAPPEDWINDOW = 0x00CF0000
 
 # Initialize variables and load resources for application 
 function Initialize() {
@@ -49,6 +50,7 @@ function Initialize() {
     Add-Type @"
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 public class Win32 {
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
@@ -95,6 +97,9 @@ public class Win32 {
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 }
 "@
 }
@@ -164,6 +169,8 @@ function MainWindow {
     $script:UI.BtnCloseSettings.Add_Click({ CloseSettingsDialog })
 
     # Register Process Tab events
+    $script:UI.BtnDetach.Add_Click({ DetachCurrentTab })
+    $script:UI.BtnAttach.Add_Click({ ShowAttachWindow })
     $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({ NewProcessTab -TabControl $script:UI.PSTabControl -Process $script:DefaultShell -ProcessArgs $script:DefaultShellArgs })
     $script:UI.PSTabControl.Add_SelectionChanged({
         param($sender, $eventArgs)
@@ -941,6 +948,132 @@ function NewProcessTab($tabControl, $process, $processArgs) {
         if ($eventArgs.ChangedButton -eq 'Right') {
             $script:UI.PSTabControl.Items.Remove($sender)
             $sender.Tag["Process"].Kill()
+        }
+    })
+    $tab.Add_PreviewMouseDown({
+        param($sender, $e)
+        if ($e.MiddleButton -eq 'Pressed') {
+            DetachPowerShellWindow -tab $sender
+            $e.Handled = $true
+        }
+    })
+}
+
+function DetachCurrentTab {
+    $selectedTab = $script:UI.PSTabControl.SelectedItem
+    if ($selectedTab -and $selectedTab -ne $script:UI.PSAddTab) {
+        $psHandle = $selectedTab.Tag["Handle"]
+        $proc = $selectedTab.Tag["Process"]
+
+        # Restore window styles
+        $style = [Win32]::GetWindowLong($psHandle, $script:GWL_STYLE)
+        $style = $style -bor $script:WS_OVERLAPPEDWINDOW
+        [Win32]::SetWindowLong($psHandle, $script:GWL_STYLE, $style)
+
+        # Detach from parent
+        [Win32]::SetParent($psHandle, [IntPtr]::Zero)
+
+        # Show window
+        [Win32]::ShowWindow($psHandle, 1)  # 1 = SW_SHOWNORMAL
+        [Win32]::SetWindowPos($psHandle, [IntPtr]::Zero, 100, 100, 800, 600, 0x0040)  # SWP_SHOWWINDOW
+
+        # Remove the tab
+        $script:UI.PSTabControl.Items.Remove($selectedTab)
+    }
+}
+
+function ShowAttachWindow {
+    $attachWindow = New-Object System.Windows.Window
+    $attachWindow.Title = "Attach PowerShell Window"
+    $attachWindow.Width = 400
+    $attachWindow.Height = 300
+    $attachWindow.WindowStartupLocation = "CenterOwner"
+    $attachWindow.Owner = $script:UI.Window
+
+    $stackPanel = New-Object System.Windows.Controls.StackPanel
+    $attachWindow.Content = $stackPanel
+
+    $listBox = New-Object System.Windows.Controls.ListBox
+    $listBox.Margin = New-Object System.Windows.Thickness(10)
+    $stackPanel.Children.Add($listBox)
+
+    # Find PowerShell windows
+    $psWindows = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and ($_.ProcessName -eq "powershell" -or $_.ProcessName -eq "pwsh") }
+    foreach ($window in $psWindows) {
+        $item = New-Object System.Windows.Controls.ListBoxItem
+        $item.Content = "$($window.Id): $($window.MainWindowTitle)"
+        $item.Tag = $window
+        $listBox.Items.Add($item)
+    }
+
+    $btnAttach = New-Object System.Windows.Controls.Button
+    $btnAttach.Content = "Attach"
+    $btnAttach.Margin = New-Object System.Windows.Thickness(10)
+    $stackPanel.Children.Add($btnAttach)
+
+    $btnAttach.Add_Click({
+        $selectedItem = $listBox.SelectedItem
+        if ($selectedItem) {
+            $proc = $selectedItem.Tag
+            AttachExternalWindow -Process $proc
+            $attachWindow.Close()
+        }
+    })
+
+    $attachWindow.ShowDialog()
+}
+
+function AttachExternalWindow {
+    param (
+        [System.Diagnostics.Process]$Process
+    )
+
+    $psHandle = $Process.MainWindowHandle
+    
+    # Remove window frame
+    $style = [Win32]::GetWindowLong($psHandle, $script:GWL_STYLE)
+    $style = $style -band -bnot $script:WS_OVERLAPPEDWINDOW
+    [Win32]::SetWindowLong($psHandle, $script:GWL_STYLE, $style)
+
+    $tab = NewTab -Name "PS_$($script:UI.PSTabControl.Items.Count)"
+    $tabData = @{}
+    $tabData["Handle"] = $psHandle
+    $tabData["Process"] = $Process
+    $tab.Tag = $tabData
+
+    $windowsFormsHost = New-Object System.Windows.Forms.Integration.WindowsFormsHost
+    $panel = New-Object System.Windows.Forms.Panel
+    $panel.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $panel.BackColor = [System.Drawing.Color]::Black
+    $windowsFormsHost.Child = $panel
+    $tab.Content = $windowsFormsHost
+
+    $script:UI.PSTabControl.Items.Insert($script:UI.PSTabControl.Items.Count - 1, $tab)
+    $script:UI.PSTabControl.SelectedItem = $tab
+
+    # Re-parent the PowerShell window
+    [Win32]::SetParent($psHandle, $panel.Handle)
+    [Win32]::ShowWindow($psHandle, 5)  # 5 = SW_SHOW
+    [Win32]::MoveWindow($psHandle, 0, 0, $panel.Width, $panel.Height, $true)
+
+    # Handle resizing
+    $panel.Add_SizeChanged({
+        param($sender, $eventArgs)
+        $handle = $script:UI.PSTabControl.SelectedItem.Tag["Handle"]
+        if ($handle -ne [IntPtr]::Zero) {
+            [Win32]::MoveWindow($handle, 0, 0, $sender.Width, $sender.Height, $true)
+        }
+        else {
+            WriteLog "Invalid window handle in SizeChanged event."
+        }
+    })
+
+    # Handle tab closure
+    $tab.Add_PreviewMouseRightButtonDown({
+        param($sender, $eventArgs)
+        if ($eventArgs.ChangedButton -eq 'Right') {
+            $script:UI.PSTabControl.Items.Remove($sender)
+            DetachCurrentTab
         }
     })
 }

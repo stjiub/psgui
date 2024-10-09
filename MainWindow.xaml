@@ -186,19 +186,29 @@
             <GridSplitter Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Gray"/>
 
             <Grid Name="Sub" Grid.Row="3" Margin="10,0,10,0" Visibility="Visible" >
-                <TabControl Name="SubGrid" HorizontalContentAlignment="Left" TabStripPlacement="Bottom">
-                    <TabItem Header="Shell">
-                        <TabControl Name="PSTabControl" HorizontalContentAlignment="Left">
-                            <TabItem Header="+" Name="PSAddTab"/>
-                        </TabControl>
-                    </TabItem>
-                    <TabItem Header="Log">
-                        <Grid ClipToBounds="True">
-                            <TextBox Name="LogBox" BorderThickness="0" Background="LightGray" Foreground="Black"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
-                        </Grid>
-                    </TabItem>
-                </TabControl>
-            </Grid>
+        <TabControl Name="SubGrid" HorizontalContentAlignment="Left" TabStripPlacement="Bottom">
+            <TabItem Header="Shell">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,5">
+                        <Button Name="BtnDetach" Content="Detach" Margin="0,0,5,0" Style="{StaticResource MaterialDesignRaisedButton}" Foreground="White"/>
+                        <Button Name="BtnAttach" Content="Attach" Style="{StaticResource MaterialDesignRaisedButton}" Foreground="White"/>
+                    </StackPanel>
+                    <TabControl Name="PSTabControl" Grid.Row="1" HorizontalContentAlignment="Left">
+                        <TabItem Header="+" Name="PSAddTab"/>
+                    </TabControl>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Log">
+                <Grid ClipToBounds="True">
+                    <TextBox Name="LogBox" BorderThickness="0" Background="LightGray" Foreground="Black"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
 
             <Grid Grid.Row="4">
                 <TextBlock Name="StatusBox" Text="Ready" Height="20" HorizontalAlignment="Right" Margin="0,0,10,0"/>
