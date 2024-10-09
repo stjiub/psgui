@@ -90,20 +90,6 @@ function Start-MainWindow {
     Register-EventHandlers
 
     # Set content and display the window
-    $script:UI.Window.Add_Loaded({ 
-        $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
-        $script:UI.Window.Title = $script:AppTitle
-        if ($StartCommand) {
-            $command = New-Object Command
-            $command.Full = ""
-            $command.Root = $script:StartCommand
-            CommandDialog -Command $command
-        }
-        if ($script:Settings.OpenShellAtStart) {
-            New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings:DefaultShell -ProcessArgs $script:Settings:DefaultShellArgs
-        }
-    })
-
     $script:UI.Window.DataContext = $script:UI.Tabs
     $script:UI.Window.Dispatcher.InvokeAsync{ $script:UI.Window.ShowDialog() }.Wait() | Out-Null
 }
@@ -160,6 +146,41 @@ function Register-EventHandlers {
             [Win32]::SetFocus($psHandle)
         }
     })
+
+    $script:UI.Window.Add_Loaded({ 
+        $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
+        $script:UI.Window.Title = $script:AppTitle
+        if ($StartCommand) {
+            $command = New-Object Command
+            $command.Full = ""
+            $command.Root = $script:StartCommand
+            CommandDialog -Command $command
+        }
+        if ($script:Settings.OpenShellAtStart) {
+            New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings:DefaultShell -ProcessArgs $script:Settings:DefaultShellArgs
+        }
+    })
+
+    $script:UI.Window.Add_Closing({ param($sender, $e) Invoke-WindowClosing -Sender $sender -E $e })
+}
+
+function Invoke-WindowClosing {
+    param($sender, $e)
+
+    foreach ($tab in $script:UI.PSTabControl.Items) {
+        if ($tab -ne $script:UI.PSAddTab) {
+            $process = $tab.Tag["Process"]
+            if ($process -ne $null) {
+                try {
+                    $process.Kill()
+                }
+                catch {
+                    Write-Log "Error closing process: $_"
+                }
+            }
+        }
+    }
+    Write-Log "PSGUI is shutting down..."
 }
 
 # Handle the Main Window Add Button click event to add a new RowData object to the collection
