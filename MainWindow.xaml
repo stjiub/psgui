@@ -169,11 +169,11 @@
                         <md:PackIcon Kind="Menu" Foreground="Black"/>
                         <Button.ContextMenu>
                             <ContextMenu Name="ContextMenuMainRunMenu">
-                                <MenuItem Name="MenuItemMainRunExternal" Header="Run External"/>
-                                <MenuItem Name="MenuItemMainRunInternal" Header="Run Internal"/>
-                                <MenuItem Name="MenuItemMainRunReopenLast" Header="Reopen Last"/>
-                                <MenuItem Name="MenuItemMainRunRerunLast" Header="Rerun Last"/>
-                                <MenuItem Name="MenuItemMainRunCopyToClipboard" Header="Copy Last To Clipboard"/>
+                                <MenuItem Name="MenuItemMainRunExternal" Header="Run Externally"/>
+                                <MenuItem Name="MenuItemMainRunInternal" Header="Run Internally"/>
+                                <MenuItem Name="MenuItemMainRunReopenLast" Header="Reopen Last Command"/>
+                                <MenuItem Name="MenuItemMainRunRerunLast" Header="Rerun Last Command"/>
+                                <MenuItem Name="MenuItemMainRunCopyToClipboard" Header="Copy Last Command To Clipboard"/>
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
@@ -194,8 +194,28 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,5">
-                        <Button Name="BtnDetach" Content="Detach" Margin="0,0,5,0" Style="{StaticResource MaterialDesignRaisedButton}" Foreground="White"/>
-                        <Button Name="BtnAttach" Content="Attach" Style="{StaticResource MaterialDesignRaisedButton}" Foreground="White"/>
+                        <Button Name="BtnPSAttachTab" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                            <Button.LayoutTransform>
+                                <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
+                            </Button.LayoutTransform>
+                            <md:PackIcon Kind="Plus" Foreground="Black"/>
+                            <Button.ToolTip>
+                                <ToolTip>
+                                    <TextBlock>Attach PS Window</TextBlock>
+                                </ToolTip>
+                            </Button.ToolTip>
+                        </Button>
+                        <Button Name="BtnPSDetachTab" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                            <Button.LayoutTransform>
+                                <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
+                            </Button.LayoutTransform>
+                            <md:PackIcon Kind="Minus" Foreground="Black"/>
+                            <Button.ToolTip>
+                                <ToolTip>
+                                    <TextBlock>Detach PS Tab</TextBlock>
+                                </ToolTip>
+                            </Button.ToolTip>
+                        </Button>
                     </StackPanel>
                     <TabControl Name="PSTabControl" Grid.Row="1" HorizontalContentAlignment="Left">
                         <TabItem Header="+" Name="PSAddTab"/>
@@ -309,12 +329,6 @@
 
                                 <Label Grid.Row="3" Grid.Column="0" Content="Open Shell At Start:"/>
                                 <CheckBox Grid.Row="3" Grid.Column="1" Name="ChkOpenShellAtStart" Margin="5" VerticalAlignment="Center"/>
-
-                                <Label Grid.Row="4" Grid.Column="0" Content="Extra Column Visibility:"/>
-                                <ComboBox Grid.Row="4" Grid.Column="1" Name="CmbExtraColumnVisibility" Margin="5">
-                                    <ComboBoxItem Content="Visible"/>
-                                    <ComboBoxItem Content="Collapsed"/>
-                                </ComboBox>
                             </Grid>
                         </ScrollViewer>
 
