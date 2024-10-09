@@ -131,7 +131,7 @@ function Register-EventHandlers {
     # Process Tab events
     $script:UI.BtnPSDetachTab.Add_Click({ Detach-CurrentTab })
     $script:UI.BtnPSAttachTab.Add_Click({ Show-AttachWindow })
-    $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({ New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings:DefaultShell -ProcessArgs $script:Settings:DefaultShellArgs })
+    $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({ New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs })
     $script:UI.PSTabControl.Add_SelectionChanged({
         param($sender, $eventArgs)
         $selectedTab = $script:UI.PSTabControl.SelectedItem
@@ -157,7 +157,7 @@ function Register-EventHandlers {
             CommandDialog -Command $command
         }
         if ($script:Settings.OpenShellAtStart) {
-            New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings:DefaultShell -ProcessArgs $script:Settings:DefaultShellArgs
+            New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs
         }
     })
 
@@ -542,7 +542,7 @@ function Run-Command {
     $escapedCommand = $command -replace '"', '\"'
 
     if ($script:State.RunCommandInternal) {
-        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings:DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
     }
     else {
         Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
@@ -1184,16 +1184,16 @@ function Attach-ExternalWindow {
 function Initialize-Settings {
     Load-Settings
     # Update UI elements with loaded settings
-    $script:UI.TxtDefaultShell.Text = $script:Settings:DefaultShell
-    $script:UI.TxtDefaultShellArgs.Text = $script:Settings:DefaultShellArgs
+    $script:UI.TxtDefaultShell.Text = $script:Settings.DefaultShell
+    $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs
     $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
 }
 
 function Create-DefaultSettings {
     $defaultSettings = @{
-        DefaultShell = $script:Settings:DefaultShell
-        DefaultShellArgs = $script:Settings:DefaultShellArgs
+        DefaultShell = $script:Settings.DefaultShell
+        DefaultShellArgs = $script:Settings.DefaultShellArgs
         RunCommandInternal = $script:Settings.DefaultRunCommandInternal
         OpenShellAtStart = $script:Settings.OpenShellAtStart
     }
@@ -1205,8 +1205,8 @@ function Show-SettingsDialog {
     $script:UI.SettingsDialog.Visibility = "Visible"
     
     # Populate current settings
-    $script:UI.TxtDefaultShell.Text = $script:Settings:DefaultShell
-    $script:UI.TxtDefaultShellArgs.Text = $script:Settings:DefaultShellArgs
+    $script:UI.TxtDefaultShell.Text = $script:Settings.DefaultShell
+    $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs
     $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
 }
@@ -1217,8 +1217,8 @@ function Hide-SettingsDialog {
 }
 
 function Apply-Settings {
-    $script:Settings:DefaultShell = $script:UI.TxtDefaultShell.Text
-    $script:Settings:DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
+    $script:Settings.DefaultShell = $script:UI.TxtDefaultShell.Text
+    $script:Settings.DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
     $script:Settings.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
     $script:Settings.OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
 
@@ -1232,8 +1232,8 @@ function Load-Settings {
     $settings = Get-Content $script:ApplicationPaths.SettingsFilePath | ConvertFrom-Json
 
     # Apply loaded settings to script variables
-    $script:Settings:DefaultShell = $settings.DefaultShell
-    $script:Settings:DefaultShellArgs = $settings.DefaultShellArgs
+    $script:Settings.DefaultShell = $settings.DefaultShell
+    $script:Settings.DefaultShellArgs = $settings.DefaultShellArgs
     $script:Settings.DefaultRunCommandInternal = $settings.RunCommandInternal
     $script:Settings.OpenShellAtStart = $settings.OpenShellAtStart
 }
@@ -1242,8 +1242,8 @@ function Load-Settings {
 function Save-Settings {
     try {
         $settings = @{
-            DefaultShell = $script:Settings:DefaultShell
-            DefaultShellArgs = $script:Settings:DefaultShellArgs
+            DefaultShell = $script:Settings.DefaultShell
+            DefaultShellArgs = $script:Settings.DefaultShellArgs
             RunCommandInternal = $script:Settings.DefaultRunCommandInternal
             OpenShellAtStart = $script:Settings.OpenShellAtStart
         }
