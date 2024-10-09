@@ -1,204 +1,106 @@
-param(
-    [string]$StartCommand
-)
-
 # App Version
 $script:Version = "1.2.1"
-
-# Default configurable settings
-$script:DefaultShell = "powershell"
-$script:DefaultShellArgs = "-ExecutionPolicy Bypass -NoExit -Command `" & { [System.Console]::Title = 'PS' } `""
-$script:DefaultRunCommandInternal = $true
-$script:OpenShellAtStart = $false
-$script:StatusTimeout = 3
-$script:SettingsFilePath = Join-Path $env:APPDATA "PSGUI\settings.json"
-
-
-$script:ExtraColumnsVisibility = "Collapsed"
-$script:ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
+$script:AppTitle = "PSGUI - v$($script:Version)"
 
 # Constants
 $script:GWL_STYLE = -16
 $script:WS_BORDERLESS = 0x800000  # WS_POPUP without WS_BORDER, WS_CAPTION, etc.
 $script:WS_OVERLAPPEDWINDOW = 0x00CF0000
 
-# Initialize variables and load resources for application 
-function Initialize() {
-    # Determine app pathing whether running as PS script or EXE
-    if ($PSScriptRoot) {
-        $script:Path = $PSScriptRoot
-    }
-    else {
-        $script:Path = Split-Path -Parent (Convert-Path ([environment]::GetCommandLineArgs()[0]))
-    }
-
-    $script:CurrentCommand = $null
-    $script:LastCommand = $null
-    $script:HighestId = 0
-    $script:TabsReadOnly = $true
-    $script:RunCommandInternal = $script:DefaultRunCommandInternal
-    $script:MainWindowXamlFile = Join-Path $script:Path "MainWindow.xaml"
-    $script:MaterialDesignThemes = Join-Path $script:Path "Assembly\MaterialDesignThemes.Wpf.dll"
-    $script:MaterialDesignColors = Join-Path $script:Path "Assembly\MaterialDesignColors.dll"
-    $script:DefaultConfigFile = Join-Path $script:Path "data.json"
-    $script:IconFile = Join-Path $script:Path "icon.ico"
-    Add-Type -AssemblyName PresentationCore, PresentationFramework
-    Add-Type -AssemblyName WindowsFormsIntegration
-    [Void][System.Reflection.Assembly]::LoadFrom($script:MaterialDesignThemes)
-    [Void][System.Reflection.Assembly]::LoadFrom($script:MaterialDesignColors)
-
-    Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-using System.Text;
-public class Win32 {
-    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
-
-    public static IntPtr FindWindowByProcessId(int processId) {
-        IntPtr foundHandle = IntPtr.Zero;
-
-        EnumWindows(delegate (IntPtr hWnd, IntPtr lParam) {
-            int windowProcessId;
-            GetWindowThreadProcessId(hWnd, out windowProcessId);
-            if (windowProcessId == processId) {
-                foundHandle = hWnd;
-                return false;  // Stop enumerating
-            }
-            return true;  // Continue enumerating
-        }, IntPtr.Zero);
-
-        return foundHandle;
-    }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    
-    [DllImport("user32.dll", SetLastError=true)]
-    public static extern bool SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
-    
-    [DllImport("user32.dll", SetLastError=true)]
-    public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
-
-    [DllImport("user32.dll", SetLastError=true)]
-    public static extern bool SetFocus(IntPtr hWnd);
-
-    [DllImport("user32.dll", SetLastError=true)]
-    public static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+# Settings
+$script:Settings = @{
+    DefaultShell = "powershell"
+    DefaultShellArgs = "-ExecutionPolicy Bypass -NoExit -Command `" & { [System.Console]::Title = 'PS' } `""
+    DefaultRunCommandInternal = $true
+    OpenShellAtStart = $false
+    StatusTimeout = 3
 }
-"@
+
+# Initialize variables and load resources for application 
+function Initialize-Application() {
+    # Determine app pathing whether running as PS script or EXE
+    $script:Path = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent (Convert-Path ([environment]::GetCommandLineArgs()[0])) }
+
+    $script:ApplicationPaths = @{
+        MainWindowXamlFile = Join-Path $script:Path "MainWindow.xaml"
+        MaterialDesignThemes = Join-Path $script:Path "Assembly\MaterialDesignThemes.Wpf.dll"
+        MaterialDesignColors = Join-Path $script:Path "Assembly\MaterialDesignColors.dll"
+        DefaultConfigFile = Join-Path $script:Path "data.json"
+        SettingsFilePath = Join-Path $env:APPDATA "PSGUI\settings.json"
+        IconFile = Join-Path $script:Path "icon.ico"
+        Win32APIFile = Join-Path $script:Path "Win32API.cs"
+    }
+
+    $script:State = @{
+        CurrentConfigFile = $null
+        CurrentCommand = $null
+        LastCommand = $null
+        HighestId = 0
+        TabsReadOnly = $true
+        RunCommandInternal = $script:Settings.DefaultRunCommandInternal
+        ExtraColumnsVisibility = "Collapsed"
+        ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
+    }
+
+    # Load necessary assemblies
+    Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsFormsIntegration
+    [Void][System.Reflection.Assembly]::LoadFrom($script:ApplicationPaths.MaterialDesignThemes)
+    [Void][System.Reflection.Assembly]::LoadFrom($script:ApplicationPaths.MaterialDesignColors)
+
+    # Load Win32 API functions from external file
+    Add-Type -Path $script:ApplicationPaths.Win32APIFile
 }
 
 # Load and process main application window
-function MainWindow {
+function Start-MainWindow {
+    param(
+        [string]$StartCommand
+    )
+
     # We create a new window and load all the window elements to variables of 
     # the same name and assign the window and all its elements under $script:UI 
     # e.g. $script:UI.Window, $script:UI.TabControl
     try {
-        $script:UI = NewWindow -File $script:MainWindowXamlFile -ErrorAction Stop
+        $script:UI = New-Window -File $script:ApplicationPaths.MainWindowXamlFile -ErrorAction Stop
     }
     catch {
-        Show-ErrorMessageBox "Failed to create window from $($script:MainWindowXamlFile): $_"
+        Show-ErrorMessageBox "Failed to create window from $($script:ApplicationPaths.MainWindowXamlFile): $_"
         exit(1)
     }
 
-    InitializeSettings
+    Initialize-Settings
 
-    $script:CurrentConfigFile = $script:DefaultConfigFile
-    $json = LoadConfig $script:CurrentConfigFile
-    $script:HighestId = GetHighestId -Json $json
+    $script:State.CurrentConfigFile = $script:ApplicationPaths.DefaultConfigFile
+    $json = Load-DataFile $script:State.CurrentConfigFile
+    $script:State.HighestId = Get-HighestId -Json $json
     $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
 
-    # The "All" tab is the primary tab and so it must be created first
-    $allTab = NewDataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl
+    # Create tabs and grids
     $script:UI.Tabs = @{}
-    $script:UI.Tabs.Add("All", $allTab)
+    $script:UI.Tabs.Add("All", (New-DataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl))
 
-    # Generate tabs and grids for each category
     foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique)) {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
-        $tab = NewDataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
-        $tab.Content.Add_CellEditEnding({ param($sender,$e) CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
+        $tab = New-DataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
+        $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
         $script:UI.Tabs.Add($category, $tab) 
     }
-    SortTabControl -TabControl $script:UI.TabControl
+    Sort-TabControl -TabControl $script:UI.TabControl
     
-    # Register Main button events
-    $script:UI.BtnMainAdd.Add_Click({ BtnMainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $script:UI.BtnMainRemove.Add_Click({ BtnMainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $script:UI.BtnMainSave.Add_Click({ BtnMainSaveClick -File $script:CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
-    $script:UI.BtnMainEdit.Add_Click({ BtnMainEditClick -Tabs $script:UI.Tabs })
-    $script:UI.BtnMainSettings.Add_Click({ OpenSettingsDialog })
-    $script:UI.BtnMainRun.Add_Click({ BtnMainRunClick -TabControl $script:UI.TabControl })
-    $script:UI.BtnMainRunMenu.Add_Click({ $script:UI.ContextMenuMainRunMenu.IsOpen = $true })
-    $script:UI.MenuItemMainRunExternal.Add_Click({ 
-        $script:RunCommandInternal = $false
-        BtnMainRunClick -TabControl $script:UI.TabControl 
-    })
-    $script:UI.MenuItemMainRunInternal.Add_Click({ 
-        $script:RunCommandInternal = $true
-        BtnMainRunClick -TabControl $script:UI.TabControl 
-    })
-    $script:UI.MenuItemMainRunReopenLast.Add_Click({ if ($script:LastCommand) { CommandDialog -Command $script:LastCommand } })
-    $script:UI.MenuItemMainRunRerunLast.Add_Click({ if ($script:LastCommand) { RunCommand -Command $script:LastCommand.Full } })
-    $script:UI.MenuItemMainRunCopyToClipboard.Add_Click({ if ($script:LastCommand) { CopyToClipBoard -String $script:LastCommand.Full -SnackBar $script:UI.Snackbar } })
-
-    # Register Command dialog button events
-    $script:UI.BtnCommandClose.Add_Click({ CloseCommandDialog })
-    $script:UI.BtnCommandRun.Add_Click({ BtnCommandRunClick -Command $script:CurrentCommand -Grid $script:UI.CommandGrid })
-    $script:UI.BtnCommandCopyToClipboard.Add_Click({ BtnCommandCopyToClipboard -CurrentCommand $script:CurrentCommand -Grid $script:UI.CommandGrid -SnackBar $script:UI.Snackbar })
-    $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:CurrentCommand.Root -ShowWindow })
-
-    # Register Settings dialog button events
-    $script:UI.BtnApplySettings.Add_Click({ ApplySettings })
-    $script:UI.BtnCloseSettings.Add_Click({ CloseSettingsDialog })
-
-    # Register Process Tab events
-    $script:UI.BtnDetach.Add_Click({ DetachCurrentTab })
-    $script:UI.BtnAttach.Add_Click({ ShowAttachWindow })
-    $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({ NewProcessTab -TabControl $script:UI.PSTabControl -Process $script:DefaultShell -ProcessArgs $script:DefaultShellArgs })
-    $script:UI.PSTabControl.Add_SelectionChanged({
-        param($sender, $eventArgs)
-        $selectedTab = $script:UI.PSTabControl.SelectedItem
-        if (($selectedTab) -and ($selectedTab -ne $script:UI.PSAddTab)) {
-            $psHandle = $selectedTab.Tag["Handle"]
-            #[Win32]::SetFocus($psHandle)
-        }
-    })
-    $script:UI.Window.Add_GotFocus({
-        if ($script:UI.PSTabControl.SelectedItem -ne $script:UI.PSAddTab) {
-            $psHandle = $script:UI.PSTabControl.SelectedItem.Tag["Handle"]
-            #[Win32]::SetFocus($psHandle)
-        }
-    })
+    Register-EventHandlers
 
     # Set content and display the window
     $script:UI.Window.Add_Loaded({ 
-        $script:UI.Window.Icon = $script:IconFile
-        $script:UI.Window.Title = "PSGUI - v$($script:Version)"
+        $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
+        $script:UI.Window.Title = $script:AppTitle
         if ($StartCommand) {
             $command = New-Object Command
             $command.Full = ""
             $command.Root = $script:StartCommand
             CommandDialog -Command $command
         }
-        if ($script:OpenShellAtStart) {
-            NewProcessTab -TabControl $script:UI.PSTabControl -Process $script:DefaultShell -ProcessArgs $script:DefaultShellArgs
+        if ($script:Settings.OpenShellAtStart) {
+            New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings:DefaultShell -ProcessArgs $script:Settings:DefaultShellArgs
         }
     })
 
@@ -206,18 +108,77 @@ function MainWindow {
     $script:UI.Window.Dispatcher.InvokeAsync{ $script:UI.Window.ShowDialog() }.Wait() | Out-Null
 }
 
+# Register all GUI events
+function Register-EventHandlers {
+    # Main button events
+    $script:UI.BtnMainAdd.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMainRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMainSave.Add_Click({ Invoke-MainSaveClick -File $script:State.CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
+    $script:UI.BtnMainEdit.Add_Click({ Invoke-MainEditClick -Tabs $script:UI.Tabs })
+    $script:UI.BtnMainSettings.Add_Click({ Show-SettingsDialog })
+    $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
+    $script:UI.BtnMainRunMenu.Add_Click({ $script:UI.ContextMenuMainRunMenu.IsOpen = $true })
+
+    # Run Menu Item events
+    $script:UI.MenuItemMainRunExternal.Add_Click({ 
+        $script:State.RunCommandInternal = $false
+        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+    })
+    $script:UI.MenuItemMainRunInternal.Add_Click({ 
+        $script:State.RunCommandInternal = $true
+        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+    })
+    $script:UI.MenuItemMainRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Start-CommandDialog -Command $script:State.LastCommand } })
+    $script:UI.MenuItemMainRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand.Full } })
+    $script:UI.MenuItemMainRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
+
+    # Command dialog button events
+    $script:UI.BtnCommandClose.Add_Click({ Hide-CommandDialog })
+    $script:UI.BtnCommandRun.Add_Click({ Invoke-CommandRunClick -Command $script:State.CurrentCommand -Grid $script:UI.CommandGrid })
+    $script:UI.BtnCommandCopyToClipboard.Add_Click({ Invoke-CommandCopyToClipboard -CurrentCommand $script:State.CurrentCommand -Grid $script:UI.CommandGrid })
+    $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:State.CurrentCommand.Root -ShowWindow })
+
+    # Settings dialog button events
+    $script:UI.BtnApplySettings.Add_Click({ Apply-Settings })
+    $script:UI.BtnCloseSettings.Add_Click({ Hide-SettingsDialog })
+
+    # Process Tab events
+    $script:UI.BtnPSDetachTab.Add_Click({ Detach-CurrentTab })
+    $script:UI.BtnPSAttachTab.Add_Click({ Show-AttachWindow })
+    $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({ New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings:DefaultShell -ProcessArgs $script:Settings:DefaultShellArgs })
+    $script:UI.PSTabControl.Add_SelectionChanged({
+        param($sender, $eventArgs)
+        $selectedTab = $script:UI.PSTabControl.SelectedItem
+        if (($selectedTab) -and ($selectedTab -ne $script:UI.PSAddTab)) {
+            $psHandle = $selectedTab.Tag["Handle"]
+            [Win32]::SetFocus($psHandle)
+        }
+    })
+    $script:UI.Window.Add_GotFocus({
+        if ($script:UI.PSTabControl.SelectedItem -ne $script:UI.PSAddTab) {
+            $psHandle = $script:UI.PSTabControl.SelectedItem.Tag["Handle"]
+            [Win32]::SetFocus($psHandle)
+        }
+    })
+}
+
 # Handle the Main Window Add Button click event to add a new RowData object to the collection
-function BtnMainAddClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
+function Invoke-MainAddClick {
+    param (
+        [System.Windows.Controls.TabControl]$tabControl,
+        [hashtable]$tabs
+    )
+
     $newRow = New-Object RowData
-    $newRow.Id = ++$script:HighestId
+    $newRow.Id = ++$script:State.HighestId
     $tab = $tabs["All"]
     $grid = $tab.Content
     $grid.ItemsSource.Add($newRow)
     $tabControl.SelectedItem = $tab
     # We don't want to change the tabs read only status if they are already in edit mode
-    if ($script:TabsReadOnly) {
-        SetTabsReadOnlyStatus -Tabs $tabs
-        SetTabsExtraColumnsVisibility -Tabs $tabs
+    if ($script:State.TabsReadOnly) {
+        Set-TabsReadOnlyStatus -Tabs $tabs
+        Set-TabsExtraColumnsVisibility -Tabs $tabs
     }
     $grid.SelectedItem = $newRow
     $grid.ScrollIntoView($newRow)
@@ -225,7 +186,12 @@ function BtnMainAddClick([System.Windows.Controls.TabControl]$tabControl, [hasht
 }
 
 # Handle the Main Window Remove Button click event to remove one or multiple RowData objects from the collection
-function BtnMainRemoveClick([System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
+function Invoke-MainRemoveClick {
+    param (
+        [System.Windows.Controls.TabControl]$tabControl,
+        [hashtable]$tabs
+    )
+
     $allGrid = $tabs["All"].Content
     $allData = $allGrid.ItemsSource
     $grid = $tabControl.SelectedItem.Content
@@ -245,45 +211,50 @@ function BtnMainRemoveClick([System.Windows.Controls.TabControl]$tabControl, [ha
         if ($category) {
             $categoryGrid = $tabs[$category].Content
             $categoryData = $categoryGrid.ItemsSource
-            $categoryIndex = GetGridIndexOfId -Grid $categoryGrid -Id $id
+            $categoryIndex = Get-GridIndexOfId -Grid $categoryGrid -Id $id
             $categoryData.RemoveAt($categoryIndex)
             if ($categoryData.Count -eq 0) {
                 $tabControl.Items.Remove($tabs[$category])
                 $tabs.Remove($category)
             }
         }
-        $allIndex = GetGridIndexOfId -Grid $allGrid -Id $Id
+        $allIndex = Get-GridIndexOfId -Grid $allGrid -Id $Id
         $allData.RemoveAt($allIndex)        
     }
 }
 
 # Handle the Main Save Button click event to save the current RoWData collection to the data file
-function BtnMainSaveClick([string]$filePath, [System.Collections.ObjectModel.ObservableCollection[RowData]]$data, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
+function Invoke-MainSaveClick {
+    param (
+        [string]$filePath,
+        [System.Collections.ObjectModel.ObservableCollection[RowData]]$data
+    )
+
     try {
-        SaveConfig -FilePath $filePath -Data $data
-        WriteStatus "Configuration saved"
+        Save-DataFile -FilePath $filePath -Data $data
+        Write-Status "Configuration saved"
     }
     catch {
-        WriteStatus "Configuration save failed"
+        Write-Status "Configuration save failed"
     }
 }
 
 # Handle the Main Edit Button click event to enable or disable editing of the grids
-function BtnMainEditClick([hashtable]$tabs) {
-    SetTabsReadOnlyStatus -Tabs $tabs
-    SetTabsExtraColumnsVisibility -Tabs $tabs
-}
+function Invoke-MainEditClick {
+    param (
+        [hashtable]$tabs
+    )
 
-# Handle the Main Log Button click event to view or hide the log grid
-function BtnMainLogClick() {
-    switch ($script:UI.LogGrid.Visibility) {
-        "Visible" { $script:UI.LogGrid.Visibility = "Collapsed" }
-        "Collapsed" { $script:UI.LogGrid.Visibility = "Visible" }
-    }
+    Set-TabsReadOnlyStatus -Tabs $tabs
+    Set-TabsExtraColumnsVisibility -Tabs $tabs
 }
 
 # Handle the Main Run Button click event to run the selected command/launch the CommandDialog
-function BtnMainRunClick([System.Windows.Controls.TabControl]$tabControl) {
+function Invoke-MainRunClick {
+    param (
+        [System.Windows.Controls.TabControl]$tabControl
+    )
+
     $grid = $tabControl.SelectedItem.Content
     $selection = $grid.SelectedItems
     $command = New-Object Command
@@ -293,21 +264,28 @@ function BtnMainRunClick([System.Windows.Controls.TabControl]$tabControl) {
 
     if ($command.Root) {
         if ($selection.SkipParameterSelect) {
-            $script:LastCommand = $command
+            $script:State.LastCommand = $command
             if ($command.PreCommand) {
                 $command.Full = $command.PreCommand + "; "
             }
             $command.Full += $command.Root
-            RunCommand $command.Full $script:RunCommandInternal
+            Run-Command $command.Full $script:State.RunCommandInternal
         }
         else {
-            CommandDialog -Command $command
+            Start-CommandDialog -Command $command
         }
     }
 }
 
 # Handle the Cell Edit ending event to make sure all tabs are updated properly for cell changes
-function CellEditEndingHandler($sender, $e, [System.Windows.Controls.TabControl]$tabControl, [hashtable]$tabs) {
+function Invoke-CellEditEndingHandler {
+    param (
+        $sender,
+        $e,
+        [System.Windows.Controls.TabControl]$tabControl,
+        [hashtable]$tabs
+    )
+
     $editedObject = $e.Row.Item
     $category = $editedObject.Category
     $columnHeader = $e.Column.Header
@@ -323,13 +301,13 @@ function CellEditEndingHandler($sender, $e, [System.Windows.Controls.TabControl]
 
     $allGrid = $tabs["All"].Content
     $allData = $allGrid.ItemsSource
-    $allIndex = GetGridIndexOfId -Grid $allGrid -Id $id
+    $allIndex = Get-GridIndexOfId -Grid $allGrid -Id $id
 
     # Sync values between All and Category tabs
     if (-not $newObject) {
         $categoryGrid = $tabs[$category].Content
         $categoryData = $categoryGrid.ItemsSource
-        $categoryIndex = GetGridIndexOfId -Grid $categoryGrid -Id $id
+        $categoryIndex = Get-GridIndexOfId -Grid $categoryGrid -Id $id
         $categoryData[$categoryIndex] = $editedObject
     }
     $allData[$allIndex] = $editedObject
@@ -351,44 +329,56 @@ function CellEditEndingHandler($sender, $e, [System.Windows.Controls.TabControl]
         $newTab = $tabs[$newCategory]
         if (-not $newTab) {
             $itemsSource = New-Object System.Collections.ObjectModel.ObservableCollection[RowData]
-            $newTab = NewDataTab -Name $newCategory -ItemsSource $itemsSource -TabControl $tabControl
+            $newTab = New-DataTab -Name $newCategory -ItemsSource $itemsSource -TabControl $tabControl
             $tabs.Add($newCategory, $newTab)
 
             # Assign the CellEditEnding event to the new tab. We must use $script level vars here for TabControl and Tabs because the way events are handled if we use the local version
             # they will no longer exist when the event actually triggers
-            $newTab.Content.Add_CellEditEnding({ param($sender,$e) CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+            $newTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
         }
         $newTab.Content.ItemsSource.Add($editedObject)
-        SortTabControl -TabControl $tabControl
+        Sort-TabControl -TabControl $tabControl
     }
 }
 
 # Process the CommandDialog dialog grid to show command parameter list
-function CommandDialog([Command]$command) {
+function Start-CommandDialog([Command]$command) {
 
     # If we are rerunning the command then the parameters are already saved
     if (-not $command.Parameters) {
-        ClearGrid $script:UI.CommandGrid
+        Clear-Grid $script:UI.CommandGrid
         # We only want to process the command if it is a PS script or function
-        $type = GetCommandType -Command $command.Root
+        $type = Get-CommandType -Command $command.Root
         if (($type -ne "Function") -and ($type -ne "External Script")) {
             return
         }
 
         # Parse the command for parameters to build command grid with
-        $command.Parameters = GetScriptBlockParameters -Command $command.Root
-        BuildCommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
+        $command.Parameters = Get-ScriptBlockParameters -Command $command.Root
+        Build-CommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
     }
     
     # Assign the command as the current command so that BtnCommandRun can obtain it
-    $script:CurrentCommand = $command
+    $script:State.CurrentCommand = $command
 
     $script:UI.BoxCommandName.Text = $command.Root
-    OpenCommandDialog
+    Show-CommandDialog
+}
+
+# Display the hidden CommandDialog grid
+function Show-CommandDialog {
+    $script:UI.Overlay.Visibility = "Visible"
+    $script:UI.CommandDialog.Visibility = "Visible"
+}
+
+# Hide the CommandDialog grid and clear for reuse
+function Hide-CommandDialog() {
+    $script:UI.CommandDialog.Visibility = "Hidden"
+    $script:UI.Overlay.Visibility = "Collapsed"
 }
 
 # Construct the CommandDialog grid to show the correct content for each parameter
-function BuildCommandGrid([System.Windows.Controls.Grid]$grid, [System.Object[]]$parameters) {
+function Build-CommandGrid([System.Windows.Controls.Grid]$grid, [System.Object[]]$parameters) {
     for ($i = 0; $i -lt $parameters.Count; $i++) {
         $param = $parameters[$i]
         $paramName = $param.Name.VariablePath
@@ -408,61 +398,49 @@ function BuildCommandGrid([System.Windows.Controls.Grid]$grid, [System.Object[]]
         }
         $isMandatory = [System.Convert]::ToBoolean($param.Attributes.NamedArguments.Argument.VariablePath.Userpath)
 
-        $label = NewLabel -Content $paramName -HAlign "Left" -VAlign "Center"
-        AddToGrid -Grid $Grid -Element $label
-        SetGridPosition -Element $label -Row $i -Column 0
-        $label.ToolTip = NewToolTip -Content ""
+        $label = New-Label -Content $paramName -HAlign "Left" -VAlign "Center"
+        Add-ToGrid -Grid $Grid -Element $label
+        Set-GridPosition -Element $label -Row $i -Column 0
+        $label.ToolTip = New-ToolTip -Content ""
 
         # Set asterisk next to values that are mandatory
         if ($isMandatory) {
-            $asterisk = NewLabel -Content "*" -HAlign "Right" -VAlign "Center"
+            $asterisk = New-Label -Content "*" -HAlign "Right" -VAlign "Center"
             $asterisk.Foreground = "Red"
-            AddToGrid -Grid $Grid -Element $asterisk
-            SetGridPosition -Element $asterisk -Row $i -Column 1
+            Add-ToGrid -Grid $Grid -Element $asterisk
+            Set-GridPosition -Element $asterisk -Row $i -Column 1
         }
 
-        if (ContainsAttributeType -Parameter $param -TypeName "ValidateSet") {
+        if (Test-AttributeType -Parameter $param -TypeName "ValidateSet") {
             # Get valid values from validate set and create dropdown box of them
-            $validValues = GetValidateSetValues -Parameter $param
+            $validValues = Get-ValidateSetValues -Parameter $param
             $paramSource = $validValues -split "','"
-            $box = NewComboBox -Name $paramName -ItemsSource $paramSource -SelectedItem $paramDefault
+            $box = New-ComboBox -Name $paramName -ItemsSource $paramSource -SelectedItem $paramDefault
         }
-        elseif (ContainsAttributeType -Parameter $param -TypeName "switch") {
+        elseif (Test-AttributeType -Parameter $param -TypeName "switch") {
             # If switch is true by default then check the box
             if ($param.DefaultValue) {
-                $box = NewCheckBox -Name $paramName -IsChecked $true
+                $box = New-CheckBox -Name $paramName -IsChecked $true
             }
             else {
-                $box = NewCheckBox -Name $paramName -IsChecked $false
+                $box = New-CheckBox -Name $paramName -IsChecked $false
             }
         }
         else {
             # Fill text box with any default values
-            $box = NewTextBox -Name $paramName -Text $paramDefault
+            $box = New-TextBox -Name $paramName -Text $paramDefault
         }
-        AddToGrid -Grid $Grid -Element $box
-        SetGridPosition -Element $box -Row $i -Column 2
+        Add-ToGrid -Grid $Grid -Element $box
+        Set-GridPosition -Element $box -Row $i -Column 2
     }
 }
 
-# Display the hidden CommandDialog grid
-function OpenCommandDialog {
-    $script:UI.Overlay.Visibility = "Visible"
-    $script:UI.CommandDialog.Visibility = "Visible"
-}
-
-# Hide the CommandDialog grid and clear for reuse
-function CloseCommandDialog() {
-    $script:UI.CommandDialog.Visibility = "Hidden"
-    $script:UI.Overlay.Visibility = "Collapsed"
-}
-
-function ClearGrid([System.Windows.Controls.Grid]$grid) {
+function Clear-Grid([System.Windows.Controls.Grid]$grid) {
     $grid.Children.Clear()
     $grid.RowDefinitions.Clear()
 }
 
-function CompileCommand([Command]$command, [System.Windows.Controls.Grid]$grid) {
+function Compile-Command([Command]$command, [System.Windows.Controls.Grid]$grid) {
     # Clear if it existed from rerunning previous command
     if ($command.PreCommand) {
         $command.Full = $command.PreCommand + "; "
@@ -478,12 +456,12 @@ function CompileCommand([Command]$command, [System.Windows.Controls.Grid]$grid) 
         $paramName = $param.Name.VariablePath
         $selection = $grid.Children | Where-Object { $_.Name -eq $paramName }
         
-        if (ContainsAttributeType -Parameter $param -TypeName "ValidateSet") {
+        if (Test-AttributeType -Parameter $param -TypeName "ValidateSet") {
             if ($selection.SelectedItem) {
                 $args[$paramName] = $selection.SelectedItem.ToString()
             }
         }
-        elseif (ContainsAttributeType -Parameter $param -TypeName "switch") {
+        elseif (Test-AttributeType -Parameter $param -TypeName "switch") {
             if ($selection.IsChecked) {
                 $isSwitch = $true
             }
@@ -508,89 +486,111 @@ function CompileCommand([Command]$command, [System.Windows.Controls.Grid]$grid) 
 }
 
 # Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
-function BtnCommandRunClick([Command]$command, [System.Windows.Controls.Grid]$grid) {
-    CompileCommand -Command $command -Grid $grid
-    $script:LastCommand = $command
-    RunCommand $command.Full $script:DefaultRunCommandInternal
-    CloseCommandDialog
+function Invoke-CommandRunClick {
+    param (
+        [Command]$command,
+        [System.Windows.Controls.Grid]$grid
+    )
+
+    Compile-Command -Command $command -Grid $grid
+    $script:State.LastCommand = $command
+    Run-Command $command.Full $script:Settings.DefaultRunCommandInternal
+    Hide-CommandDialog
 }
 
-function BtnCommandCopyToClipboard([command]$currentCommand, [System.Windows.Controls.Grid]$grid, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
+function Invoke-CommandCopyToClipboard {
+    param (
+        [command]$currentCommand,
+        [System.Windows.Controls.Grid]$grid
+    )
+
     if ($currentCommand) {
-        CompileCommand -Command $currentCommand -Grid $grid 
-        CopyToClipBoard -String $currentCommand.Full -SnackBar $snackbar
+        Compile-Command -Command $currentCommand -Grid $grid 
+        Copy-ToClipboard -String $currentCommand.Full
     }
 }
 
-# Execute a command string in an external PowerShell window
-function RunCommand([string]$command) {      
-    WriteLog "Running: $command"
-    # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
-    $command = $command -replace '"', '\"'
+# Execute a command string
+function Run-Command {
+    param (
+        [string]$command
+    )    
 
-    if ($script:RunCommandInternal) {
-        NewProcessTab -TabControl $script:UI.PSTabControl -Process $script:DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $command } `""
+    Write-Log "Running: $command"
+    # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
+    $escapedCommand = $command -replace '"', '\"'
+
+    if ($script:State.RunCommandInternal) {
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings:DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
     }
     else {
-        Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $command } `""
+        Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
     }
-    $script:RunCommandInternal = $script:DefaultRunCommandInternal
+    $script:State.RunCommandInternal = $script:Settings.DefaultRunCommandInternal
 }
 
 # Determine the PowerShell command type (Function,Script,Cmdlet)
-function GetCommandType([string]$command) {
-    $type = (Get-Command $command).CommandType 
-    return $type
+function Get-CommandType {
+    param (
+        [string]$command
+    )
+    
+    return (Get-Command $command).CommandType 
 }
 
 # Parse the command's script block to extract parameter info
-function GetScriptBlockParameters([string]$command) {
+function Get-ScriptBlockParameters {
+    param (
+        [string]$command
+    )
+
     $scriptBlock = (Get-Command $command).ScriptBlock
     $parsed = [System.Management.Automation.Language.Parser]::ParseInput($scriptBlock.ToString(), [ref]$null, [ref]$null)
-    $parameters = $parsed.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)
-
-    return $parameters
+    return $parsed.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)
 }
 
 # Determine if a parameter contains a certain attribute type (Switch,ValidateSet)
-function ContainsAttributeType([System.Management.Automation.Language.ParameterAst]$parameter, [string]$typeName) {
-    foreach ($attribute in $parameter.Attributes) {
-        if ($attribute.TypeName.FullName -eq $typeName) {
-            return $true
-        }
-    }
-    return $false
+function Test-AttributeType {
+    param (
+        [System.Management.Automation.Language.ParameterAst]$parameter,
+        [string]$typeName
+    )
+
+    return $parameter.Attributes | Where-Object { $_.TypeName.FullName -eq $typeName }
 }
 
 # Retrieve the list of values from a parameter's ValidateSet 
-function GetValidateSetValues([System.Management.Automation.Language.ParameterAst]$parameter) {
-    # Start with an empty string value so that we can "deselect" values when
-    # displayed in the drop-down box
-    $validValues = [System.Collections.ArrayList]@("")
+function Get-ValidateSetValues {
+    param (
+        [System.Management.Automation.Language.ParameterAst]$parameter
+    )
 
-    # Check if the parameter has ValidateSet attribute
-    foreach ($attribute in $parameter.Attributes) {
-        if ($attribute.TypeName.FullName -eq 'ValidateSet') {
-            $values = $attribute.PositionalArguments
-            break
-        }
-    }
+    $validValues = [System.Collections.ArrayList]@("")
+    $values = ($parameter.Attributes | Where-Object { $_.TypeName.FullName -eq 'ValidateSet' }).PositionalArguments
     foreach ($value in $values) {
-        # We need to convert from AST object to string so we can remove extra quotes
         $valueStr = $($value.ToString()).Replace("'","").Replace("`"","")
         [void]$validValues.Add($valueStr)
     }
-
     return $validValues
 }
 
 # Add a WPF element to a grid
-function AddToGrid([System.Windows.Controls.Grid]$grid, $element) {
+function Add-ToGrid {
+    param (
+        [System.Windows.Controls.Grid]$grid,
+        $element
+    )
+
     [void]$grid.Children.Add($element)
 }
 
 # Determine a grid row index of a specific command id on a particular datagrid
-function GetGridIndexOfId([System.Windows.Controls.DataGrid]$grid, [int]$id) {
+function Get-GridIndexOfId {
+    param (
+        [System.Windows.Controls.DataGrid]$grid,
+        [int]$id
+    )
+
     $itemsSource = $grid.ItemsSource
     $index = -1
     for ($i = 0; $i -lt $itemsSource.Count; $i++) {
@@ -603,7 +603,14 @@ function GetGridIndexOfId([System.Windows.Controls.DataGrid]$grid, [int]$id) {
 }
 
 # Assign the row/column position of a WPF element to a grid
-function SetGridPosition([System.Windows.Controls.Control]$element, [int]$row, [int]$column, [int]$columnSpan) {
+function Set-GridPosition {
+    param (
+        [System.Windows.Controls.Control]$element,
+        [int]$row,
+        [int]$column,
+        [int]$columnSpan
+    )
+
     if ($row) {
         [System.Windows.Controls.Grid]::SetRow($element, $row)
     }
@@ -616,43 +623,53 @@ function SetGridPosition([System.Windows.Controls.Control]$element, [int]$row, [
 }
 
 # Enable or disable editing of all main datagrids and update the visual status of the edit button to match
-function SetTabsReadOnlyStatus([hashtable]$tabs) {
-    $script:UI.BtnMainEdit.IsChecked = $script:TabsReadOnly
-    $script:TabsReadOnly = (-not $script:TabsReadOnly)
+function Set-TabsReadOnlyStatus {
+    param (
+        [hashtable]$tabs
+    )
+
+    $script:UI.BtnMainEdit.IsChecked = $script:State.TabsReadOnly
+    $script:State.TabsReadOnly = (-not $script:State.TabsReadOnly)
     foreach ($tab in $tabs.GetEnumerator()) {
-        $grid = $tab.Value.Content
-        $grid.IsReadOnly = $script:TabsReadOnly
+        $tab.Value.Content.IsReadOnly = $script:State.TabsReadOnly
     }
 }
 
 # Show or hide the 'extra columns' on all tabs' grids
-function SetTabsExtraColumnsVisibility([hashtable]$tabs) {
-    switch ($script:ExtraColumnsVisibility) {
-        "Visible" { $script:ExtraColumnsVisibility = "Collapsed" }
-        "Collapsed" { $script:ExtraColumnsVisibility = "Visible" }
-    }
+function Set-TabsExtraColumnsVisibility {
+    param (
+        [hashtable]$tabs
+    )
+
+    $script:State.ExtraColumnsVisibility = if ($script:State.ExtraColumnsVisibility -eq "Visible") { "Collapsed" } else { "Visible" }
     foreach ($tab in $tabs.GetEnumerator()) {
-        $grid = $tab.Value.Content
-        SetGridExtraColumnsVisibility -Grid $grid
+        Set-GridExtraColumnsVisibility -Grid $tab.Value.Content
     }
 }
 
 # Show or hide the 'extra columns' on a single grid
-function SetGridExtraColumnsVisibility([System.Windows.Controls.DataGrid]$grid) {
+function Set-GridExtraColumnsVisibility {
+    param (
+        [System.Windows.Controls.DataGrid]$grid
+    )
+    
     foreach ($column in $grid.Columns) {
-        foreach ($extraCol in $script:ExtraColumns) {
+        foreach ($extraCol in $script:State.ExtraColumns) {
             if ($column.Header -eq $extraCol) {
-                $column.Visibility = $script:ExtraColumnsVisibility
+                $column.Visibility = $script:State.ExtraColumnsVisibility
             }
         }
     }
 }
 
 # Sort the order of the tabs in tab control alphabetically by their header
-function SortTabControl([System.Windows.Controls.TabControl]$tabControl) {
-    $tabItems = $tabControl.Items
-    $allTabItem = $tabItems | Where-Object { $_.Header -eq "All" }
-    $sortedTabItems = $tabItems | Where-Object { $_.Header -ne "All" } | Sort-Object -Property { $_.Header.ToString() }
+function Sort-TabControl {
+    param (
+        [System.Windows.Controls.TabControl]$tabControl
+    )
+
+    $allTabItem = $tabControl.Items | Where-Object { $_.Header -eq "All" }
+    $sortedTabItems = $tabControl.Items | Where-Object { $_.Header -ne "All" } | Sort-Object -Property { $_.Header.ToString() }
     $tabControl.Items.Clear()
     [void]$tabControl.Items.Add($allTabItem)
     foreach ($tabItem in $sortedTabItems) {
@@ -661,7 +678,12 @@ function SortTabControl([System.Windows.Controls.TabControl]$tabControl) {
 }
 
 # Sort a grid alphabetically by a specific column
-function SortGridByColumn([System.Windows.Controls.DataGrid]$grid, [string]$columnName) {
+function Sort-GridByColumn {
+    param (
+        [System.Windows.Controls.DataGrid]$grid,
+        [string]$columnName
+    )
+
     $grid.Items.SortDescriptions.Clear()
     $sort = New-Object System.ComponentModel.SortDescription($columnName, [System.ComponentModel.ListSortDirection]::Ascending)
     $grid.Items.SortDescriptions.Add($sort)
@@ -669,25 +691,31 @@ function SortGridByColumn([System.Windows.Controls.DataGrid]$grid, [string]$colu
 }
 
 # Determine the current highest Id that exists in the collection
-function GetHighestId([System.Object[]]$json) {
-    $highest = 0
-    foreach ($value in ($json | Select-Object -ExpandProperty id -Unique)) {
-        if ($value -gt $greatest) {
-            $highest = $value
-        }
-    }
-    return $highest
+function Get-HighestId {
+    param (
+        [System.Object[]]$json
+    )
+    return ($json | Measure-Object -Property Id -Maximum).Maximum
 }
 
 # Copy a string to the system clipboard
-function CopyToClipBoard([string]$string, [MaterialDesignThemes.Wpf.Snackbar]$snackbar) {
-    WriteLog "Copied to clipboard: $string"
-    NewSnackBar -Snackbar $snackbar -Text "Copied to clipboard"
+function Copy-ToClipboard {
+    param (
+        [string]$string,
+        [MaterialDesignThemes.Wpf.Snackbar]$snackbar
+    )
+
+    Write-Log "Copied to clipboard: $string"
+    Write-Status "Copied to clipboard"
     Set-ClipBoard -Value $string
 }
 
 # Create a new WPF window from an XML file and load all WPF elements and return them under one variable
-function NewWindow([string]$filePath) {
+function New-Window {
+    param (
+        [string]$filePath
+    )
+
     try {
         [xml]$xaml = (Get-Content $filePath)
         $window = New-Object System.Collections.Hashtable
@@ -708,39 +736,30 @@ function NewWindow([string]$filePath) {
     }
 }
 
-# Create new popup snackbar message
-function NewSnackBar([MaterialDesignThemes.Wpf.Snackbar]$snackbar, [string]$text, [string]$caption) {
-    try {
-        $queue = New-Object MaterialDesignThemes.Wpf.SnackbarMessageQueue
-        $queue.DiscardDuplicates = $true
-        if ($caption) {       
-            $queue.Enqueue($text, $caption, {$null}, $null, $false, $false, [TimeSpan]::FromHours(9999))
-        }
-        else {
-            $queue.Enqueue($text, $null, $null, $null, $false, $false, $null)
-        }
-        $snackbar.MessageQueue = $queue
-    }
-    catch {
-        Write-Error "No MessageQueue was declared in the window.`n$_"
-    }
-}
-
 # Create new tabitem element
-function NewTab([string]$name) {
+function New-Tab {
+    param (
+        [string]$name
+    )
+
     $tabItem = New-Object System.Windows.Controls.TabItem
     $tabItem.Header = $name
     return $tabItem
 }
 
 # Create new datagrid element for the main window
-function NewDataGrid([string]$name, [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource) {
+function New-DataGrid {
+    param (
+        [string]$name,
+        [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource
+    )
+
     $grid = New-Object System.Windows.Controls.DataGrid
     $grid.Name = $name
     $grid.Margin = New-Object System.Windows.Thickness(5)
     $grid.ItemsSource = $itemsSource
     $grid.CanUserAddRows = $false
-    $grid.IsReadOnly = $script:TabsReadOnly
+    $grid.IsReadOnly = $script:State.TabsReadOnly
 
     # Rather than autogenerate columns we want to manually create them based on the properties of RowData
     # as autogenerated columns cannot have their visibility set
@@ -753,22 +772,34 @@ function NewDataGrid([string]$name, [System.Collections.ObjectModel.ObservableCo
         $column.Binding = New-Object System.Windows.Data.Binding $prop.Name
         $grid.Columns.Add($column)
     }
-    SetGridExtraColumnsVisibility -Grid $grid
-    SortGridByColumn -Grid $grid -ColumnName "Name"
+    Set-GridExtraColumnsVisibility -Grid $grid
+    Sort-GridByColumn -Grid $grid -ColumnName "Name"
     return $grid
 }
 
 # Create a new tabitem that contains a datagrid and assign to the main tabcontrol
-function NewDataTab([string]$name, [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource, [System.Windows.Controls.TabControl]$tabControl) {
-    $grid = NewDataGrid -Name $name -ItemsSource $itemsSource
-    $tab = NewTab -Name $name
+function New-DataTab {
+    param (
+        [string]$name,
+        [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource,
+        [System.Windows.Controls.TabControl]$tabControl
+    )
+
+    $grid = New-DataGrid -Name $name -ItemsSource $itemsSource
+    $tab = New-Tab -Name $name
     $tab.Content = $grid
     [void]$tabControl.Items.Add($tab)
     return $tab
 }
 
 # Create a new text label element
-function NewLabel([string]$content, [string]$halign, [string]$valign) {
+function New-Label {
+    param (
+        [string]$content,
+        [string]$halign,
+        [string]$valign
+    )
+
     $label = New-Object System.Windows.Controls.Label
     $label.Content = $content
     $label.HorizontalAlignment = $halign
@@ -778,14 +809,24 @@ function NewLabel([string]$content, [string]$halign, [string]$valign) {
 }
 
 # Create a new tooltip element
-function NewToolTip([string]$content) {
+function New-ToolTip {
+    param (
+        [string]$content
+    )
+
     $tooltip = New-Object System.Windows.Controls.ToolTip
     $tooltip.Content = $content
     return $tooltip
 }
 
 # Create a new combo box element
-function NewComboBox([string]$name, [System.String[]]$itemsSource, [string]$selectedItem) {
+function New-ComboBox {
+    param (
+        [string]$name,
+        [System.String[]]$itemsSource,
+        [string]$selectedItem
+    )
+
     $comboBox = New-Object System.Windows.Controls.ComboBox
     $comboBox.Name = $name
     $comboBox.Margin = New-Object System.Windows.Thickness(5)
@@ -795,7 +836,12 @@ function NewComboBox([string]$name, [System.String[]]$itemsSource, [string]$sele
 }
 
 # Create a new text box element
-function NewTextBox([string]$name, [string]$text) {
+function New-TextBox {
+    param (
+        [string]$name,
+        [string]$text
+    )
+
     $textBox = New-Object System.Windows.Controls.TextBox
     $textBox.Name = $name
     $textBox.Margin = New-Object System.Windows.Thickness(5)
@@ -804,7 +850,12 @@ function NewTextBox([string]$name, [string]$text) {
 }
 
 # Create a new check box element
-function NewCheckBox([string]$name, [bool]$isChecked) {
+function New-CheckBox {
+    param (
+        [string]$name,
+        [bool]$isChecked
+    )
+
     $checkbox = New-Object System.Windows.Controls.CheckBox
     $checkbox.Name = $name
     $checkbox.IsChecked = $isChecked
@@ -812,7 +863,13 @@ function NewCheckBox([string]$name, [bool]$isChecked) {
 }
 
 # Create a new button element
-function NewButton([string]$content, [string]$halign, [int]$width) {
+function New-Button {
+    param (
+        [string]$content,
+        [string]$halign,
+        [int]$width
+    )
+    
     $button = New-Object System.Windows.Controls.Button
     $button.Content = $content
     $button.Margin = New-Object System.Windows.Thickness(10)
@@ -822,12 +879,12 @@ function NewButton([string]$content, [string]$halign, [int]$width) {
     return $button
 }
 
-function ResetRunCommandDefaultLocation(){
-    $script:RunCommandInternal = $script:DefaultRunCommandInternal
-}
-
 # Create a blank data file if it doesn't already exist
-function InitializeConfig([string]$filePath) {
+function Initialize-DataFile {
+    param (
+        [string]$filePath
+    )
+
     if (-not (Test-Path $filePath)) {
         try {
             New-Item -Path $filePath -ItemType "File" | Out-Null
@@ -840,7 +897,11 @@ function InitializeConfig([string]$filePath) {
 }
 
 # Load an existing data file
-function LoadConfig([string]$filePath) {
+function Load-DataFile {
+    param (
+        [string]$filePath
+    )
+
     try {
         [string]$contentRaw = (Get-Content $filePath -Raw -ErrorAction Stop)
         if ($contentRaw) {
@@ -859,7 +920,11 @@ function LoadConfig([string]$filePath) {
 }
 
 # Save the data collection to the data file
-function SaveConfig([string]$filePath, [System.Collections.ObjectModel.ObservableCollection[RowData]]$data) {
+function Save-DataFile {
+    param (
+        [string]$filePath
+    )
+
     try {
         $populatedRows = $data | Where-Object { $_.Name -ne $null }
         $json = ConvertTo-Json $populatedRows
@@ -872,24 +937,41 @@ function SaveConfig([string]$filePath, [System.Collections.ObjectModel.Observabl
 }
 
 # Show a GUI error popup so important or application breaking errors can be seen
-function Show-ErrorMessageBox([string]$message) {
+function Show-ErrorMessageBox {
+    param (
+        [string]$message
+    )
+
     Write-Error $message
     [System.Windows.MessageBox]::Show($message, "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
 }
 
 # Write text to the LogBox
-function WriteLog([string]$output) {
+function Write-Log {
+    param (
+        [string]$output
+    )
+
     $script:UI.Window.Dispatcher.Invoke([action]{$script:UI.LogBox.AppendText("$output`n")}, "Normal")
 }
 
-function WriteStatus([string]$output) {
+function Write-Status {
+    param (
+        [string]$output
+    )
+
     $script:UI.Window.Dispatcher.Invoke([action]{$script:UI.StatusBox.Text = $output}, "Normal")
     $script:UI.Window.Dispatcher.Invoke([action]{$script:UI.LogBox.AppendText("$output`n")}, "Normal")
     #Start-Sleep -Seconds $script:StatusTimeout; 
     #$script:UI.Window.Dispatcher.Invoke([action]{$script.UI.StatusBox.Text = ""}, "Normal")
 }
 
-function NewProcessTab($tabControl, $process, $processArgs) {
+function New-ProcessTab {
+    param (
+        $tabControl,
+        $process,
+        $processArgs
+    )
 
     $proc = Start-Process $process -WindowStyle Hidden -PassThru -ArgumentList $processArgs
     
@@ -898,11 +980,11 @@ function NewProcessTab($tabControl, $process, $processArgs) {
     # Find the window handle of the PowerShell process using process ID
     $psHandle = [Win32]::FindWindowByProcessId($proc.Id)
     if ($psHandle -eq [IntPtr]::Zero) {
-        WriteLog "Failed to retrieve the PowerShell window handle for process ID: $($proc.Id)."
+        Write-Log "Failed to retrieve the PowerShell window handle for process ID: $($proc.Id)."
         return
     }
 
-    $tab = NewTab -Name "PS_$($tabControl.Items.Count)"
+    $tab = New-Tab -Name "PS_$($tabControl.Items.Count)"
     $tabData = @{}
     $tabData["Handle"] = $psHandle
     $tabData["Process"] = $proc
@@ -922,8 +1004,8 @@ function NewProcessTab($tabControl, $process, $processArgs) {
     #$tabControl.SelectedItem = $tab
 
     # Remove window frame (title bar, borders) by modifying window style
-    $currentStyle = [Win32]::GetWindowLong($psHandle, $GWL_STYLE)
-    [Win32]::SetWindowLong($psHandle, $GWL_STYLE, $currentStyle -band -0x00C00000)  # Remove WS_CAPTION and WS_THICKFRAME
+    $currentStyle = [Win32]::GetWindowLong($psHandle, $script:GWL_STYLE)
+    [Win32]::SetWindowLong($psHandle, $script:GWL_STYLE, $currentStyle -band -0x00C00000)  # Remove WS_CAPTION and WS_THICKFRAME
 
     # Re-parent the PowerShell window to the panel
     [Win32]::SetParent($psHandle, $panel.Handle)
@@ -938,7 +1020,7 @@ function NewProcessTab($tabControl, $process, $processArgs) {
             [Win32]::MoveWindow($handle, 0, 0, $sender.Width, $sender.Height, $true)
         }
         else {
-            WriteLog "Invalid window handle in SizeChanged event."
+            Write-Log "Invalid window handle in SizeChanged event."
         }
     })
 
@@ -959,7 +1041,7 @@ function NewProcessTab($tabControl, $process, $processArgs) {
     })
 }
 
-function DetachCurrentTab {
+function Detach-CurrentTab {
     $selectedTab = $script:UI.PSTabControl.SelectedItem
     if ($selectedTab -and $selectedTab -ne $script:UI.PSAddTab) {
         $psHandle = $selectedTab.Tag["Handle"]
@@ -982,7 +1064,7 @@ function DetachCurrentTab {
     }
 }
 
-function ShowAttachWindow {
+function Show-AttachWindow {
     $attachWindow = New-Object System.Windows.Window
     $attachWindow.Title = "Attach PowerShell Window"
     $attachWindow.Width = 400
@@ -1015,7 +1097,7 @@ function ShowAttachWindow {
         $selectedItem = $listBox.SelectedItem
         if ($selectedItem) {
             $proc = $selectedItem.Tag
-            AttachExternalWindow -Process $proc
+            Attach-ExternalWindow -Process $proc
             $attachWindow.Close()
         }
     })
@@ -1023,7 +1105,7 @@ function ShowAttachWindow {
     $attachWindow.ShowDialog()
 }
 
-function AttachExternalWindow {
+function Attach-ExternalWindow {
     param (
         [System.Diagnostics.Process]$Process
     )
@@ -1035,7 +1117,7 @@ function AttachExternalWindow {
     $style = $style -band -bnot $script:WS_OVERLAPPEDWINDOW
     [Win32]::SetWindowLong($psHandle, $script:GWL_STYLE, $style)
 
-    $tab = NewTab -Name "PS_$($script:UI.PSTabControl.Items.Count)"
+    $tab = New-Tab -Name "PS_$($script:UI.PSTabControl.Items.Count)"
     $tabData = @{}
     $tabData["Handle"] = $psHandle
     $tabData["Process"] = $Process
@@ -1064,7 +1146,7 @@ function AttachExternalWindow {
             [Win32]::MoveWindow($handle, 0, 0, $sender.Width, $sender.Height, $true)
         }
         else {
-            WriteLog "Invalid window handle in SizeChanged event."
+            Write-Log "Invalid window handle in SizeChanged event."
         }
     })
 
@@ -1073,93 +1155,93 @@ function AttachExternalWindow {
         param($sender, $eventArgs)
         if ($eventArgs.ChangedButton -eq 'Right') {
             $script:UI.PSTabControl.Items.Remove($sender)
-            DetachCurrentTab
+            Detach-CurrentTab
         }
     })
 }
 
-function InitializeSettings {
-    LoadSettings
+function Initialize-Settings {
+    Load-Settings
     # Update UI elements with loaded settings
-    $script:UI.TxtDefaultShell.Text = $script:DefaultShell
-    $script:UI.TxtDefaultShellArgs.Text = $script:DefaultShellArgs
-    $script:UI.ChkRunCommandInternal.IsChecked = $script:DefaultRunCommandInternal
-    $script:UI.ChkOpenShellAtStart.IsChecked = $script:OpenShellAtStart
+    $script:UI.TxtDefaultShell.Text = $script:Settings:DefaultShell
+    $script:UI.TxtDefaultShellArgs.Text = $script:Settings:DefaultShellArgs
+    $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
+    $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
 }
 
-function CreateDefaultSettings {
+function Create-DefaultSettings {
     $defaultSettings = @{
-        DefaultShell = $script:DefaultShell
-        DefaultShellArgs = $script:DefaultShellArgs
-        RunCommandInternal = $script:DefaultRunCommandInternal
-        OpenShellAtStart = $script:OpenShellAtStart
+        DefaultShell = $script:Settings:DefaultShell
+        DefaultShellArgs = $script:Settings:DefaultShellArgs
+        RunCommandInternal = $script:Settings.DefaultRunCommandInternal
+        OpenShellAtStart = $script:Settings.OpenShellAtStart
     }
     return $defaultSettings
 }
 
-function OpenSettingsDialog {
+function Show-SettingsDialog {
     $script:UI.Overlay.Visibility = "Visible"
     $script:UI.SettingsDialog.Visibility = "Visible"
     
     # Populate current settings
-    $script:UI.TxtDefaultShell.Text = $script:DefaultShell
-    $script:UI.TxtDefaultShellArgs.Text = $script:DefaultShellArgs
-    $script:UI.ChkRunCommandInternal.IsChecked = $script:DefaultRunCommandInternal
-    $script:UI.ChkOpenShellAtStart.IsChecked = $script:OpenShellAtStart
+    $script:UI.TxtDefaultShell.Text = $script:Settings:DefaultShell
+    $script:UI.TxtDefaultShellArgs.Text = $script:Settings:DefaultShellArgs
+    $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
+    $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
 }
 
-function CloseSettingsDialog {
+function Hide-SettingsDialog {
     $script:UI.SettingsDialog.Visibility = "Hidden"
     $script:UI.Overlay.Visibility = "Collapsed"
 }
 
-function ApplySettings {
-    $script:DefaultShell = $script:UI.TxtDefaultShell.Text
-    $script:DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
-    $script:DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
-    $script:OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
+function Apply-Settings {
+    $script:Settings:DefaultShell = $script:UI.TxtDefaultShell.Text
+    $script:Settings:DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
+    $script:Settings.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
+    $script:Settings.OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
 
-    SaveSettings
-    CloseSettingsDialog
+    Save-Settings
+    Hide-SettingsDialog
 }
 
 # Load settings from file
-function LoadSettings {
-    EnsureSettingsFileExists
-    $settings = Get-Content $script:SettingsFilePath | ConvertFrom-Json
+function Load-Settings {
+    Ensure-SettingsFileExists
+    $settings = Get-Content $script:ApplicationPaths.SettingsFilePath | ConvertFrom-Json
 
     # Apply loaded settings to script variables
-    $script:DefaultShell = $settings.DefaultShell
-    $script:DefaultShellArgs = $settings.DefaultShellArgs
-    $script:DefaultRunCommandInternal = $settings.RunCommandInternal
-    $script:OpenShellAtStart = $settings.OpenShellAtStart
+    $script:Settings:DefaultShell = $settings.DefaultShell
+    $script:Settings:DefaultShellArgs = $settings.DefaultShellArgs
+    $script:Settings.DefaultRunCommandInternal = $settings.RunCommandInternal
+    $script:Settings.OpenShellAtStart = $settings.OpenShellAtStart
 }
 
 # Save settings to file
-function SaveSettings {
+function Save-Settings {
     try {
         $settings = @{
-            DefaultShell = $script:DefaultShell
-            DefaultShellArgs = $script:DefaultShellArgs
-            RunCommandInternal = $script:DefaultRunCommandInternal
-            OpenShellAtStart = $script:OpenShellAtStart
+            DefaultShell = $script:Settings:DefaultShell
+            DefaultShellArgs = $script:Settings:DefaultShellArgs
+            RunCommandInternal = $script:Settings.DefaultRunCommandInternal
+            OpenShellAtStart = $script:Settings.OpenShellAtStart
         }
-        $settings | ConvertTo-Json | Set-Content $script:SettingsFilePath
-        WriteStatus "Settings saved"
+        $settings | ConvertTo-Json | Set-Content $script:ApplicationPaths.SettingsFilePath
+        Write-Status "Settings saved"
     }
     catch {
-        WriteStatus "Failed to save settings"
+        Write-Status "Failed to save settings"
     }
 }
 
-function EnsureSettingsFileExists {
-    $settingsDir = Split-Path $script:SettingsFilePath -Parent
+function Ensure-SettingsFileExists {
+    $settingsDir = Split-Path $script:ApplicationPaths.SettingsFilePath -Parent
     if (-not (Test-Path $settingsDir)) {
         New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
     }
-    if (-not (Test-Path $script:SettingsFilePath)) {
-        $defaultSettings = CreateDefaultSettings
-        $defaultSettings | ConvertTo-Json | Set-Content $script:SettingsFilePath
+    if (-not (Test-Path $script:ApplicationPaths.SettingsFilePath)) {
+        $defaultSettings = Create-DefaultSettings
+        $defaultSettings | ConvertTo-Json | Set-Content $script:ApplicationPaths.SettingsFilePath
     }
 }
 
@@ -1182,6 +1264,12 @@ class Command {
     [System.Object[]]$Parameters
 }
 
-# Run the application
-Initialize
-MainWindow
+function Start-Application {
+    param(
+        [string]$StartCommand
+    )
+    Initialize-Application
+    Start-MainWindow -StartCommand $StartCommand
+}
+
+Start-Application
