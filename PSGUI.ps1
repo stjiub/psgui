@@ -77,7 +77,9 @@ function Start-MainWindow {
 
     # Create tabs and grids
     $script:UI.Tabs = @{}
-    $script:UI.Tabs.Add("All", (New-DataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl))
+    $allTab = New-DataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl
+    $allTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.Tabs.Add("All", $allTab)
 
     foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique)) {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
@@ -1004,6 +1006,7 @@ function New-ProcessTab {
         Write-Log "Failed to retrieve the PowerShell window handle for process ID: $($proc.Id)."
         return
     }
+
 
     $tab = New-Tab -Name "PS_$($tabControl.Items.Count)"
     $tabData = @{}
