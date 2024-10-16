@@ -117,7 +117,7 @@ function Register-EventHandlers {
         Invoke-MainRunClick -TabControl $script:UI.TabControl 
     })
     $script:UI.MenuItemMainRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Start-CommandDialog -Command $script:State.LastCommand } })
-    $script:UI.MenuItemMainRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand.Full } })
+    $script:UI.MenuItemMainRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
     $script:UI.MenuItemMainRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
 
     # Command dialog button events
@@ -292,7 +292,7 @@ function Invoke-MainRunClick {
                 $command.Full = $command.PreCommand + "; "
             }
             $command.Full += $command.Root
-            Run-Command $command.Full $script:State.RunCommandInternal
+            Run-Command $command $script:State.RunCommandInternal
         }
         else {
             Start-CommandDialog -Command $command
@@ -517,7 +517,7 @@ function Invoke-CommandRunClick {
 
     Compile-Command -Command $command -Grid $grid
     $script:State.LastCommand = $command
-    Run-Command $command.Full $script:Settings.DefaultRunCommandInternal
+    Run-Command $command $script:Settings.DefaultRunCommandInternal
     Hide-CommandDialog
 }
 
@@ -536,15 +536,16 @@ function Invoke-CommandCopyToClipboard {
 # Execute a command string
 function Run-Command {
     param (
-        [string]$command
+        [Command]$command
     )    
 
-    Write-Log "Running: $command"
+    Write-Log "Running: $($command.Root)"
+
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
-    $escapedCommand = $command -replace '"', '\"'
+    $escapedCommand = $command.Full -replace '"', '\"'
 
     if ($script:State.RunCommandInternal) {
-        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root
     }
     else {
         Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
@@ -993,7 +994,8 @@ function New-ProcessTab {
     param (
         $tabControl,
         $process,
-        $processArgs
+        $processArgs,
+        $tabName = "PS_$($tabControl.Items.Count)"
     )
 
     $proc = Start-Process $process -WindowStyle Hidden -PassThru -ArgumentList $processArgs
@@ -1007,8 +1009,7 @@ function New-ProcessTab {
         return
     }
 
-
-    $tab = New-Tab -Name "PS_$($tabControl.Items.Count)"
+    $tab = New-Tab -Name $tabName
     $tabData = @{}
     $tabData["Handle"] = $psHandle
     $tabData["Process"] = $proc
