@@ -89,9 +89,20 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="10 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
+                <Button Name="BtnMainFavorite" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform ScaleX="1.5" ScaleY="1.5"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="Star" Foreground="Gold"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Add/Remove Favorite</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
                 <Button Name="BtnMainAdd" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
                     <Button.LayoutTransform>
-                        <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
+                        <ScaleTransform ScaleX="1.5" ScaleY="1.5"/>
                     </Button.LayoutTransform>
                     <md:PackIcon Kind="AddBox" Foreground="Green"/>
                     <Button.ToolTip>
@@ -100,7 +111,7 @@
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>
-                <Button Name="BtnMainRemove" VerticalAlignment="Center" Style="{StaticResource ActionButton}" Background="Transparent" >
+                <Button Name="BtnMainRemove" VerticalAlignment="Center" Style="{StaticResource ActionButton}" Background="Transparent">
                     <Button.LayoutTransform>
                         <ScaleTransform ScaleX="1.5" ScaleY="1.5"/>
                     </Button.LayoutTransform>
@@ -108,6 +119,28 @@
                     <Button.ToolTip>
                         <ToolTip>
                             <TextBlock>Remove Selected Command(s)</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
+                <Button Name="BtnMainMoveUp" Visibility="Collapsed" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform ScaleX="1.5" ScaleY="1.5"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="ArrowUpBold" Foreground="Black"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Move Favorite Up</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
+                <Button Name="BtnMainMoveDown" Visibility="Collapsed" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform ScaleX="1.5" ScaleY="1.5"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="ArrowDownBold" Foreground="Black"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Move Favorite Down</TextBlock>
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>
@@ -320,8 +353,11 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
@@ -344,6 +380,45 @@
 
                                 <Label Grid.Row="4" Grid.Column="0" Content="Default Logs Path:"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Name="TxtDefaultLogsPath" Margin="5"/>
+                                <Button Grid.Row="4" Grid.Column="2" Name="BtnBrowseLogs" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                                    <Button.LayoutTransform>
+                                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                                    </Button.LayoutTransform>
+                                    <md:PackIcon Kind="FileFind" Foreground="Black"/>
+                                    <Button.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock>Change Path</TextBlock>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                </Button>
+
+                                <Label Grid.Row="5" Grid.Column="0" Content="Settings Path:"/>
+                                <TextBox Grid.Row="5" Grid.Column="1" Name="TxtSettingsPath" Margin="5"/>
+                                <Button Grid.Row="5" Grid.Column="2" Name="BtnBrowseSettings" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                                    <Button.LayoutTransform>
+                                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                                    </Button.LayoutTransform>
+                                    <md:PackIcon Kind="FileFind" Foreground="Black"/>
+                                    <Button.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock>Change Path</TextBlock>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                </Button>
+
+                                <Label Grid.Row="6" Grid.Column="0" Content="Favorites Path:"/>
+                                <TextBox Grid.Row="6" Grid.Column="1" Name="TxtFavoritesPath" Margin="5"/>
+                                <Button Grid.Row="6" Grid.Column="2" Name="BtnBrowseFavorites" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                                    <Button.LayoutTransform>
+                                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                                    </Button.LayoutTransform>
+                                    <md:PackIcon Kind="FileFind" Foreground="Black"/>
+                                    <Button.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock>Change Path</TextBlock>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                </Button>
                             </Grid>
                         </ScrollViewer>
 

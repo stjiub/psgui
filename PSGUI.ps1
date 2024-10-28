@@ -15,6 +15,8 @@ $script:Settings = @{
     OpenShellAtStart = $false
     StatusTimeout = 3
     DefaultLogsPath = "\\esd189.org\dfs\wpkg\AdminScripts\logs"
+    SettingsPath = Join-Path $env:APPDATA "PSGUI\settings.json"
+    FavoritesPath = Join-Path $env:APPDATA "PSGUI\favorites.json"
 }
 
 # Initialize variables and load resources for application 
@@ -37,10 +39,19 @@ function Initialize-Application() {
         CurrentCommand = $null
         LastCommand = $null
         HighestId = 0
+        FavoritesHighestOrder = 0
         TabsReadOnly = $true
         RunCommandInternal = $script:Settings.DefaultRunCommandInternal
         ExtraColumnsVisibility = "Collapsed"
         ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
+        UpDownButtons = @{
+            Up = $null
+            Down = $null
+        }
+        AddRemoveButtons = @{
+            Add = $null
+            Remove = $null
+        }
     }
 
     # Load necessary assemblies
@@ -82,6 +93,27 @@ function Start-MainWindow {
     $allTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.Tabs.Add("All", $allTab)
 
+    $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
+    $loadedFavorites = Load-Favorites -AllData $json
+    foreach ($fav in $loadedFavorites) {
+        $favItemsSource.Add($fav)
+    }
+    $favTab = New-DataTab -Name "*" -ItemsSource $favItemsSource -TabControl $script:UI.TabControl
+    $favTab.Content.Add_CellEditEnding({ 
+        param($sender,$e) 
+        if ($e.Column.Header -eq "Order") {
+            # Special handling for Order changes
+            $favorites = $sender.ItemsSource
+            Save-Favorites -Favorites $favorites
+        } else {
+            Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs 
+        }
+    })
+    $script:UI.Tabs.Add("Favorites", $favTab)
+    if ($favItemsSource -eq $null) {
+        $script:UI.TabControl.SelectedItem = $allTab
+    }
+
     foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique)) {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
         $tab = New-DataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
@@ -102,8 +134,11 @@ function Register-EventHandlers {
     # Main button events
     $script:UI.BtnMainAdd.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMainRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $script:UI.BtnMainSave.Add_Click({ Invoke-MainSaveClick -File $script:State.CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
+    $script:UI.BtnMainMoveUp.Add_Click({ Move-FavoriteItem -Direction "Up" })
+    $script:UI.BtnMainMoveDown.Add_Click({ Move-FavoriteItem -Direction "Down" })
+    $script:UI.BtnMainSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
     $script:UI.BtnMainEdit.Add_Click({ Invoke-MainEditClick -Tabs $script:UI.Tabs })
+    $script:UI.BtnMainFavorite.Add_Click({  Invoke-MainFavoriteClick })
     $script:UI.BtnMainSettings.Add_Click({ Show-SettingsDialog })
     $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
     $script:UI.BtnMainRunMenu.Add_Click({ $script:UI.ContextMenuMainRunMenu.IsOpen = $true })
@@ -128,8 +163,17 @@ function Register-EventHandlers {
     $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:State.CurrentCommand.Root -ShowWindow })
 
     # Settings dialog button events
+    $script:UI.BtnBrowseLogs.Add_Click({ Invoke-BrowseLogs })
+    $script:UI.BtnBrowseSettings.Add_Click({ Invoke-BrowseSettings })
+    $script:UI.BtnBrowseFavorites.Add_Click({ Invoke-BrowseFavorites })
     $script:UI.BtnApplySettings.Add_Click({ Apply-Settings })
     $script:UI.BtnCloseSettings.Add_Click({ Hide-SettingsDialog })
+
+    # Main Tab Control events
+    $script:UI.TabControl.Add_SelectionChanged({
+        param($sender, $e)
+        Handle-TabSelection -SelectedTab $sender.SelectedItem
+    })
 
     # Process Tab events
     $script:UI.BtnPSDetachTab.Add_Click({ Detach-CurrentTab })
@@ -172,6 +216,9 @@ function Register-EventHandlers {
 
 function Invoke-WindowClosing {
     param($sender, $e)
+
+    $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
+    Save-Favorites -Favorites $favorites
 
     foreach ($tab in $script:UI.PSTabControl.Items) {
         if ($tab -ne $script:UI.PSAddTab) {
@@ -250,22 +297,6 @@ function Invoke-MainRemoveClick {
     }
 }
 
-# Handle the Main Save Button click event to save the current RoWData collection to the data file
-function Invoke-MainSaveClick {
-    param (
-        [string]$filePath,
-        [System.Collections.ObjectModel.ObservableCollection[RowData]]$data
-    )
-
-    try {
-        Save-DataFile -FilePath $filePath -Data $data
-        Write-Status "Configuration saved"
-    }
-    catch {
-        Write-Status "Configuration save failed"
-    }
-}
-
 # Handle the Main Edit Button click event to enable or disable editing of the grids
 function Invoke-MainEditClick {
     param (
@@ -274,6 +305,29 @@ function Invoke-MainEditClick {
 
     Set-TabsReadOnlyStatus -Tabs $tabs
     Set-TabsExtraColumnsVisibility -Tabs $tabs
+}
+
+function Invoke-MainFavoriteClick {
+    $selectedTab = $script:UI.TabControl.SelectedItem
+    $grid = $selectedTab.Content
+    $selectedItem = $grid.SelectedItem
+
+    if ($selectedItem) {
+        $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
+        $existingFavorite = $favorites | Where-Object { $_.Id -eq $selectedItem.Id }
+
+        if ($existingFavorite) {
+            [void]$favorites.Remove($existingFavorite)
+            Write-Status "Removed from favorites"
+        }
+        else {
+            $script:State.FavoritesHighestOrder++
+            $favoriteRow = [FavoriteRowData]::new($selectedItem, $script:State.FavoritesHighestOrder)
+            [void]$favorites.Add($favoriteRow)
+            Write-Status "Added to favorites"
+        }
+        Save-Favorites -Favorites $favorites
+    }
 }
 
 # Handle the Main Run Button click event to run the selected command/launch the CommandDialog
@@ -301,6 +355,25 @@ function Invoke-MainRunClick {
         else {
             Start-CommandDialog -Command $command
         }
+    }
+}
+
+function Invoke-TabControlSelectionChanged {
+    param($sender, $e)
+        
+    $selectedTab = $sender.SelectedItem
+    if ($selectedTab.Header -eq "*") {
+        # Show Up/Down buttons, hide Add/Remove buttons
+        $script:UI.BtnMainMoveUp.Visibility = "Visible"
+        $script:UI.BtnMainMoveDown.Visibility = "Visible"
+        $script:UI.BtnMainAdd.Visibility = "Collapsed"
+        $script:UI.BtnMainRemove.Visibility = "Collapsed"
+    } else {
+        # Hide Up/Down buttons, show Add/Remove buttons
+        $script:UI.BtnMainMoveUp.Visibility = "Collapsed"
+        $script:UI.BtnMainMoveDown.Visibility = "Collapsed"
+        $script:UI.BtnMainAdd.Visibility = "Visible"
+        $script:UI.BtnMainRemove.Visibility = "Visible"
     }
 }
 
@@ -671,23 +744,73 @@ function Set-TabsExtraColumnsVisibility {
 
     $script:State.ExtraColumnsVisibility = if ($script:State.ExtraColumnsVisibility -eq "Visible") { "Collapsed" } else { "Visible" }
     foreach ($tab in $tabs.GetEnumerator()) {
-        Set-GridExtraColumnsVisibility -Grid $tab.Value.Content
+        Set-GridExtraColumnsVisibility -Grid $tab.Value.Content -TabHeader $tab.Value.Header
     }
 }
 
 # Show or hide the 'extra columns' on a single grid
 function Set-GridExtraColumnsVisibility {
     param (
-        [System.Windows.Controls.DataGrid]$grid
+        [System.Windows.Controls.DataGrid]$grid,
+        [string]$tabHeader
     )
     
     foreach ($column in $grid.Columns) {
+        # Handle regular extra columns
         foreach ($extraCol in $script:State.ExtraColumns) {
             if ($column.Header -eq $extraCol) {
                 $column.Visibility = $script:State.ExtraColumnsVisibility
             }
         }
+        
+        # Special handling for Order column in Favorites tab
+        if ($tabHeader -eq "*" -and $column.Header -eq "Order") {
+            $column.Visibility = $script:State.ExtraColumnsVisibility
+        }
     }
+}
+
+function Update-ButtonVisibility {
+    param (
+        [string]$tabHeader
+    )
+    
+    if ($tabHeader -eq "*") {
+        # Show Up/Down buttons, hide Add/Remove buttons
+        $script:UI.BtnMainMoveUp.Visibility = "Visible"
+        $script:UI.BtnMainMoveDown.Visibility = "Visible"
+        $script:UI.BtnMainAdd.Visibility = "Collapsed"
+        $script:UI.BtnMainRemove.Visibility = "Collapsed"
+    } else {
+        # Hide Up/Down buttons, show Add/Remove buttons
+        $script:UI.BtnMainMoveUp.Visibility = "Collapsed"
+        $script:UI.BtnMainMoveDown.Visibility = "Collapsed"
+        $script:UI.BtnMainAdd.Visibility = "Visible"
+        $script:UI.BtnMainRemove.Visibility = "Visible"
+    }
+}
+
+function Update-OrderColumnVisibility {
+    param (
+        [System.Windows.Controls.TabItem]$selectedTab
+    )
+
+    if ($selectedTab.Header -eq "*") {
+        $grid = $selectedTab.Content
+        $orderColumn = $grid.Columns | Where-Object { $_.Header -eq "Order" }
+        if ($orderColumn) {
+            $orderColumn.Visibility = $script:State.ExtraColumnsVisibility
+        }
+    }
+}
+
+function Handle-TabSelection {
+    param (
+        [System.Windows.Controls.TabItem]$selectedTab
+    )
+
+    Update-ButtonVisibility -TabHeader $selectedTab.Header
+    Update-OrderColumnVisibility -SelectedTab $selectedTab
 }
 
 # Sort the order of the tabs in tab control alphabetically by their header
@@ -696,9 +819,12 @@ function Sort-TabControl {
         [System.Windows.Controls.TabControl]$tabControl
     )
 
+    $favTabItem = $tabControl.Items | Where-Object { $_.Header -eq "*" }
     $allTabItem = $tabControl.Items | Where-Object { $_.Header -eq "All" }
-    $sortedTabItems = $tabControl.Items | Where-Object { $_.Header -ne "All" } | Sort-Object -Property { $_.Header.ToString() }
+    $sortedTabItems = $tabControl.Items | Where-Object { $_.Header -ne "*" -and $_.Header -ne "All" } | Sort-Object -Property { $_.Header.ToString() }
+    
     $tabControl.Items.Clear()
+    [void]$tabControl.Items.Add($favTabItem)
     [void]$tabControl.Items.Add($allTabItem)
     foreach ($tabItem in $sortedTabItems) {
         [void]$tabControl.Items.Add($tabItem)
@@ -779,37 +905,133 @@ function New-Tab {
 function New-DataGrid {
     param (
         [string]$name,
-        [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource
+        [System.Collections.ObjectModel.ObservableCollection[Object]]$itemsSource
+    )
+
+    $grid = New-DataGridBase -Name $name -ItemsSource $itemsSource
+    
+    $isFavorites = $name -eq "*"
+    $propertyType = Get-GridPropertyType -Name $name -ItemsSource $itemsSource
+    
+    Add-GridColumns -Grid $grid -PropertyType $propertyType -IsFavorites $isFavorites
+    Set-GridExtraColumnsVisibility -Grid $grid -TabHeader $name
+    Set-GridSorting -Grid $grid -IsFavorites $isFavorites
+    Add-GridValidation -Grid $grid -IsFavorites $isFavorites
+    
+    return $grid
+}
+
+function New-DataGridBase {
+    param (
+        [string]$name,
+        [System.Collections.ObjectModel.ObservableCollection[Object]]$itemsSource
     )
 
     $grid = New-Object System.Windows.Controls.DataGrid
-    $grid.Name = $name
+    $grid.Name = $name.Replace("*", "_")
     $grid.Margin = New-Object System.Windows.Thickness(5)
     $grid.ItemsSource = $itemsSource
     $grid.CanUserAddRows = $false
     $grid.IsReadOnly = $script:State.TabsReadOnly
-
-    # Rather than autogenerate columns we want to manually create them based on the properties of RowData
-    # as autogenerated columns cannot have their visibility set
     $grid.AutoGenerateColumns = $false
-    $rowType = [RowData]
-    $properties = $rowType.GetProperties()
+    
+    return $grid
+}
+
+function Get-GridPropertyType {
+    param (
+        [string]$name,
+        [System.Collections.ObjectModel.ObservableCollection[Object]]$itemsSource
+    )
+    
+    $isFavorites = $name -eq "*"
+    if ($isFavorites) {
+        return [FavoriteRowData]
+    }
+    return [RowData]
+}
+
+function New-GridColumn {
+    param (
+        [string]$propertyName,
+        [bool]$isFavorites
+    )
+
+    $column = New-Object System.Windows.Controls.DataGridTextColumn
+    $column.Header = $propertyName
+    $column.Binding = New-Object System.Windows.Data.Binding $propertyName
+    
+    if ($propertyName -eq "Order") {
+        $column.IsReadOnly = $false
+        $column.Visibility = $script:State.ExtraColumnsVisibility
+    }
+    
+    return $column
+}
+
+function Add-GridColumns {
+    param (
+        [System.Windows.Controls.DataGrid]$grid,
+        [type]$propertyType,
+        [bool]$isFavorites
+    )
+
+    $properties = $propertyType.GetProperties()
     foreach ($prop in $properties) {
-        $column = New-Object System.Windows.Controls.DataGridTextColumn
-        $column.Header = $prop.Name
-        $column.Binding = New-Object System.Windows.Data.Binding $prop.Name
+        # Skip the Order property for non-Favorites tabs
+        if (-not $isFavorites -and $prop.Name -eq "Order") {
+            continue
+        }
+        
+        $column = New-GridColumn -PropertyName $prop.Name -IsFavorites $isFavorites
         $grid.Columns.Add($column)
     }
-    Set-GridExtraColumnsVisibility -Grid $grid
-    Sort-GridByColumn -Grid $grid -ColumnName "Name"
-    return $grid
+}
+
+function Add-GridValidation {
+    param (
+        [System.Windows.Controls.DataGrid]$grid,
+        [bool]$isFavorites
+    )
+    
+    if ($isFavorites) {
+        $grid.Add_CellEditEnding({
+            param($sender, $e)
+            if ($e.Column.Header -eq "Order") {
+                try {
+                    $newValue = [int]($e.EditingElement.Text)
+                    if ($newValue -lt 1) {
+                        $e.Cancel = $true
+                        return
+                    }
+                }
+                catch {
+                    $e.Cancel = $true
+                    return
+                }
+            }
+        })
+    }
+}
+
+function Set-GridSorting {
+    param (
+        [System.Windows.Controls.DataGrid]$grid,
+        [bool]$isFavorites
+    )
+    
+    if (-not $isFavorites) {
+        Sort-GridByColumn -Grid $grid -ColumnName "Name"
+    } else {
+        Sort-GridByColumn -Grid $grid -ColumnName "Order"
+    }
 }
 
 # Create a new tabitem that contains a datagrid and assign to the main tabcontrol
 function New-DataTab {
     param (
         [string]$name,
-        [System.Collections.ObjectModel.ObservableCollection[RowData]]$itemsSource,
+        [System.Collections.ObjectModel.ObservableCollection[Object]]$itemsSource,
         [System.Windows.Controls.TabControl]$tabControl
     )
 
@@ -934,33 +1156,63 @@ function Load-DataFile {
         [string]$contentRaw = (Get-Content $filePath -Raw -ErrorAction Stop)
         if ($contentRaw) {
             [array]$contentJson = $contentRaw | ConvertFrom-Json
-            return $contentJson
+            
+            # Convert JSON objects to RowData objects
+            $rowDataCollection = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
+            foreach ($item in $contentJson) {
+                $rowData = [RowData]::new()
+                $rowData.Id = $item.Id
+                $rowData.Name = $item.Name
+                $rowData.Description = $item.Description
+                $rowData.Category = $item.Category
+                $rowData.Command = $item.Command
+                $rowData.SkipParameterSelect = $item.SkipParameterSelect
+                $rowData.PreCommand = $item.PreCommand
+                $rowDataCollection.Add($rowData)
+            }
+            return $rowDataCollection
         }
         else {
-            Write-Verbose "Config file $filePath is empty."
-            return
+            Write-Verbose "Data file $filePath is empty."
+            return [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
         }
     }
     catch {
-        Show-ErrorMessageBox("Failed to load configuration from: $filePath")
-        return
+        Write-Error "Failed to load data from: $filePath"
+        Write-Log "Failed to load data: $_"
+        return [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
     }
 }
 
 # Save the data collection to the data file
 function Save-DataFile {
     param (
-        [string]$filePath
+        [string]$filePath,
+        [System.Collections.ObjectModel.ObservableCollection[Object]]$data
     )
 
     try {
-        $populatedRows = $data | Where-Object { $_.Name -ne $null }
+        # Filter out unpopulated rows and convert to plain objects for JSON serialization
+        $populatedRows = $data | Where-Object { $_.Name -ne $null } | ForEach-Object {
+            @{
+                Id = $_.Id
+                Name = $_.Name
+                Description = $_.Description
+                Category = $_.Category
+                Command = $_.Command
+                SkipParameterSelect = $_.SkipParameterSelect
+                PreCommand = $_.PreCommand
+            }
+        }
+        
         $json = ConvertTo-Json $populatedRows
         Set-Content -Path $filePath -Value $json
+        Write-Status "Data saved"
     }
     catch {
-        Show-ErrorMessageBox("Failed to save configuration to: $filePath")
-        return
+        Write-Error "Failed to save data to: $filePath"
+        Write-Log "Failed to save data: $_"
+        throw
     }
 }
 
@@ -1294,6 +1546,8 @@ function Create-DefaultSettings {
         RunCommandInternal = $script:Settings.DefaultRunCommandInternal
         OpenShellAtStart = $script:Settings.OpenShellAtStart
         DefaultLogsPath = $script:Settings.DefaultLogsPath
+        SettingsPath = $script:Settings.SettingsPath
+        FavoritesPath = $script:Settings.FavoritesPath
     }
     return $defaultSettings
 }
@@ -1308,7 +1562,11 @@ function Show-SettingsDialog {
     $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs
     $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
+    $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
+    $script:UI.TxtSettingsPath.Text = $script:Settings.SettingsPath
+    $script:UI.TxtFavoritesPath.Text = $script:Settings.FavoritesPath
 }
+
 
 function Hide-SettingsDialog {
     $script:UI.SettingsDialog.Visibility = "Hidden"
@@ -1318,9 +1576,11 @@ function Hide-SettingsDialog {
 function Apply-Settings {
     $script:Settings.DefaultShell = $script:UI.TxtDefaultShell.Text
     $script:Settings.DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
-    $script:Settings.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
+    $script:UI.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
     $script:Settings.OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
     $script:Settings.DefaultLogsPath = $script:UI.TxtDefaultLogsPath.Text
+    $script:Settings.SettingsPath = $script:UI.TxtSettingsPath.Text
+    $script:Settings.FavoritesPath = $script:UI.TxtFavoritesPath.Text
 
     Save-Settings
     Hide-SettingsDialog
@@ -1329,42 +1589,174 @@ function Apply-Settings {
 # Load settings from file
 function Load-Settings {
     Ensure-SettingsFileExists
-    $settings = Get-Content $script:ApplicationPaths.SettingsFilePath | ConvertFrom-Json
+    $settings = Get-Content $script:Settings.SettingsPath | ConvertFrom-Json
 
     # Apply loaded settings to script variables
     $script:Settings.DefaultShell = $settings.DefaultShell
     $script:Settings.DefaultShellArgs = $settings.DefaultShellArgs
     $script:Settings.DefaultRunCommandInternal = $settings.RunCommandInternal
     $script:Settings.OpenShellAtStart = $settings.OpenShellAtStart
+    $script:Settings.DefaultLogsPath = $settings.DefaultLogsPath
+    $script:Settings.SettingsPath = $settings.SettingsPath
+    $script:Settings.FavoritesPath = $settings.FavoritesPath
 }
 
 # Save settings to file
 function Save-Settings {
     try {
+        $settingsDir = Split-Path $script:Settings.SettingsPath -Parent
+        if (-not (Test-Path $settingsDir)) {
+            New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
+        }
+
         $settings = @{
             DefaultShell = $script:Settings.DefaultShell
             DefaultShellArgs = $script:Settings.DefaultShellArgs
             RunCommandInternal = $script:Settings.DefaultRunCommandInternal
             OpenShellAtStart = $script:Settings.OpenShellAtStart
+            DefaultLogsPath = $script:Settings.DefaultLogsPath
+            SettingsPath = $script:Settings.SettingsPath
+            FavoritesPath = $script:Settings.FavoritesPath
         }
-        $settings | ConvertTo-Json | Set-Content $script:ApplicationPaths.SettingsFilePath
+        
+        $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
         Write-Status "Settings saved"
     }
     catch {
         Write-Status "Failed to save settings"
+        Write-Log "Failed to save settings: $_"
     }
 }
 
 # Check if settings file exists and if not create it with default settings
 function Ensure-SettingsFileExists {
-    $settingsDir = Split-Path $script:ApplicationPaths.SettingsFilePath -Parent
+    $settingsDir = Split-Path $script:Settings.SettingsPath -Parent
     if (-not (Test-Path $settingsDir)) {
         New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
     }
-    if (-not (Test-Path $script:ApplicationPaths.SettingsFilePath)) {
+    if (-not (Test-Path $script:Settings.SettingsPath)) {
         $defaultSettings = Create-DefaultSettings
-        $defaultSettings | ConvertTo-Json | Set-Content $script:ApplicationPaths.SettingsFilePath
+        $defaultSettings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
     }
+}
+
+function Invoke-BrowseLogs {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.SelectedPath = $script:UI.TxtDefaultLogsPath.Text
+    if ($dialog.ShowDialog() -eq 'OK') {
+        $script:UI.TxtDefaultLogsPath.Text = $dialog.SelectedPath
+    }
+}
+
+function Invoke-BrowseSettings {
+    $dialog = New-Object Microsoft.Win32.SaveFileDialog
+    $dialog.FileName = $script:UI.TxtSettingsPath.Text
+    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dialog.DefaultExt = ".json"
+    if ($dialog.ShowDialog()) {
+        $script:UI.TxtSettingsPath.Text = $dialog.FileName
+    }
+}
+
+function Invoke-BrowseFavorites {
+    $dialog = New-Object Microsoft.Win32.SaveFileDialog
+    $dialog.FileName = $script:UI.TxtFavoritesPath.Text
+    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dialog.DefaultExt = ".json"
+    if ($dialog.ShowDialog()) {
+        $script:UI.TxtFavoritesPath.Text = $dialog.FileName
+    }
+}
+function Save-Favorites {
+    param (
+        [System.Collections.ObjectModel.ObservableCollection[Object]]$favorites
+    )
+    
+    try {
+        $favoritesDir = Split-Path $script:Settings.FavoritesPath -Parent
+        if (-not (Test-Path $favoritesDir)) {
+            New-Item -ItemType Directory -Path $favoritesDir -Force | Out-Null
+        }
+
+        # Only save the Id and Order to keep the file minimal
+        $favoriteData = $favorites | Select-Object Id, Order
+        $favoriteData | ConvertTo-Json | Set-Content $script:Settings.FavoritesPath
+        Write-Status "Favorites saved"
+    }
+    catch {
+        Write-Status "Failed to save favorites"
+        Write-Log "Failed to save favorites: $_"
+    }
+}
+
+function Load-Favorites {
+    param (
+        [System.Collections.ObjectModel.ObservableCollection[RowData]]$allData
+    )
+
+    try {
+        if (Test-Path $script:Settings.FavoritesPath) {
+            $favoriteData = Get-Content $script:Settings.FavoritesPath | ConvertFrom-Json
+            $favorites = @()
+            
+            foreach ($fav in $favoriteData | Sort-Object Order) {
+                $rowData = $allData | Where-Object { $_.Id -eq $fav.Id }
+                if ($rowData) {
+                    $favoriteRow = [FavoriteRowData]::new($rowData, $fav.Order)
+                    $favorites += $favoriteRow
+                    if ($fav.Order -gt $script:State.FavoritesHighestOrder) {
+                        $script:State.FavoritesHighestOrder = $fav.Order
+                    }
+                }
+            }
+            return $favorites
+        }
+    }
+    catch {
+        Write-Log "Failed to load favorites: $_"
+        return @()
+    }
+    return @()
+}
+
+function Move-FavoriteItem {
+    param (
+        [string]$direction
+    )
+    
+    $grid = $script:UI.Tabs["Favorites"].Content
+    $selectedItem = $grid.SelectedItem
+    if (-not $selectedItem) { return }
+    
+    $itemsSource = $grid.ItemsSource
+    $currentIndex = $itemsSource.IndexOf($selectedItem)
+    $count = $itemsSource.Count
+    
+    # Calculate new index based on direction
+    $newIndex = if ($direction -eq "Up") {
+        if ($currentIndex -eq 0) { $count - 1 } else { $currentIndex - 1 }
+    } else {
+        if ($currentIndex -eq ($count - 1)) { 0 } else { $currentIndex + 1 }
+    }
+    
+    # Store current orders
+    $currentOrder = $selectedItem.Order
+    $swapWithItem = $itemsSource[$newIndex]
+    $swapWithOrder = $swapWithItem.Order
+    
+    # Swap order numbers
+    $selectedItem.Order = $swapWithOrder
+    $swapWithItem.Order = $currentOrder
+    
+    # Remove from current position and insert at new position
+    $itemsSource.RemoveAt($currentIndex)
+    $itemsSource.Insert($newIndex, $selectedItem)
+    
+    # Keep the moved item selected
+    $grid.SelectedItem = $selectedItem
+    $grid.ScrollIntoView($selectedItem)
+    
+    Save-Favorites -Favorites $itemsSource
 }
 
 # Define the RowData object. This is the object that is used on all the Main window tabitem grids
@@ -1376,6 +1768,21 @@ class RowData {
     [string]$Command
     [bool]$SkipParameterSelect
     [string]$PreCommand
+}
+
+class FavoriteRowData : RowData {
+    [int]$Order
+
+    FavoriteRowData([RowData]$rowData, [int]$order) {
+        $this.Id = $rowData.Id
+        $this.Name = $rowData.Name
+        $this.Description = $rowData.Description
+        $this.Category = $rowData.Category
+        $this.Command = $rowData.Command
+        $this.SkipParameterSelect = $rowData.SkipParameterSelect
+        $this.PreCommand = $rowData.PreCommand
+        $this.Order = $order
+    }
 }
 
 # Define the Command object. This is used by the CommandDialog to construct the grid and run the command
