@@ -223,8 +223,19 @@
                 </Grid>
             </TabItem>
             <TabItem Header="Log">
-                <Grid ClipToBounds="True">
-                    <TextBox Name="LogBox" BorderThickness="0" Background="LightGray" Foreground="Black"  VerticalScrollBarVisibility="Visible" TextWrapping="Wrap" />
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TabControl Name="LogTabControl" Grid.Row="1" HorizontalContentAlignment="Left">
+                        <TabItem Header="PSGUI" Grid.Row="1" HorizontalContentAlignment="Left">
+                            <Grid ClipToBounds="True">
+                                <TextBox Name="LogBox" BorderThickness="0" Foreground="Black"  VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
+                            </Grid>
+                        </TabItem>
+                        <TabItem Header="+" Name="LogAddTab"/>
+                    </TabControl>
                 </Grid>
             </TabItem>
         </TabControl>
@@ -316,6 +327,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <Label Grid.Row="0" Grid.Column="0" Content="Default Shell:"/>
@@ -329,6 +341,9 @@
 
                                 <Label Grid.Row="3" Grid.Column="0" Content="Open Shell At Start:"/>
                                 <CheckBox Grid.Row="3" Grid.Column="1" Name="ChkOpenShellAtStart" Margin="5" VerticalAlignment="Center"/>
+
+                                <Label Grid.Row="4" Grid.Column="0" Content="Default Logs Path:"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Name="TxtDefaultLogsPath" Margin="5"/>
                             </Grid>
                         </ScrollViewer>
 
