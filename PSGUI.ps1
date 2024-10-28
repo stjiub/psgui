@@ -14,6 +14,7 @@ $script:Settings = @{
     DefaultRunCommandInternal = $true
     OpenShellAtStart = $false
     StatusTimeout = 3
+    DefaultLogsPath = "\\esd189.org\dfs\wpkg\AdminScripts\logs"
 }
 
 # Initialize variables and load resources for application 
@@ -148,6 +149,9 @@ function Register-EventHandlers {
             [Win32]::SetFocus($psHandle)
         }
     })
+    
+    # Log Tab events
+    $script:UI.LogAddTab.Add_PreviewMouseLeftButtonDown({ Open-LogFile })
 
     $script:UI.Window.Add_Loaded({ 
         $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
@@ -979,6 +983,7 @@ function Write-Log {
     $script:UI.Window.Dispatcher.Invoke([action]{$script:UI.LogBox.AppendText("$output`n")}, "Normal")
 }
 
+# Write text to the status bar
 function Write-Status {
     param (
         [string]$output
@@ -990,6 +995,88 @@ function Write-Status {
     #$script:UI.Window.Dispatcher.Invoke([action]{$script.UI.StatusBox.Text = ""}, "Normal")
 }
 
+function New-LogMonitorTab {
+    param (
+        [string]$filePath,
+        [System.Windows.Controls.TabControl]$tabControl
+    )
+    
+    try {
+        # Create new tab
+        $fileName = Split-Path $filePath -Leaf
+        $tab = New-Tab -Name $fileName
+        
+        # Create containing grid with ClipToBounds
+        $grid = New-Object System.Windows.Controls.Grid
+        $grid.ClipToBounds = $true
+
+        # Create textbox for log content
+        $textBox = New-Object System.Windows.Controls.TextBox
+        $textBox.IsReadOnly = $true
+        $textBox.VerticalScrollBarVisibility = "Visible"
+        $textBox.HorizontalScrollBarVisibility = "Auto"
+        $textBox.TextWrapping = "NoWrap"
+        $textBox.Foreground = "Black"
+        
+        # Load initial content
+        $content = Get-Content -Path $filePath -Raw
+        $textBox.Text = $content
+
+        # Add TextBox to Grid
+        $grid.Children.Add($textBox)
+        
+        # Store file path and controls in tab's Tag for potential future use
+        $tab.Tag = @{
+            FilePath = $filePath
+            TextBox = $textBox
+            Grid = $grid
+        }
+        
+        $tab.Content = $grid
+        
+        # Add close button functionality with middle-click
+        $tab.Add_PreviewMouseDown({
+            param($sender, $e)
+            if ($e.MiddleButton -eq 'Pressed') {
+                $script:UI.LogTabControl.Items.Remove($sender)
+                $e.Handled = $true
+            }
+        })
+
+        # Add close functionality with right-click
+        $tab.Add_PreviewMouseRightButtonDown({
+            param($sender, $eventArgs)
+            if ($eventArgs.ChangedButton -eq 'Right') {
+                $script:UI.LogTabControl.Items.Remove($sender)
+                Write-Log "Closed log file: $($sender.Tag.FilePath)"
+                $eventArgs.Handled = $true
+            }
+        })
+        
+        # Insert the new tab before the "+" tab
+        $addTabIndex = $tabControl.Items.Count - 1
+        $tabControl.Items.Insert($addTabIndex, $tab)
+        $tabControl.SelectedItem = $tab
+        
+        Write-Log "Opened log file: $filePath"
+    }
+    catch {
+        Show-ErrorMessageBox "Failed to create log monitor tab: $_"
+    }
+}
+
+function Open-LogFile {
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
+    $dialog.InitialDirectory = $script:Settings.DefaultLogsPath
+    $dialog.Filter = "Log files (*.log)|*.log|Text files (*.txt)|*.txt|All files (*.*)|*.*"
+    $dialog.FilterIndex = 1
+    
+    if ($dialog.ShowDialog()) {
+        New-LogMonitorTab -FilePath $dialog.FileName -TabControl $script:UI.LogTabControl
+    }
+}
+
+# Create a new embedded process under a Tab Control
 function New-ProcessTab {
     param (
         $tabControl,
@@ -1066,6 +1153,7 @@ function New-ProcessTab {
     })
 }
 
+# Detach and unparent an embedded process so it is running outside of PSGUI
 function Detach-CurrentTab {
     $selectedTab = $script:UI.PSTabControl.SelectedItem
     if ($selectedTab -and $selectedTab -ne $script:UI.PSAddTab) {
@@ -1089,6 +1177,7 @@ function Detach-CurrentTab {
     }
 }
 
+# Popup window to select external PowerShell windows to attach
 function Show-AttachWindow {
     $attachWindow = New-Object System.Windows.Window
     $attachWindow.Title = "Attach PowerShell Window"
@@ -1130,6 +1219,7 @@ function Show-AttachWindow {
     $attachWindow.ShowDialog()
 }
 
+# Attach and reparent an external window as an embedded tab
 function Attach-ExternalWindow {
     param (
         [System.Diagnostics.Process]$Process
@@ -1185,6 +1275,7 @@ function Attach-ExternalWindow {
     })
 }
 
+# Set app settings from loaded settings
 function Initialize-Settings {
     Load-Settings
     # Update UI elements with loaded settings
@@ -1192,18 +1283,22 @@ function Initialize-Settings {
     $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs
     $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
+    $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
 }
 
+# Set the default app settings
 function Create-DefaultSettings {
     $defaultSettings = @{
         DefaultShell = $script:Settings.DefaultShell
         DefaultShellArgs = $script:Settings.DefaultShellArgs
         RunCommandInternal = $script:Settings.DefaultRunCommandInternal
         OpenShellAtStart = $script:Settings.OpenShellAtStart
+        DefaultLogsPath = $script:Settings.DefaultLogsPath
     }
     return $defaultSettings
 }
 
+# Show dialog window for settings
 function Show-SettingsDialog {
     $script:UI.Overlay.Visibility = "Visible"
     $script:UI.SettingsDialog.Visibility = "Visible"
@@ -1225,6 +1320,7 @@ function Apply-Settings {
     $script:Settings.DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
     $script:Settings.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
     $script:Settings.OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
+    $script:Settings.DefaultLogsPath = $script:UI.TxtDefaultLogsPath.Text
 
     Save-Settings
     Hide-SettingsDialog
@@ -1259,6 +1355,7 @@ function Save-Settings {
     }
 }
 
+# Check if settings file exists and if not create it with default settings
 function Ensure-SettingsFileExists {
     $settingsDir = Split-Path $script:ApplicationPaths.SettingsFilePath -Parent
     if (-not (Test-Path $settingsDir)) {
@@ -1289,6 +1386,7 @@ class Command {
     [System.Object[]]$Parameters
 }
 
+# Launch app
 function Start-Application {
     param(
         [string]$StartCommand
