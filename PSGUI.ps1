@@ -1,5 +1,5 @@
 # App Version
-$script:Version = "1.3.1"
+$script:Version = "1.3.4"
 $script:AppTitle = "PSGUI - v$($script:Version)"
 
 # Constants
