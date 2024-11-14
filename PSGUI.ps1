@@ -1,3 +1,7 @@
+param(
+    [string]$StartCommand
+)
+
 # App Version
 $script:Version = "1.3.4"
 $script:AppTitle = "PSGUI - v$($script:Version)"
@@ -202,9 +206,9 @@ function Register-EventHandlers {
         $script:UI.Window.Title = $script:AppTitle
         if ($StartCommand) {
             $command = New-Object Command
-            $command.Full = ""
-            $command.Root = $script:StartCommand
-            CommandDialog -Command $command
+            $command.Full = $StartCommand
+            $command.Root = $StartCommand
+            Start-CommandDialog -Command $command
         }
         if ($script:Settings.OpenShellAtStart) {
             New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs
@@ -1794,12 +1798,5 @@ class Command {
 }
 
 # Launch app
-function Start-Application {
-    param(
-        [string]$StartCommand
-    )
-    Initialize-Application
-    Start-MainWindow -StartCommand $StartCommand
-}
-
-Start-Application
+Initialize-Application
+Start-MainWindow -StartCommand $StartCommand
