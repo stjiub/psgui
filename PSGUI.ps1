@@ -1403,7 +1403,7 @@ function New-ProcessTab {
     $tab.Add_PreviewMouseDown({
         param($sender, $e)
         if ($e.MiddleButton -eq 'Pressed') {
-            DetachPowerShellWindow -tab $sender
+            Detach-CurrentTab
             $e.Handled = $true
         }
     })
