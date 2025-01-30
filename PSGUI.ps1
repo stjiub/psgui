@@ -3,7 +3,7 @@ param(
 )
 
 # App Version
-$script:Version = "1.3.4"
+$script:Version = "1.3.6"
 $script:AppTitle = "PSGUI - v$($script:Version)"
 
 # Constants
