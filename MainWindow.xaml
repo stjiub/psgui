@@ -81,12 +81,12 @@
     <Grid>
         <Grid Background="{DynamicResource MaterialDesignPaper}">
             <Grid.RowDefinitions>
-                <RowDefinition Height="40"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="300"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="300" Name="SubGridRow"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="10 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
                 <Button Name="BtnMainFavorite" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
@@ -182,6 +182,17 @@
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>
+                <Button Name="BtnToggleSub" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform ScaleX="1.5" ScaleY="1.5"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="ArrowCollapseDown" Foreground="Black"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Toggle Shell/Log Panel</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
             </StackPanel>
             <StackPanel Grid.Row="0" Margin="0 0 10 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Right">
                     <Button Name="BtnMainRun" IsDefault="True" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
@@ -219,60 +230,60 @@
             <GridSplitter Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Gray"/>
 
             <Grid Name="Sub" Grid.Row="3" Margin="10,0,10,0" Visibility="Visible" >
-        <TabControl Name="SubGrid" HorizontalContentAlignment="Left" TabStripPlacement="Bottom">
-            <TabItem Header="Shell">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,5">
-                        <Button Name="BtnPSAttachTab" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                            <Button.LayoutTransform>
-                                <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
-                            </Button.LayoutTransform>
-                            <md:PackIcon Kind="Plus" Foreground="Black"/>
-                            <Button.ToolTip>
-                                <ToolTip>
-                                    <TextBlock>Attach PS Window</TextBlock>
-                                </ToolTip>
-                            </Button.ToolTip>
-                        </Button>
-                        <Button Name="BtnPSDetachTab" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                            <Button.LayoutTransform>
-                                <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
-                            </Button.LayoutTransform>
-                            <md:PackIcon Kind="Minus" Foreground="Black"/>
-                            <Button.ToolTip>
-                                <ToolTip>
-                                    <TextBlock>Detach PS Tab</TextBlock>
-                                </ToolTip>
-                            </Button.ToolTip>
-                        </Button>
-                    </StackPanel>
-                    <TabControl Name="PSTabControl" Grid.Row="1" HorizontalContentAlignment="Left">
-                        <TabItem Header="+" Name="PSAddTab"/>
-                    </TabControl>
-                </Grid>
-            </TabItem>
-            <TabItem Header="Log">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TabControl Name="LogTabControl" Grid.Row="1" HorizontalContentAlignment="Left">
-                        <TabItem Header="PSGUI" Grid.Row="1" HorizontalContentAlignment="Left">
-                            <Grid ClipToBounds="True">
-                                <TextBox Name="LogBox" BorderThickness="0" Foreground="Black"  VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
-                            </Grid>
-                        </TabItem>
-                        <TabItem Header="+" Name="LogAddTab"/>
-                    </TabControl>
-                </Grid>
-            </TabItem>
-        </TabControl>
-    </Grid>
+                <TabControl Name="SubGrid" HorizontalContentAlignment="Left" TabStripPlacement="Bottom">
+                    <TabItem Header="Shell">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,5">
+                                <Button Name="BtnPSAttachTab" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                                    <Button.LayoutTransform>
+                                        <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
+                                    </Button.LayoutTransform>
+                                    <md:PackIcon Kind="Plus" Foreground="Black"/>
+                                    <Button.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock>Attach PS Window</TextBlock>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                </Button>
+                                <Button Name="BtnPSDetachTab" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                                    <Button.LayoutTransform>
+                                        <ScaleTransform  ScaleX="1.5" ScaleY="1.5"/>
+                                    </Button.LayoutTransform>
+                                    <md:PackIcon Kind="Minus" Foreground="Black"/>
+                                    <Button.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock>Detach PS Tab</TextBlock>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                </Button>
+                            </StackPanel>
+                            <TabControl Name="PSTabControl" Grid.Row="1" HorizontalContentAlignment="Left">
+                                <TabItem Header="+" Name="PSAddTab"/>
+                            </TabControl>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Log">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TabControl Name="LogTabControl" Grid.Row="1" HorizontalContentAlignment="Left">
+                                <TabItem Header="Debug" Grid.Row="1" HorizontalContentAlignment="Left" Visibility="Collapsed">
+                                    <Grid ClipToBounds="True">
+                                        <TextBox Name="LogBox" BorderThickness="0" Foreground="Black"  VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
+                                    </Grid>
+                                </TabItem>
+                                <TabItem Header="+" Name="LogAddTab"/>
+                            </TabControl>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Grid>
 
             <Grid Grid.Row="4">
                 <TextBlock Name="StatusBox" Text="Ready" Height="20" HorizontalAlignment="Right" Margin="0,0,10,0"/>
@@ -419,6 +430,9 @@
                                         </ToolTip>
                                     </Button.ToolTip>
                                 </Button>
+
+                                <Label Grid.Row="7" Grid.Column="0" Content="Show Debug Tab:"/>
+                                <CheckBox Grid.Row="7" Grid.Column="1" Name="ChkShowDebugTab" Margin="5" VerticalAlignment="Center"/>
                             </Grid>
                         </ScrollViewer>
 
