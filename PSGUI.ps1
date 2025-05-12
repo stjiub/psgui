@@ -21,6 +21,7 @@ $script:Settings = @{
     DefaultLogsPath = "\\esd189.org\dfs\wpkg\AdminScripts\logs"
     SettingsPath = Join-Path $env:APPDATA "PSGUI\settings.json"
     FavoritesPath = Join-Path $env:APPDATA "PSGUI\favorites.json"
+    ShowDebugTab = $false
 }
 
 # Initialize variables and load resources for application 
@@ -56,6 +57,7 @@ function Initialize-Application() {
             Add = $null
             Remove = $null
         }
+        SubGridExpandedHeight = 300
     }
 
     # Load necessary assemblies
@@ -146,6 +148,8 @@ function Register-EventHandlers {
     $script:UI.BtnMainSettings.Add_Click({ Show-SettingsDialog })
     $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
     $script:UI.BtnMainRunMenu.Add_Click({ $script:UI.ContextMenuMainRunMenu.IsOpen = $true })
+
+    $script:UI.BtnToggleSub.Add_Click({ Invoke-ToggleSubGrid })
 
     # Run Menu Item events
     $script:UI.MenuItemMainRunExternal.Add_Click({ 
@@ -362,6 +366,33 @@ function Invoke-MainRunClick {
     }
 }
 
+function Invoke-ToggleSubGrid {    
+    if ($script:UI.Sub.Visibility -eq "Visible") {
+        # Store current height before collapsing
+        $script:State.SubGridExpandedHeight = $script:UI.Window.FindName("SubGridRow").Height.Value
+        
+        # Collapse the Sub grid
+        $script:UI.Window.FindName("SubGridRow").Height = New-Object System.Windows.GridLength(0)
+        $script:UI.Sub.Visibility = "Collapsed"
+        
+        # Change the icon to indicate collapsed state
+        $script:UI.BtnToggleSub.Content = New-Object MaterialDesignThemes.Wpf.PackIcon -Property @{
+            Kind = "ArrowCollapseUp"
+            Foreground = "Black"
+        }
+    } else {
+        # Restore previous height and visibility
+        $script:UI.Window.FindName("SubGridRow").Height = New-Object System.Windows.GridLength($script:State.SubGridExpandedHeight)
+        $script:UI.Sub.Visibility = "Visible"
+        
+        # Change the icon to indicate expanded state
+        $script:UI.BtnToggleSub.Content = New-Object MaterialDesignThemes.Wpf.PackIcon -Property @{
+            Kind = "ArrowCollapseDown"
+            Foreground = "Black"
+        }
+    }
+}
+
 function Invoke-TabControlSelectionChanged {
     param($sender, $e)
         
@@ -407,14 +438,24 @@ function Invoke-CellEditEndingHandler {
     $allData = $allGrid.ItemsSource
     $allIndex = Get-GridIndexOfId -Grid $allGrid -Id $id
 
-    # Sync values between All and Category tabs
+    # Sync only the changed property between tabs
     if (-not $newObject) {
         $categoryGrid = $tabs[$category].Content
         $categoryData = $categoryGrid.ItemsSource
         $categoryIndex = Get-GridIndexOfId -Grid $categoryGrid -Id $id
-        $categoryData[$categoryIndex] = $editedObject
+        
+        # Only update the specific property that was edited, preserve other values
+        if ($categoryIndex -ge 0) {
+            $propertyName = $e.Column.Header
+            $propertyValue = $editedObject.GetType().GetProperty($propertyName).GetValue($editedObject)
+            $categoryData[$categoryIndex].GetType().GetProperty($propertyName).SetValue($categoryData[$categoryIndex], $propertyValue)
+        }
     }
-    $allData[$allIndex] = $editedObject
+
+    # Update the specific edited property in the All tab
+    $propertyName = $e.Column.Header
+    $propertyValue = $editedObject.GetType().GetProperty($propertyName).GetValue($editedObject)
+    $allData[$allIndex].GetType().GetProperty($propertyName).SetValue($allData[$allIndex], $propertyValue)
 
     # Update the category tab if the Category property changes
     if (($columnHeader -eq "Category") -and -not ([String]::IsNullOrWhiteSpace($e.EditingElement.Text))) {
@@ -436,8 +477,7 @@ function Invoke-CellEditEndingHandler {
             $newTab = New-DataTab -Name $newCategory -ItemsSource $itemsSource -TabControl $tabControl
             $tabs.Add($newCategory, $newTab)
 
-            # Assign the CellEditEnding event to the new tab. We must use $script level vars here for TabControl and Tabs because the way events are handled if we use the local version
-            # they will no longer exist when the event actually triggers
+            # Assign the CellEditEnding event to the new tab
             $newTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
         }
         $newTab.Content.ItemsSource.Add($editedObject)
@@ -823,6 +863,9 @@ function Sort-TabControl {
         [System.Windows.Controls.TabControl]$tabControl
     )
 
+    # Remember which tab was selected
+    $selectedTab = $tabControl.SelectedItem
+    
     $favTabItem = $tabControl.Items | Where-Object { $_.Header -eq "*" }
     $allTabItem = $tabControl.Items | Where-Object { $_.Header -eq "All" }
     $sortedTabItems = $tabControl.Items | Where-Object { $_.Header -ne "*" -and $_.Header -ne "All" } | Sort-Object -Property { $_.Header.ToString() }
@@ -833,6 +876,9 @@ function Sort-TabControl {
     foreach ($tabItem in $sortedTabItems) {
         [void]$tabControl.Items.Add($tabItem)
     }
+    
+    # Restore the selected tab
+    $tabControl.SelectedItem = $selectedTab
 }
 
 # Sort a grid alphabetically by a specific column
@@ -1540,6 +1586,14 @@ function Initialize-Settings {
     $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
+    $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
+    
+    # Set the Debug tab visibility based on setting
+    if ($script:Settings.ShowDebugTab) {
+        $script:UI.LogTabControl.Items[0].Visibility = "Visible"
+    } else {
+        $script:UI.LogTabControl.Items[0].Visibility = "Collapsed"
+    }
 }
 
 # Set the default app settings
@@ -1552,6 +1606,7 @@ function Create-DefaultSettings {
         DefaultLogsPath = $script:Settings.DefaultLogsPath
         SettingsPath = $script:Settings.SettingsPath
         FavoritesPath = $script:Settings.FavoritesPath
+        ShowDebugTab = $script:Settings.ShowDebugTab
     }
     return $defaultSettings
 }
@@ -1580,11 +1635,19 @@ function Hide-SettingsDialog {
 function Apply-Settings {
     $script:Settings.DefaultShell = $script:UI.TxtDefaultShell.Text
     $script:Settings.DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
-    $script:UI.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
+    $script:Settings.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
     $script:Settings.OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
     $script:Settings.DefaultLogsPath = $script:UI.TxtDefaultLogsPath.Text
     $script:Settings.SettingsPath = $script:UI.TxtSettingsPath.Text
     $script:Settings.FavoritesPath = $script:UI.TxtFavoritesPath.Text
+    $script:Settings.ShowDebugTab = $script:UI.ChkShowDebugTab.IsChecked
+
+    # Apply Debug tab visibility change immediately
+    if ($script:Settings.ShowDebugTab) {
+        $script:UI.LogTabControl.Items[0].Visibility = "Visible"
+    } else {
+        $script:UI.LogTabControl.Items[0].Visibility = "Collapsed"
+    }
 
     Save-Settings
     Hide-SettingsDialog
@@ -1603,6 +1666,11 @@ function Load-Settings {
     $script:Settings.DefaultLogsPath = $settings.DefaultLogsPath
     $script:Settings.SettingsPath = $settings.SettingsPath
     $script:Settings.FavoritesPath = $settings.FavoritesPath
+    
+    # Handle the case where the setting might not exist in older config files
+    if (Get-Member -InputObject $settings -Name "ShowDebugTab" -MemberType Properties) {
+        $script:Settings.ShowDebugTab = $settings.ShowDebugTab
+    }
 }
 
 # Save settings to file
@@ -1621,6 +1689,7 @@ function Save-Settings {
             DefaultLogsPath = $script:Settings.DefaultLogsPath
             SettingsPath = $script:Settings.SettingsPath
             FavoritesPath = $script:Settings.FavoritesPath
+            ShowDebugTab = $script:Settings.ShowDebugTab
         }
         
         $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
