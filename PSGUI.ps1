@@ -1,7 +1,3 @@
-param(
-    [string]$StartCommand
-)
-
 # App Version
 $script:Version = "1.3.7"
 $script:AppTitle = "PSGUI - v$($script:Version)"
@@ -71,10 +67,6 @@ function Initialize-Application() {
 
 # Load and process main application window
 function Start-MainWindow {
-    param(
-        [string]$StartCommand
-    )
-
     # We create a new window and load all the window elements to variables of 
     # the same name and assign the window and all its elements under $script:UI 
     # e.g. $script:UI.Window, $script:UI.TabControl
@@ -208,12 +200,7 @@ function Register-EventHandlers {
     $script:UI.Window.Add_Loaded({ 
         $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
         $script:UI.Window.Title = $script:AppTitle
-        if ($StartCommand) {
-            $command = New-Object Command
-            $command.Full = $StartCommand
-            $command.Root = $StartCommand
-            Start-CommandDialog -Command $command
-        }
+
         if ($script:Settings.OpenShellAtStart) {
             New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs
         }
@@ -1868,4 +1855,4 @@ class Command {
 
 # Launch app
 Initialize-Application
-Start-MainWindow -StartCommand $StartCommand
+Start-MainWindow
