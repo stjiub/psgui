@@ -18,6 +18,7 @@ $script:Settings = @{
     SettingsPath = Join-Path $env:APPDATA "PSGUI\settings.json"
     FavoritesPath = Join-Path $env:APPDATA "PSGUI\favorites.json"
     ShowDebugTab = $false
+    DefaultDataFile = Join-Path $env:APPDATA "PSGUI\data.json"
 }
 
 # Initialize variables and load resources for application 
@@ -29,14 +30,14 @@ function Initialize-Application() {
         MainWindowXamlFile = Join-Path $script:Path "MainWindow.xaml"
         MaterialDesignThemes = Join-Path $script:Path "Assembly\MaterialDesignThemes.Wpf.dll"
         MaterialDesignColors = Join-Path $script:Path "Assembly\MaterialDesignColors.dll"
-        DefaultConfigFile = Join-Path $script:Path "data.json"
+        DefaultDataFile = Join-Path $script:Path "data.json"
         SettingsFilePath = Join-Path $env:APPDATA "PSGUI\settings.json"
         IconFile = Join-Path $script:Path "icon.ico"
         Win32APIFile = Join-Path $script:Path "Win32API.cs"
     }
 
     $script:State = @{
-        CurrentConfigFile = $null
+        CurrentDataFile = $null
         CurrentCommand = $null
         LastCommand = $null
         HighestId = 0
@@ -54,6 +55,7 @@ function Initialize-Application() {
             Remove = $null
         }
         SubGridExpandedHeight = 300
+        HasUnsavedChanges = $false
     }
 
     # Load necessary assemblies
@@ -80,8 +82,15 @@ function Start-MainWindow {
 
     Initialize-Settings
 
-    $script:State.CurrentConfigFile = $script:ApplicationPaths.DefaultConfigFile
-    $json = Load-DataFile $script:State.CurrentConfigFile
+    # Use the configured DefaultDataFile from settings
+    $script:State.CurrentDataFile = $script:Settings.DefaultDataFile
+    Initialize-DataFile $script:State.CurrentDataFile
+    $json = Load-DataFile $script:State.CurrentDataFile
+
+    # Ensure we always have a valid collection, even if file is empty
+    if (-not $json) {
+        $json = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
+    }
     $script:State.HighestId = Get-HighestId -Json $json
     $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
 
@@ -134,7 +143,9 @@ function Register-EventHandlers {
     $script:UI.BtnMainRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMainMoveUp.Add_Click({ Move-FavoriteItem -Direction "Up" })
     $script:UI.BtnMainMoveDown.Add_Click({ Move-FavoriteItem -Direction "Down" })
-    $script:UI.BtnMainSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentConfigFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
+    $script:UI.BtnMainSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
+    $script:UI.BtnMainOpen.Add_Click({ Invoke-MainOpenClick })
+    $script:UI.BtnMainImport.Add_Click({ Invoke-MainImportClick })
     $script:UI.BtnMainEdit.Add_Click({ Invoke-MainEditClick -Tabs $script:UI.Tabs })
     $script:UI.BtnMainFavorite.Add_Click({  Invoke-MainFavoriteClick })
     $script:UI.BtnMainSettings.Add_Click({ Show-SettingsDialog })
@@ -164,6 +175,7 @@ function Register-EventHandlers {
 
     # Settings dialog button events
     $script:UI.BtnBrowseLogs.Add_Click({ Invoke-BrowseLogs })
+    $script:UI.BtnBrowseDataFile.Add_Click({ Invoke-BrowseDataFile })
     $script:UI.BtnBrowseSettings.Add_Click({ Invoke-BrowseSettings })
     $script:UI.BtnBrowseFavorites.Add_Click({ Invoke-BrowseFavorites })
     $script:UI.BtnApplySettings.Add_Click({ Apply-Settings })
@@ -197,9 +209,9 @@ function Register-EventHandlers {
     # Log Tab events
     $script:UI.LogAddTab.Add_PreviewMouseLeftButtonDown({ Open-LogFile })
 
-    $script:UI.Window.Add_Loaded({ 
+    $script:UI.Window.Add_Loaded({
         $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
-        $script:UI.Window.Title = $script:AppTitle
+        Update-WindowTitle
 
         if ($script:Settings.OpenShellAtStart) {
             New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs
@@ -211,6 +223,24 @@ function Register-EventHandlers {
 
 function Invoke-WindowClosing {
     param($sender, $e)
+
+    # Check for unsaved changes before closing
+    if ($script:State.HasUnsavedChanges) {
+        $result = [System.Windows.MessageBox]::Show(
+            "You have unsaved changes. Do you want to save them before closing?",
+            "Unsaved Changes",
+            [System.Windows.MessageBoxButton]::YesNoCancel,
+            [System.Windows.MessageBoxImage]::Question
+        )
+
+        if ($result -eq [System.Windows.MessageBoxResult]::Cancel) {
+            $e.Cancel = $true
+            return
+        }
+        elseif ($result -eq [System.Windows.MessageBoxResult]::Yes) {
+            Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource)
+        }
+    }
 
     $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
     Save-Favorites -Favorites $favorites
@@ -243,6 +273,7 @@ function Invoke-MainAddClick {
     $tab = $tabs["All"]
     $grid = $tab.Content
     $grid.ItemsSource.Add($newRow)
+    Set-UnsavedChanges $true
     $tabControl.SelectedItem = $tab
     # We don't want to change the tabs read only status if they are already in edit mode
     if ($script:State.TabsReadOnly) {
@@ -288,7 +319,11 @@ function Invoke-MainRemoveClick {
             }
         }
         $allIndex = Get-GridIndexOfId -Grid $allGrid -Id $Id
-        $allData.RemoveAt($allIndex)        
+        $allData.RemoveAt($allIndex)
+    }
+
+    if ($selectedItems.Count -gt 0) {
+        Set-UnsavedChanges $true
     }
 }
 
@@ -443,6 +478,9 @@ function Invoke-CellEditEndingHandler {
     $propertyName = $e.Column.Header
     $propertyValue = $editedObject.GetType().GetProperty($propertyName).GetValue($editedObject)
     $allData[$allIndex].GetType().GetProperty($propertyName).SetValue($allData[$allIndex], $propertyValue)
+
+    # Mark as having unsaved changes
+    Set-UnsavedChanges $true
 
     # Update the category tab if the Category property changes
     if (($columnHeader -eq "Category") -and -not ([String]::IsNullOrWhiteSpace($e.EditingElement.Text))) {
@@ -886,7 +924,17 @@ function Get-HighestId {
     param (
         [System.Object[]]$json
     )
-    return ($json | Measure-Object -Property Id -Maximum).Maximum
+
+    if (-not $json -or $json.Count -eq 0) {
+        return 0
+    }
+
+    $maxId = ($json | Measure-Object -Property Id -Maximum).Maximum
+    if ($maxId) {
+        return $maxId
+    } else {
+        return 0
+    }
 }
 
 # Copy a string to the system clipboard
@@ -1174,10 +1222,18 @@ function Initialize-DataFile {
 
     if (-not (Test-Path $filePath)) {
         try {
-            New-Item -Path $filePath -ItemType "File" | Out-Null
+            # Ensure the directory exists
+            $directory = Split-Path -Path $filePath -Parent
+            if (-not (Test-Path $directory)) {
+                New-Item -ItemType Directory -Path $directory -Force | Out-Null
+            }
+
+            # Create file with empty JSON array
+            "[]" | Set-Content -Path $filePath -Encoding UTF8
+            Write-Log "Created new data file: $filePath"
         }
         catch {
-            Show-ErrorMessageBox("Failed to create configuration file at path: $filePath")
+            Show-ErrorMessageBox("Failed to create configuration file at path: $filePath - $_")
             exit(1)
         }
     }
@@ -1244,6 +1300,7 @@ function Save-DataFile {
         
         $json = ConvertTo-Json $populatedRows
         Set-Content -Path $filePath -Value $json
+        Set-UnsavedChanges $false
         Write-Status "Data saved"
     }
     catch {
@@ -1573,6 +1630,7 @@ function Initialize-Settings {
     $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
+    $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
     $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
     
     # Set the Debug tab visibility based on setting
@@ -1594,6 +1652,7 @@ function Create-DefaultSettings {
         SettingsPath = $script:Settings.SettingsPath
         FavoritesPath = $script:Settings.FavoritesPath
         ShowDebugTab = $script:Settings.ShowDebugTab
+        DefaultDataFile = $script:Settings.DefaultDataFile
     }
     return $defaultSettings
 }
@@ -1609,6 +1668,7 @@ function Show-SettingsDialog {
     $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
+    $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
     $script:UI.TxtSettingsPath.Text = $script:Settings.SettingsPath
     $script:UI.TxtFavoritesPath.Text = $script:Settings.FavoritesPath
 }
@@ -1625,6 +1685,7 @@ function Apply-Settings {
     $script:Settings.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
     $script:Settings.OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
     $script:Settings.DefaultLogsPath = $script:UI.TxtDefaultLogsPath.Text
+    $script:Settings.DefaultDataFile = $script:UI.TxtDefaultDataFile.Text
     $script:Settings.SettingsPath = $script:UI.TxtSettingsPath.Text
     $script:Settings.FavoritesPath = $script:UI.TxtFavoritesPath.Text
     $script:Settings.ShowDebugTab = $script:UI.ChkShowDebugTab.IsChecked
@@ -1653,10 +1714,13 @@ function Load-Settings {
     $script:Settings.DefaultLogsPath = $settings.DefaultLogsPath
     $script:Settings.SettingsPath = $settings.SettingsPath
     $script:Settings.FavoritesPath = $settings.FavoritesPath
-    
+
     # Handle the case where the setting might not exist in older config files
     if (Get-Member -InputObject $settings -Name "ShowDebugTab" -MemberType Properties) {
         $script:Settings.ShowDebugTab = $settings.ShowDebugTab
+    }
+    if (Get-Member -InputObject $settings -Name "DefaultDataFile" -MemberType Properties) {
+        $script:Settings.DefaultDataFile = $settings.DefaultDataFile
     }
 }
 
@@ -1677,6 +1741,7 @@ function Save-Settings {
             SettingsPath = $script:Settings.SettingsPath
             FavoritesPath = $script:Settings.FavoritesPath
             ShowDebugTab = $script:Settings.ShowDebugTab
+            DefaultDataFile = $script:Settings.DefaultDataFile
         }
         
         $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
@@ -1727,6 +1792,158 @@ function Invoke-BrowseFavorites {
         $script:UI.TxtFavoritesPath.Text = $dialog.FileName
     }
 }
+
+function Invoke-BrowseDataFile {
+    $dialog = New-Object Microsoft.Win32.SaveFileDialog
+    $dialog.FileName = $script:UI.TxtDefaultDataFile.Text
+    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dialog.DefaultExt = ".json"
+    if ($dialog.ShowDialog()) {
+        $script:UI.TxtDefaultDataFile.Text = $dialog.FileName
+    }
+}
+
+function Invoke-MainOpenClick {
+    # Check for unsaved changes first
+    if (-not (Confirm-SaveBeforeAction "opening a new data file")) {
+        return
+    }
+
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
+    $dialog.InitialDirectory = Split-Path $script:State.CurrentDataFile -Parent
+    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dialog.FilterIndex = 1
+
+    if ($dialog.ShowDialog()) {
+        # Load new data file
+        $script:State.CurrentDataFile = $dialog.FileName
+        Load-NewDataFile -FilePath $script:State.CurrentDataFile
+        Set-UnsavedChanges $false
+        Update-WindowTitle
+        Write-Status "Opened data file: $($dialog.FileName)"
+    }
+}
+
+function Invoke-MainImportClick {
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
+    $dialog.InitialDirectory = Split-Path $script:State.CurrentDataFile -Parent
+    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dialog.FilterIndex = 1
+
+    if ($dialog.ShowDialog()) {
+        Import-DataFile -FilePath $dialog.FileName
+        Write-Status "Imported data from: $($dialog.FileName)"
+    }
+}
+
+function Load-NewDataFile {
+    param (
+        [string]$filePath
+    )
+
+    try {
+        $json = Load-DataFile $filePath
+        $script:State.HighestId = Get-HighestId -Json $json
+
+        # Clear existing tabs except Favorites
+        $tabsToRemove = @()
+        foreach ($tab in $script:UI.TabControl.Items) {
+            if ($tab.Header -ne "*" -and $tab.Header -ne "All") {
+                $tabsToRemove += $tab
+            }
+        }
+        foreach ($tab in $tabsToRemove) {
+            $script:UI.TabControl.Items.Remove($tab)
+            $script:UI.Tabs.Remove($tab.Header)
+        }
+
+        # Update All tab with new data
+        $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
+        $script:UI.Tabs["All"].Content.ItemsSource = $itemsSource
+
+        # Recreate category tabs
+        foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique | Where-Object { $_ -ne $null -and $_ -ne "" })) {
+            $categoryItemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
+            $tab = New-DataTab -Name $category -ItemsSource $categoryItemsSource -TabControl $script:UI.TabControl
+            $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+            $script:UI.Tabs.Add($category, $tab)
+        }
+
+        # Reload favorites based on new data
+        $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
+        $loadedFavorites = Load-Favorites -AllData $json
+        foreach ($fav in $loadedFavorites) {
+            $favItemsSource.Add($fav)
+        }
+        $script:UI.Tabs["Favorites"].Content.ItemsSource = $favItemsSource
+
+        Sort-TabControl -TabControl $script:UI.TabControl
+    }
+    catch {
+        Show-ErrorMessageBox "Failed to load data file: $_"
+    }
+}
+
+function Import-DataFile {
+    param (
+        [string]$filePath
+    )
+
+    try {
+        $importedJson = Load-DataFile $filePath
+        if (-not $importedJson) {
+            Write-Status "No data found in file to import"
+            return
+        }
+
+        $allData = $script:UI.Tabs["All"].Content.ItemsSource
+        if (-not $allData) {
+            Write-Status "Error: All tab data source not found"
+            return
+        }
+
+        foreach ($item in $importedJson) {
+            if (-not $item) { continue }
+
+            # Check if item with same ID already exists
+            $existingItem = $allData | Where-Object { $_.Id -eq $item.Id }
+            if ($existingItem) {
+                # Update the highest ID to avoid conflicts
+                $item.Id = ++$script:State.HighestId
+            } else {
+                # Update highest ID if this ID is higher
+                if ($item.Id -gt $script:State.HighestId) {
+                    $script:State.HighestId = $item.Id
+                }
+            }
+
+            # Add to All tab
+            $allData.Add($item)
+
+            # Add to category tab if category exists
+            if ($item.Category -and $item.Category -ne "") {
+                $categoryTab = $script:UI.Tabs[$item.Category]
+                if (-not $categoryTab) {
+                    # Create new category tab
+                    $categoryItemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
+                    $categoryTab = New-DataTab -Name $item.Category -ItemsSource $categoryItemsSource -TabControl $script:UI.TabControl
+                    $categoryTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+                    $script:UI.Tabs.Add($item.Category, $categoryTab)
+                }
+                if ($categoryTab -and $categoryTab.Content -and $categoryTab.Content.ItemsSource) {
+                    $categoryTab.Content.ItemsSource.Add($item)
+                }
+            }
+        }
+
+        Set-UnsavedChanges $true
+        Sort-TabControl -TabControl $script:UI.TabControl
+    }
+    catch {
+        Show-ErrorMessageBox "Failed to import data file: $_"
+    }
+}
+
 function Save-Favorites {
     param (
         [System.Collections.ObjectModel.ObservableCollection[Object]]$favorites
@@ -1817,6 +2034,43 @@ function Move-FavoriteItem {
     $grid.ScrollIntoView($selectedItem)
     
     Save-Favorites -Favorites $itemsSource
+}
+
+# Update the data file indicator text
+function Update-WindowTitle {
+    $unsavedIndicator = if ($script:State.HasUnsavedChanges) { "*" } else { "" }
+    $script:UI.Window.Title = "$unsavedIndicator$script:AppTitle - $($script:State.CurrentDataFile)"
+}
+
+# Mark that we have unsaved changes
+function Set-UnsavedChanges {
+    param([bool]$hasChanges = $true)
+
+    $script:State.HasUnsavedChanges = $hasChanges
+    Update-WindowTitle
+}
+
+# Check if user wants to save before proceeding with an action
+function Confirm-SaveBeforeAction {
+    param([string]$actionName = "continue")
+
+    if ($script:State.HasUnsavedChanges) {
+        $result = [System.Windows.MessageBox]::Show(
+            "You have unsaved changes. Do you want to save them before $actionName?",
+            "Unsaved Changes",
+            [System.Windows.MessageBoxButton]::YesNoCancel,
+            [System.Windows.MessageBoxImage]::Question
+        )
+
+        if ($result -eq [System.Windows.MessageBoxResult]::Cancel) {
+            return $false
+        }
+        elseif ($result -eq [System.Windows.MessageBoxResult]::Yes) {
+            Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource)
+            Set-UnsavedChanges $false
+        }
+    }
+    return $true
 }
 
 # Define the RowData object. This is the object that is used on all the Main window tabitem grids
