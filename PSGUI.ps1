@@ -128,7 +128,10 @@ function Start-MainWindow {
         $script:UI.Tabs.Add($category, $tab) 
     }
     Sort-TabControl -TabControl $script:UI.TabControl
-    
+
+    # Initialize favorite highlighting after all tabs are created
+    Update-FavoriteHighlighting
+
     Register-EventHandlers
 
     # Set content and display the window
@@ -368,6 +371,7 @@ function Invoke-MainFavoriteClick {
             Write-Status "Added to favorites"
         }
         Save-Favorites -Favorites $favorites
+        Update-FavoriteHighlighting
     }
 }
 
@@ -1030,7 +1034,30 @@ function New-DataGridBase {
     $grid.CanUserAddRows = $false
     $grid.IsReadOnly = $script:State.TabsReadOnly
     $grid.AutoGenerateColumns = $false
-    
+
+    # Apply the favorite row style (skip for Favorites tab since it only contains favorites)
+    if ($name -ne "*") {
+        $rowStyle = $script:UI.Window.FindResource("FavoriteRowStyle")
+        $grid.RowStyle = $rowStyle
+
+        # Add event handler to set favorite highlighting when rows are loaded
+        $grid.Add_LoadingRow({
+            param($sender, $e)
+            if ($script:UI.Tabs -and $script:UI.Tabs["Favorites"]) {
+                $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
+                $favoriteIds = @($favorites | ForEach-Object { $_.Id })
+
+                $rowItem = $e.Row.Item
+                if ($favoriteIds -contains $rowItem.Id) {
+                    $e.Row.Tag = "IsFavorite"
+                }
+                else {
+                    $e.Row.Tag = $null
+                }
+            }
+        })
+    }
+
     return $grid
 }
 
@@ -2082,6 +2109,38 @@ function Confirm-SaveBeforeAction {
         }
     }
     return $true
+}
+
+# Update favorite highlighting across all tabs except the Favorites tab
+function Update-FavoriteHighlighting {
+    $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
+    $favoriteIds = @($favorites | ForEach-Object { $_.Id })
+
+    foreach ($tabEntry in $script:UI.Tabs.GetEnumerator()) {
+        $tabName = $tabEntry.Key
+        $tab = $tabEntry.Value
+
+        # Skip the Favorites tab since it only contains favorites
+        if ($tabName -eq "Favorites") { continue }
+
+        $grid = $tab.Content
+        if ($grid -and $grid.Items) {
+            # Use Dispatcher to ensure UI updates happen on the UI thread
+            $script:UI.Window.Dispatcher.Invoke([action]{
+                foreach ($item in $grid.Items) {
+                    $container = $grid.ItemContainerGenerator.ContainerFromItem($item)
+                    if ($container -is [System.Windows.Controls.DataGridRow]) {
+                        if ($favoriteIds -contains $item.Id) {
+                            $container.Tag = "IsFavorite"
+                        }
+                        else {
+                            $container.Tag = $null
+                        }
+                    }
+                }
+            }, "Normal")
+        }
+    }
 }
 
 # Define the RowData object. This is the object that is used on all the Main window tabitem grids

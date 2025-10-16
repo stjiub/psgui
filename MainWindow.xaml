@@ -61,7 +61,7 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border Background="Transparent">
-                                <ContentPresenter HorizontalAlignment="Center" 
+                                <ContentPresenter HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
                                                 RecognizesAccessKey="True"
                                                 Margin="5,0,5,0"/>
@@ -74,6 +74,20 @@
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+            </Style>
+
+            <!-- DataGrid Row Style for Favorite Highlighting -->
+            <Style x:Key="FavoriteRowStyle" TargetType="DataGridRow">
+                <Setter Property="Background" Value="Transparent"/>
+                <Style.Triggers>
+                    <!-- This trigger will be set programmatically when a row is favorited -->
+                    <Trigger Property="Tag" Value="IsFavorite">
+                        <Setter Property="Background" Value="#FFFACD"/>
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#E3F2FD"/>
+                    </Trigger>
+                </Style.Triggers>
             </Style>
         </ResourceDictionary>
     </Window.Resources>
