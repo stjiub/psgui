@@ -117,7 +117,7 @@ function Start-MainWindow {
         }
     })
     $script:UI.Tabs.Add("Favorites", $favTab)
-    if ($favItemsSource -eq $null) {
+    if ($favItemsSource.Count -eq 0) {
         $script:UI.TabControl.SelectedItem = $allTab
     }
 
