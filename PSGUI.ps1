@@ -169,6 +169,8 @@ function Register-EventHandlers {
     $script:UI.BtnMainFavorite.Add_Click({  Invoke-MainFavoriteClick })
     $script:UI.BtnMainMoveUp.Add_Click({ Move-FavoriteItem -Direction "Up" })
     $script:UI.BtnMainMoveDown.Add_Click({ Move-FavoriteItem -Direction "Down" })
+    $script:UI.BtnMainAdd.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMainRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
     $script:UI.BtnMainRunMenu.Add_Click({ $script:UI.ContextMenuMainRunMenu.IsOpen = $true })
     $script:UI.BtnMainRunExternal.Add_Click({ 
