@@ -99,6 +99,7 @@ function Start-MainWindow {
     $script:UI.Tabs = @{}
     $allTab = New-DataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl
     $allTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $allTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
     $script:UI.Tabs.Add("All", $allTab)
 
     $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
@@ -107,16 +108,17 @@ function Start-MainWindow {
         $favItemsSource.Add($fav)
     }
     $favTab = New-DataTab -Name "*" -ItemsSource $favItemsSource -TabControl $script:UI.TabControl
-    $favTab.Content.Add_CellEditEnding({ 
-        param($sender,$e) 
+    $favTab.Content.Add_CellEditEnding({
+        param($sender,$e)
         if ($e.Column.Header -eq "Order") {
             # Special handling for Order changes
             $favorites = $sender.ItemsSource
             Save-Favorites -Favorites $favorites
         } else {
-            Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs 
+            Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
         }
     })
+    $favTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
     $script:UI.Tabs.Add("Favorites", $favTab)
     if ($favItemsSource.Count -eq 0) {
         $script:UI.TabControl.SelectedItem = $allTab
@@ -126,7 +128,8 @@ function Start-MainWindow {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
         $tab = New-DataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
         $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
-        $script:UI.Tabs.Add($category, $tab) 
+        $tab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+        $script:UI.Tabs.Add($category, $tab)
     }
     Sort-TabControl -TabControl $script:UI.TabControl
 
@@ -314,12 +317,24 @@ function Invoke-MainRemoveClick {
     $allData = $allGrid.ItemsSource
     $grid = $tabControl.SelectedItem.Content
 
-    # We want to make a copy of the selected items to avoid issues 
+    # We want to make a copy of the selected items to avoid issues
     # with the collection being modified while still enumerating
     $selectedItems = @()
     foreach ($item in $grid.SelectedItems) {
         $selectedItems += $item
     }
+
+    # Show confirmation dialog if there are items to delete
+    if ($selectedItems.Count -gt 0) {
+        $itemText = if ($selectedItems.Count -eq 1) { "command" } else { "commands" }
+        $message = "Are you sure you want to delete the selected $($selectedItems.Count) $($itemText)?"
+        $result = [System.Windows.MessageBox]::Show($message, "Confirm Delete", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
+
+        if ($result -ne [System.Windows.MessageBoxResult]::Yes) {
+            return
+        }
+    }
+
     foreach ($item in $selectedItems) {
         $id = $item.Id
 
