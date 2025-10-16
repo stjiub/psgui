@@ -146,6 +146,7 @@ function Register-EventHandlers {
     $script:UI.BtnMenuAdd.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
+    $script:UI.BtnMenuSaveAs.Add_Click({ Invoke-MainSaveAsClick })
     $script:UI.BtnMenuOpen.Add_Click({ Invoke-MainOpenClick })
     $script:UI.BtnMenuImport.Add_Click({ Invoke-MainImportClick })
     $script:UI.BtnMenuEdit.Add_Click({ Invoke-MainEditClick -Tabs $script:UI.Tabs })
@@ -1947,6 +1948,41 @@ function Invoke-MainOpenClick {
         Set-UnsavedChanges $false
         Update-WindowTitle
         Write-Status "Opened data file: $($dialog.FileName)"
+    }
+}
+
+function Invoke-MainSaveAsClick {
+    $dialog = New-Object Microsoft.Win32.SaveFileDialog
+    $dialog.InitialDirectory = Split-Path $script:State.CurrentDataFile -Parent
+    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dialog.DefaultExt = ".json"
+    $dialog.FileName = [System.IO.Path]::GetFileNameWithoutExtension($script:State.CurrentDataFile) + "_copy.json"
+
+    if ($dialog.ShowDialog()) {
+        # Generate a new CommandListId for the saved file
+        $originalCommandListId = $script:State.CurrentCommandListId
+        $script:State.CurrentCommandListId = Get-CommandListId
+
+        try {
+            # Save data to the new file with new CommandListId
+            Save-DataFile -FilePath $dialog.FileName -Data ($script:UI.Tabs["All"].Content.ItemsSource)
+
+            # Update current data file path to the new file
+            $script:State.CurrentDataFile = $dialog.FileName
+            Set-UnsavedChanges $false
+            Update-WindowTitle
+            Write-Status "Data saved as: $($dialog.FileName)"
+
+            # Clear and reload favorites for the new CommandListId (will be empty initially)
+            $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
+            $script:UI.Tabs["Favorites"].Content.ItemsSource = $favItemsSource
+            Update-FavoriteHighlighting
+        }
+        catch {
+            # Restore original CommandListId if save failed
+            $script:State.CurrentCommandListId = $originalCommandListId
+            Show-ErrorMessageBox "Failed to save file as: $_"
+        }
     }
 }
 
