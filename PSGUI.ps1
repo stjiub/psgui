@@ -138,34 +138,45 @@ function Start-MainWindow {
 
 # Register all GUI events
 function Register-EventHandlers {
-    # Main button events
-    $script:UI.BtnMainAdd.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $script:UI.BtnMainRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $script:UI.BtnMainMoveUp.Add_Click({ Move-FavoriteItem -Direction "Up" })
-    $script:UI.BtnMainMoveDown.Add_Click({ Move-FavoriteItem -Direction "Down" })
-    $script:UI.BtnMainSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
-    $script:UI.BtnMainOpen.Add_Click({ Invoke-MainOpenClick })
-    $script:UI.BtnMainImport.Add_Click({ Invoke-MainImportClick })
-    $script:UI.BtnMainEdit.Add_Click({ Invoke-MainEditClick -Tabs $script:UI.Tabs })
-    $script:UI.BtnMainFavorite.Add_Click({  Invoke-MainFavoriteClick })
-    $script:UI.BtnMainSettings.Add_Click({ Show-SettingsDialog })
-    $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
-    $script:UI.BtnMainRunMenu.Add_Click({ $script:UI.ContextMenuMainRunMenu.IsOpen = $true })
-
-    $script:UI.BtnToggleSub.Add_Click({ Invoke-ToggleSubGrid })
-
-    # Run Menu Item events
-    $script:UI.MenuItemMainRunExternal.Add_Click({ 
+    # Dock Panel Menu Buttons
+    $script:UI.BtnMenuAdd.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
+    $script:UI.BtnMenuOpen.Add_Click({ Invoke-MainOpenClick })
+    $script:UI.BtnMenuImport.Add_Click({ Invoke-MainImportClick })
+    $script:UI.BtnMenuEdit.Add_Click({ Invoke-MainEditClick -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuFavorite.Add_Click({  Invoke-MainFavoriteClick })
+    $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
+    $script:UI.BtnMenuToggleSub.Add_Click({ Invoke-ToggleSubGrid })
+    $script:UI.BtnMenuRunExternal.Add_Click({ 
         $script:State.RunCommandInternal = $false
         Invoke-MainRunClick -TabControl $script:UI.TabControl 
     })
-    $script:UI.MenuItemMainRunInternal.Add_Click({ 
+    $script:UI.BtnMenuRunInternal.Add_Click({ 
         $script:State.RunCommandInternal = $true
         Invoke-MainRunClick -TabControl $script:UI.TabControl 
     })
-    $script:UI.MenuItemMainRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Start-CommandDialog -Command $script:State.LastCommand } })
-    $script:UI.MenuItemMainRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
-    $script:UI.MenuItemMainRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
+    $script:UI.BtnMenuRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Start-CommandDialog -Command $script:State.LastCommand } })
+    $script:UI.BtnMenuRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
+    $script:UI.BtnMenuRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
+
+    # Main Buttons
+    $script:UI.BtnMainFavorite.Add_Click({  Invoke-MainFavoriteClick })
+    $script:UI.BtnMainMoveUp.Add_Click({ Move-FavoriteItem -Direction "Up" })
+    $script:UI.BtnMainMoveDown.Add_Click({ Move-FavoriteItem -Direction "Down" })
+    $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
+    $script:UI.BtnMainRunMenu.Add_Click({ $script:UI.ContextMenuMainRunMenu.IsOpen = $true })
+    $script:UI.BtnMainRunExternal.Add_Click({ 
+        $script:State.RunCommandInternal = $false
+        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+    })
+    $script:UI.BtnMainRunInternal.Add_Click({ 
+        $script:State.RunCommandInternal = $true
+        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+    })
+    $script:UI.BtnMainRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Start-CommandDialog -Command $script:State.LastCommand } })
+    $script:UI.BtnMainRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
+    $script:UI.BtnMainRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
 
     # Command dialog button events
     $script:UI.BtnCommandClose.Add_Click({ Hide-CommandDialog })
@@ -398,20 +409,20 @@ function Invoke-ToggleSubGrid {
         $script:UI.Sub.Visibility = "Collapsed"
         
         # Change the icon to indicate collapsed state
-        $script:UI.BtnToggleSub.Content = New-Object MaterialDesignThemes.Wpf.PackIcon -Property @{
-            Kind = "ArrowCollapseUp"
-            Foreground = "Black"
-        }
+        # $script:UI.BtnToggleSub.Content = New-Object MaterialDesignThemes.Wpf.PackIcon -Property @{
+        #     Kind = "ArrowCollapseUp"
+        #     Foreground = "Black"
+        # }
     } else {
         # Restore previous height and visibility
         $script:UI.Window.FindName("SubGridRow").Height = New-Object System.Windows.GridLength($script:State.SubGridExpandedHeight)
         $script:UI.Sub.Visibility = "Visible"
         
         # Change the icon to indicate expanded state
-        $script:UI.BtnToggleSub.Content = New-Object MaterialDesignThemes.Wpf.PackIcon -Property @{
-            Kind = "ArrowCollapseDown"
-            Foreground = "Black"
-        }
+        # $script:UI.BtnToggleSub.Content = New-Object MaterialDesignThemes.Wpf.PackIcon -Property @{
+        #     Kind = "ArrowCollapseDown"
+        #     Foreground = "Black"
+        # }
     }
 }
 
