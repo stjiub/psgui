@@ -56,6 +56,7 @@ function Initialize-Application() {
         }
         SubGridExpandedHeight = 300
         HasUnsavedChanges = $false
+        CurrentCommandListId = $null
     }
 
     # Load necessary assemblies
@@ -357,21 +358,29 @@ function Invoke-MainFavoriteClick {
     $selectedItem = $grid.SelectedItem
 
     if ($selectedItem) {
-        $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
-        $existingFavorite = $favorites | Where-Object { $_.Id -eq $selectedItem.Id }
+        try {
+            $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
+            $existingFavorite = $favorites | Where-Object { $_.Id -eq $selectedItem.Id }
 
-        if ($existingFavorite) {
-            [void]$favorites.Remove($existingFavorite)
-            Write-Status "Removed from favorites"
+            if ($existingFavorite) {
+                [void]$favorites.Remove($existingFavorite)
+                Save-Favorites -Favorites $favorites
+                Update-FavoriteHighlighting
+                Write-Status "Removed from favorites"
+            }
+            else {
+                $script:State.FavoritesHighestOrder++
+                $favoriteRow = [FavoriteRowData]::new($selectedItem, $script:State.FavoritesHighestOrder)
+                [void]$favorites.Add($favoriteRow)
+                Save-Favorites -Favorites $favorites
+                Update-FavoriteHighlighting
+                Write-Status "Added to favorites"
+            }
         }
-        else {
-            $script:State.FavoritesHighestOrder++
-            $favoriteRow = [FavoriteRowData]::new($selectedItem, $script:State.FavoritesHighestOrder)
-            [void]$favorites.Add($favoriteRow)
-            Write-Status "Added to favorites"
+        catch {
+            Write-Status "Failed to add/remove favorite"
+            Write-Log "Failed to add/remove favorite: $_"
         }
-        Save-Favorites -Favorites $favorites
-        Update-FavoriteHighlighting
     }
 }
 
@@ -972,6 +981,11 @@ function Get-HighestId {
     }
 }
 
+# Generate a unique command list ID using GUID
+function Get-CommandListId {
+    return [System.Guid]::NewGuid().ToString()
+}
+
 # Copy a string to the system clipboard
 function Copy-ToClipboard {
     param (
@@ -1286,8 +1300,12 @@ function Initialize-DataFile {
                 New-Item -ItemType Directory -Path $directory -Force | Out-Null
             }
 
-            # Create file with empty JSON array
-            "[]" | Set-Content -Path $filePath -Encoding UTF8
+            # Create file with empty structure including CommandListId
+            $newFileStructure = @{
+                CommandListId = Get-CommandListId
+                Commands = @()
+            }
+            $newFileStructure | ConvertTo-Json -Depth 3 | Set-Content -Path $filePath -Encoding UTF8
             Write-Log "Created new data file: $filePath"
         }
         catch {
@@ -1306,31 +1324,56 @@ function Load-DataFile {
     try {
         [string]$contentRaw = (Get-Content $filePath -Raw -ErrorAction Stop)
         if ($contentRaw) {
-            [array]$contentJson = $contentRaw | ConvertFrom-Json
-            
+            $contentJson = $contentRaw | ConvertFrom-Json
+
+            # Handle both old format (array) and new format (object with CommandListId)
+            $commandsArray = $null
+            if ($contentJson -is [Array]) {
+                # Old format - array of commands
+                $commandsArray = $contentJson
+                # Generate and store a new CommandListId for old files
+                $script:State.CurrentCommandListId = Get-CommandListId
+                Write-Log "Loaded legacy data file format, generated new CommandListId"
+            } else {
+                # New format - object with CommandListId and Commands
+                $commandsArray = $contentJson.Commands
+                $script:State.CurrentCommandListId = $contentJson.CommandListId
+                if (-not $script:State.CurrentCommandListId) {
+                    # Generate ID if missing
+                    $script:State.CurrentCommandListId = Get-CommandListId
+                    Write-Log "CommandListId missing from file, generated new one"
+                }
+            }
+
             # Convert JSON objects to RowData objects
             $rowDataCollection = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
-            foreach ($item in $contentJson) {
-                $rowData = [RowData]::new()
-                $rowData.Id = $item.Id
-                $rowData.Name = $item.Name
-                $rowData.Description = $item.Description
-                $rowData.Category = $item.Category
-                $rowData.Command = $item.Command
-                $rowData.SkipParameterSelect = $item.SkipParameterSelect
-                $rowData.PreCommand = $item.PreCommand
-                $rowDataCollection.Add($rowData)
+            if ($commandsArray) {
+                foreach ($item in $commandsArray) {
+                    $rowData = [RowData]::new()
+                    $rowData.Id = $item.Id
+                    $rowData.Name = $item.Name
+                    $rowData.Description = $item.Description
+                    $rowData.Category = $item.Category
+                    $rowData.Command = $item.Command
+                    $rowData.SkipParameterSelect = $item.SkipParameterSelect
+                    $rowData.PreCommand = $item.PreCommand
+                    $rowDataCollection.Add($rowData)
+                }
             }
             return $rowDataCollection
         }
         else {
             Write-Verbose "Data file $filePath is empty."
+            # Generate CommandListId for empty files
+            $script:State.CurrentCommandListId = Get-CommandListId
             return [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
         }
     }
     catch {
         Write-Error "Failed to load data from: $filePath"
         Write-Log "Failed to load data: $_"
+        # Generate CommandListId even for failed loads
+        $script:State.CurrentCommandListId = Get-CommandListId
         return [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
     }
 }
@@ -1355,8 +1398,14 @@ function Save-DataFile {
                 PreCommand = $_.PreCommand
             }
         }
-        
-        $json = ConvertTo-Json $populatedRows
+
+        # Save in new format with CommandListId
+        $fileStructure = @{
+            CommandListId = $script:State.CurrentCommandListId
+            Commands = $populatedRows
+        }
+
+        $json = ConvertTo-Json $fileStructure -Depth 3
         Set-Content -Path $filePath -Value $json
         Set-UnsavedChanges $false
         Write-Status "Data saved"
@@ -2025,16 +2074,48 @@ function Save-Favorites {
     param (
         [System.Collections.ObjectModel.ObservableCollection[Object]]$favorites
     )
-    
+
     try {
         $favoritesDir = Split-Path $script:Settings.FavoritesPath -Parent
         if (-not (Test-Path $favoritesDir)) {
             New-Item -ItemType Directory -Path $favoritesDir -Force | Out-Null
         }
 
-        # Only save the Id and Order to keep the file minimal
-        $favoriteData = $favorites | Select-Object Id, Order
-        $favoriteData | ConvertTo-Json | Set-Content $script:Settings.FavoritesPath
+        # Load existing favorites file or create new structure
+        $allFavorites = @{}
+        if (Test-Path $script:Settings.FavoritesPath) {
+            try {
+                $existingContent = Get-Content $script:Settings.FavoritesPath | ConvertFrom-Json
+                # Handle both old format (array) and new format (object with command list IDs)
+                if ($existingContent -is [Array]) {
+                    # Convert old format - all favorites go under a default ID
+                    $allFavorites["default"] = $existingContent
+                } else {
+                    # Convert PSCustomObject to hashtable for proper manipulation
+                    $existingContent.PSObject.Properties | ForEach-Object {
+                        $allFavorites[$_.Name] = $_.Value
+                    }
+                }
+            }
+            catch {
+                Write-Log "Failed to parse existing favorites file, creating new one"
+            }
+        }
+
+        # Save favorites for current command list
+        $currentListId = $script:State.CurrentCommandListId
+        if ($currentListId) {
+            $favoriteData = $favorites | Select-Object Id, Order
+            $allFavorites[$currentListId] = $favoriteData
+        }
+
+        # Convert hashtable to PSCustomObject for proper JSON serialization
+        $outputObject = New-Object PSObject
+        $allFavorites.GetEnumerator() | ForEach-Object {
+            $outputObject | Add-Member -MemberType NoteProperty -Name $_.Key -Value $_.Value
+        }
+
+        $outputObject | ConvertTo-Json -Depth 3 | Set-Content $script:Settings.FavoritesPath
         Write-Status "Favorites saved"
     }
     catch {
@@ -2050,16 +2131,33 @@ function Load-Favorites {
 
     try {
         if (Test-Path $script:Settings.FavoritesPath) {
-            $favoriteData = Get-Content $script:Settings.FavoritesPath | ConvertFrom-Json
+            $allFavorites = Get-Content $script:Settings.FavoritesPath | ConvertFrom-Json
             $favorites = @()
-            
-            foreach ($fav in $favoriteData | Sort-Object Order) {
-                $rowData = $allData | Where-Object { $_.Id -eq $fav.Id }
-                if ($rowData) {
-                    $favoriteRow = [FavoriteRowData]::new($rowData, $fav.Order)
-                    $favorites += $favoriteRow
-                    if ($fav.Order -gt $script:State.FavoritesHighestOrder) {
-                        $script:State.FavoritesHighestOrder = $fav.Order
+
+            # Get favorites for current command list
+            $currentListId = $script:State.CurrentCommandListId
+            $favoriteData = $null
+
+            # Handle both old format (array) and new format (object with command list IDs)
+            if ($allFavorites -is [Array]) {
+                # Old format - use as default
+                $favoriteData = $allFavorites
+            } else {
+                # New format - get favorites for current command list
+                if ($currentListId -and $allFavorites.PSObject.Properties[$currentListId]) {
+                    $favoriteData = $allFavorites.$currentListId
+                }
+            }
+
+            if ($favoriteData) {
+                foreach ($fav in $favoriteData | Sort-Object Order) {
+                    $rowData = $allData | Where-Object { $_.Id -eq $fav.Id }
+                    if ($rowData) {
+                        $favoriteRow = [FavoriteRowData]::new($rowData, $fav.Order)
+                        $favorites += $favoriteRow
+                        if ($fav.Order -gt $script:State.FavoritesHighestOrder) {
+                            $script:State.FavoritesHighestOrder = $fav.Order
+                        }
                     }
                 }
             }
