@@ -531,17 +531,24 @@ function Start-CommandDialog([Command]$command) {
     # If we are rerunning the command then the parameters are already saved
     if (-not $command.Parameters) {
         Clear-Grid $script:UI.CommandGrid
-        # We only want to process the command if it is a PS script or function
-        $type = Get-CommandType -Command $command.Root
-        if (($type -ne "Function") -and ($type -ne "External Script")) {
+
+        try {
+            # We only want to process the command if it is a PS script or function
+            $type = Get-CommandType -Command $command.Root
+            if (($type -ne "Function") -and ($type -ne "External Script")) {
+                return
+            }
+
+            # Parse the command for parameters to build command grid with
+            $command.Parameters = Get-ScriptBlockParameters -Command $command.Root
+            Build-CommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
+        }
+        catch {
+            Show-ParameterLoadError -CommandName $command.Root -ErrorMessage $_.Exception.Message
             return
         }
-
-        # Parse the command for parameters to build command grid with
-        $command.Parameters = Get-ScriptBlockParameters -Command $command.Root
-        Build-CommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
     }
-    
+
     # Assign the command as the current command so that BtnCommandRun can obtain it
     $script:State.CurrentCommand = $command
 
@@ -719,8 +726,13 @@ function Get-CommandType {
     param (
         [string]$command
     )
-    
-    return (Get-Command $command).CommandType 
+
+    try {
+        return (Get-Command $command -ErrorAction Stop).CommandType
+    }
+    catch {
+        throw "Command '$command' not found: $($_.Exception.Message)"
+    }
 }
 
 # Parse the command's script block to extract parameter info
@@ -729,9 +741,17 @@ function Get-ScriptBlockParameters {
         [string]$command
     )
 
-    $scriptBlock = (Get-Command $command).ScriptBlock
-    $parsed = [System.Management.Automation.Language.Parser]::ParseInput($scriptBlock.ToString(), [ref]$null, [ref]$null)
-    return $parsed.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)
+    try {
+        $scriptBlock = (Get-Command $command -ErrorAction Stop).ScriptBlock
+        if (-not $scriptBlock) {
+            throw "Command '$command' does not have a script block (may be a compiled cmdlet)"
+        }
+        $parsed = [System.Management.Automation.Language.Parser]::ParseInput($scriptBlock.ToString(), [ref]$null, [ref]$null)
+        return $parsed.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)
+    }
+    catch {
+        throw "Failed to parse parameters for '$command': $($_.Exception.Message)"
+    }
 }
 
 # Determine if a parameter contains a certain attribute type (Switch,ValidateSet)
@@ -1356,6 +1376,25 @@ function Show-ErrorMessageBox {
 
     Write-Error $message
     [System.Windows.MessageBox]::Show($message, "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+}
+
+# Show error dialog, status update, and log entry for parameter loading failures
+function Show-ParameterLoadError {
+    param (
+        [string]$commandName,
+        [string]$errorMessage
+    )
+
+    $fullMessage = "Failed to load parameters for command '$commandName':`n$errorMessage"
+
+    # Show popup dialog using existing function
+    Show-ErrorMessageBox $fullMessage
+
+    # Update status bar
+    Write-Status "Parameter load failed for '$commandName'"
+
+    # Additional log entry (Show-ErrorMessageBox already logs via Write-Error)
+    Write-Log "Parameter Load Error: $fullMessage"
 }
 
 # Write text to the LogBox
