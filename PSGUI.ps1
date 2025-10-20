@@ -546,6 +546,7 @@ function Invoke-CellEditEndingHandler {
 
             # Assign the CellEditEnding event to the new tab
             $newTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+            $newTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
         }
         $newTab.Content.ItemsSource.Add($editedObject)
         Sort-TabControl -TabControl $tabControl
@@ -1085,6 +1086,94 @@ function New-DataGridBase {
     $grid.ItemsSource = $itemsSource
     $grid.CanUserAddRows = $false
     $grid.IsReadOnly = $script:State.TabsReadOnly
+
+    # Create context menu
+    $contextMenu = New-Object System.Windows.Controls.ContextMenu
+    $contextMenuStyle = $script:UI.Window.FindResource("GridContextMenuStyle")
+    $contextMenu.Style = $contextMenuStyle
+    $iconStyle = $script:UI.Window.FindResource("ContextMenuIconStyle")
+
+    if ($name -eq "*") {
+        # Favorites tab - different menu items
+        $runMenuItem = New-Object System.Windows.Controls.MenuItem
+        $runMenuItem.Header = "Run"
+        $runIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $runIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Play
+        $runIcon.Style = $iconStyle
+        $runMenuItem.Icon = $runIcon
+        $runMenuItem.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
+        [void]$contextMenu.Items.Add($runMenuItem)
+
+        $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
+        $favoriteMenuItem.Header = "Favorite"
+        $favIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Star
+        $favIcon.Style = $iconStyle
+        $favoriteMenuItem.Icon = $favIcon
+        $favoriteMenuItem.Add_Click({ Invoke-MainFavoriteClick })
+        [void]$contextMenu.Items.Add($favoriteMenuItem)
+
+        [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
+
+        $moveUpMenuItem = New-Object System.Windows.Controls.MenuItem
+        $moveUpMenuItem.Header = "Move Up"
+        $upIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $upIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::ArrowUpBold
+        $upIcon.Style = $iconStyle
+        $moveUpMenuItem.Icon = $upIcon
+        $moveUpMenuItem.Add_Click({ Move-FavoriteItem -Direction "Up" })
+        [void]$contextMenu.Items.Add($moveUpMenuItem)
+
+        $moveDownMenuItem = New-Object System.Windows.Controls.MenuItem
+        $moveDownMenuItem.Header = "Move Down"
+        $downIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $downIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::ArrowDownBold
+        $downIcon.Style = $iconStyle
+        $moveDownMenuItem.Icon = $downIcon
+        $moveDownMenuItem.Add_Click({ Move-FavoriteItem -Direction "Down" })
+        [void]$contextMenu.Items.Add($moveDownMenuItem)
+    } else {
+        # Regular tabs - standard menu items
+        $runMenuItem = New-Object System.Windows.Controls.MenuItem
+        $runMenuItem.Header = "Run"
+        $runIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $runIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Play
+        $runIcon.Style = $iconStyle
+        $runMenuItem.Icon = $runIcon
+        $runMenuItem.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
+        [void]$contextMenu.Items.Add($runMenuItem)
+
+        $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
+        $favoriteMenuItem.Header = "Favorite"
+        $favIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Star
+        $favIcon.Style = $iconStyle
+        $favoriteMenuItem.Icon = $favIcon
+        $favoriteMenuItem.Add_Click({ Invoke-MainFavoriteClick })
+        [void]$contextMenu.Items.Add($favoriteMenuItem)
+
+        [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
+
+        $addMenuItem = New-Object System.Windows.Controls.MenuItem
+        $addMenuItem.Header = "Add"
+        $addIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $addIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::AddBox
+        $addIcon.Style = $iconStyle
+        $addMenuItem.Icon = $addIcon
+        $addMenuItem.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+        [void]$contextMenu.Items.Add($addMenuItem)
+
+        $removeMenuItem = New-Object System.Windows.Controls.MenuItem
+        $removeMenuItem.Header = "Remove"
+        $removeIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $removeIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::TrashCan
+        $removeIcon.Style = $iconStyle
+        $removeMenuItem.Icon = $removeIcon
+        $removeMenuItem.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+        [void]$contextMenu.Items.Add($removeMenuItem)
+    }
+
+    $grid.ContextMenu = $contextMenu
     $grid.AutoGenerateColumns = $false
 
     # Apply the favorite row style (skip for Favorites tab since it only contains favorites)
@@ -2045,6 +2134,7 @@ function Load-NewDataFile {
             $categoryItemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
             $tab = New-DataTab -Name $category -ItemsSource $categoryItemsSource -TabControl $script:UI.TabControl
             $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+            $tab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
             $script:UI.Tabs.Add($category, $tab)
         }
 
@@ -2107,6 +2197,7 @@ function Import-DataFile {
                     $categoryItemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
                     $categoryTab = New-DataTab -Name $item.Category -ItemsSource $categoryItemsSource -TabControl $script:UI.TabControl
                     $categoryTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+                    $categoryTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
                     $script:UI.Tabs.Add($item.Category, $categoryTab)
                 }
                 if ($categoryTab -and $categoryTab.Content -and $categoryTab.Content.ItemsSource) {
