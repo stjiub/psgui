@@ -175,6 +175,7 @@ function Start-MainWindow {
 function Register-EventHandlers {
     # Dock Panel Menu Buttons
     $script:UI.BtnMenuAdd.Add_Click({ Add-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuDuplicate.Add_Click({ Duplicate-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuRemove.Add_Click({ Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
     $script:UI.BtnMenuSaveAs.Add_Click({ Save-DataFileAs })
@@ -325,6 +326,64 @@ function Add-CommandRow {
         $grid.CurrentCell = New-Object System.Windows.Controls.DataGridCellInfo($newRow, $nameColumn)
     }
     $grid.BeginEdit()
+}
+
+# Handle the Duplicate Command to create a copy of the selected command row
+function Duplicate-CommandRow {
+    param (
+        [System.Windows.Controls.TabControl]$tabControl,
+        [hashtable]$tabs
+    )
+
+    $grid = $tabControl.SelectedItem.Content
+    $selectedItem = $grid.SelectedItem
+
+    if (-not $selectedItem) {
+        Write-Status "No command selected to duplicate"
+        return
+    }
+
+    # Create a new row with a new ID
+    $newRow = New-Object RowData
+    $newRow.Id = ++$script:State.HighestId
+
+    # Copy all properties except Id
+    $newRow.Name = $selectedItem.Name
+    $newRow.Description = $selectedItem.Description
+    $newRow.Category = $selectedItem.Category
+    $newRow.Command = $selectedItem.Command
+    $newRow.SkipParameterSelect = $selectedItem.SkipParameterSelect
+    $newRow.PreCommand = $selectedItem.PreCommand
+
+    # Add to All tab
+    $allTab = $tabs["All"]
+    $allGrid = $allTab.Content
+    $allGrid.ItemsSource.Add($newRow)
+
+    # If the item has a category, add to category tab as well
+    if ($newRow.Category) {
+        $categoryTab = $tabs[$newRow.Category]
+        if ($categoryTab) {
+            $categoryTab.Content.ItemsSource.Add($newRow)
+        }
+    }
+
+    Set-UnsavedChanges $true
+
+    # We don't want to change the tabs read only status if they are already in edit mode
+    if ($script:State.TabsReadOnly) {
+        Set-TabsReadOnlyStatus -Tabs $tabs
+        Set-TabsExtraColumnsVisibility -Tabs $tabs
+    }
+
+    # Select the new row and set it as the current item
+    $grid.SelectedItem = $newRow
+    $grid.CurrentItem = $newRow
+    $grid.ScrollIntoView($newRow)
+    $grid.Focus()
+    $grid.UpdateLayout()
+
+    Write-Status "Command duplicated"
 }
 
 # Handle the Main Window Remove Button click event to remove one or multiple RowData objects from the collection
@@ -1108,6 +1167,17 @@ function New-DataGridBase {
         $favoriteMenuItem.Icon = $favIcon
         $favoriteMenuItem.Add_Click({ Toggle-CommandFavorite })
         [void]$contextMenu.Items.Add($favoriteMenuItem)
+
+        [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
+
+        $duplicateMenuItem = New-Object System.Windows.Controls.MenuItem
+        $duplicateMenuItem.Header = "Duplicate Command"
+        $duplicateIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $duplicateIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::ContentCopy
+        $duplicateIcon.Style = $iconStyle
+        $duplicateMenuItem.Icon = $duplicateIcon
+        $duplicateMenuItem.Add_Click({ Duplicate-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+        [void]$contextMenu.Items.Add($duplicateMenuItem)
     } else {
         # Regular tabs - standard menu items
         $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
@@ -1191,6 +1261,15 @@ function New-DataGridBase {
         $addMenuItem.Icon = $addIcon
         $addMenuItem.Add_Click({ Add-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
         [void]$contextMenu.Items.Add($addMenuItem)
+
+        $duplicateMenuItem = New-Object System.Windows.Controls.MenuItem
+        $duplicateMenuItem.Header = "Duplicate Command"
+        $duplicateIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $duplicateIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::ContentCopy
+        $duplicateIcon.Style = $iconStyle
+        $duplicateMenuItem.Icon = $duplicateIcon
+        $duplicateMenuItem.Add_Click({ Duplicate-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+        [void]$contextMenu.Items.Add($duplicateMenuItem)
 
         $removeMenuItem = New-Object System.Windows.Controls.MenuItem
         $removeMenuItem.Header = "Remove Command"
