@@ -1157,14 +1157,40 @@ function New-DataGridBase {
         [void]$contextMenu.Items.Add($addMenuItem)
 
         $removeMenuItem = New-Object System.Windows.Controls.MenuItem
-        $removeMenuItem.Header = "Remove Command(s)"
+        $removeMenuItem.Header = "Remove Command"
         $removeIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $removeIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::TrashCan
         $removeIcon.Style = $iconStyle
         $removeMenuItem.Icon = $removeIcon
         $removeMenuItem.Add_Click({ Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
         [void]$contextMenu.Items.Add($removeMenuItem)
+
+        # Update Tag to include remove menu item
+        $contextMenu.Tag.RemoveMenuItem = $removeMenuItem
     }
+
+    # Update context menu when it opens to show/hide and update text for remove menu item
+    $contextMenu.Add_Opened({
+        param($sender, $e)
+
+        # Only update remove menu item for regular tabs (not Favorites tab)
+        if ($sender.Tag.RemoveMenuItem) {
+            $currentGrid = $script:UI.TabControl.SelectedItem.Content
+            $selectedCount = $currentGrid.SelectedItems.Count
+            $removeItem = $sender.Tag.RemoveMenuItem
+
+            if ($selectedCount -eq 0) {
+                $removeItem.Visibility = [System.Windows.Visibility]::Collapsed
+            } else {
+                $removeItem.Visibility = [System.Windows.Visibility]::Visible
+                if ($selectedCount -eq 1) {
+                    $removeItem.Header = "Remove Command"
+                } else {
+                    $removeItem.Header = "Remove $selectedCount Commands"
+                }
+            }
+        }
+    })
 
     $grid.ContextMenu = $contextMenu
     $grid.AutoGenerateColumns = $false
