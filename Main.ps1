@@ -19,6 +19,7 @@ $script:Settings = @{
     FavoritesPath = Join-Path $env:APPDATA "PSGUI\favorites.json"
     ShowDebugTab = $false
     DefaultDataFile = Join-Path $env:APPDATA "PSGUI\data.json"
+    CommandHistoryLimit = 50
 }
 
 $script:State = @{
@@ -36,6 +37,7 @@ $script:State = @{
     CurrentCommandListId = $null
     RecycleBin = [System.Collections.Generic.Queue[object]]::new()
     RecycleBinMaxSize = 10
+    CommandHistory = [System.Collections.Generic.List[object]]::new()
     DragDrop = @{
         DraggedItem = $null
         LastHighlightedRow = $null

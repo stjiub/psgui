@@ -213,6 +213,34 @@
                                         <TextBox Name="LogBox" BorderThickness="0" Foreground="Black"  VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
                                     </Grid>
                                 </TabItem>
+                                <TabItem Header="Command History" Grid.Row="1" HorizontalContentAlignment="Left">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <DataGrid Name="CommandHistoryGrid" Grid.Row="0"
+                                                  AutoGenerateColumns="False"
+                                                  IsReadOnly="True"
+                                                  CanUserAddRows="False"
+                                                  CanUserDeleteRows="False"
+                                                  SelectionMode="Single"
+                                                  HeadersVisibility="Column"
+                                                  GridLinesVisibility="Horizontal"
+                                                  AlternatingRowBackground="#F5F5F5"
+                                                  RowHeight="30">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="150"/>
+                                                <DataGridTextColumn Header="Command" Binding="{Binding CommandName}" Width="200"/>
+                                                <DataGridTextColumn Header="Parameters" Binding="{Binding ParameterSummary}" Width="*"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,10">
+                                            <Button Name="BtnReopenHistoryCommand" Content="Reopen Command" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" Margin="5,0,5,0"/>
+                                            <Button Name="BtnClearHistory" Content="Clear History" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" Margin="5,0,5,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </TabItem>
                                 <TabItem Header="+" Name="LogAddTab"/>
                             </TabControl>
                         </Grid>
@@ -347,6 +375,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <Label Grid.Row="0" Grid.Column="0" Content="Default Shell:"/>
@@ -417,8 +446,11 @@
                                     </Button.ToolTip>
                                 </Button>
 
-                                <Label Grid.Row="8" Grid.Column="0" Content="Show Debug Tab:"/>
-                                <CheckBox Grid.Row="8" Grid.Column="1" Name="ChkShowDebugTab" Margin="5" VerticalAlignment="Center"/>
+                                <Label Grid.Row="8" Grid.Column="0" Content="Command History Limit:"/>
+                                <TextBox Grid.Row="8" Grid.Column="1" Name="TxtCommandHistoryLimit" Margin="5"/>
+
+                                <Label Grid.Row="9" Grid.Column="0" Content="Show Debug Tab:"/>
+                                <CheckBox Grid.Row="9" Grid.Column="1" Name="ChkShowDebugTab" Margin="5" VerticalAlignment="Center"/>
                             </Grid>
                         </ScrollViewer>
 

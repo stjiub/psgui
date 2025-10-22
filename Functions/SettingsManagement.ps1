@@ -8,8 +8,9 @@ function Initialize-Settings {
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
     $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
+    $script:UI.TxtCommandHistoryLimit.Text = $script:Settings.CommandHistoryLimit
     $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
-    
+
     # Set the Debug tab visibility based on setting
     if ($script:Settings.ShowDebugTab) {
         $script:UI.LogTabControl.Items[0].Visibility = "Visible"
@@ -30,6 +31,7 @@ function Create-DefaultSettings {
         FavoritesPath = $script:Settings.FavoritesPath
         ShowDebugTab = $script:Settings.ShowDebugTab
         DefaultDataFile = $script:Settings.DefaultDataFile
+        CommandHistoryLimit = $script:Settings.CommandHistoryLimit
     }
     return $defaultSettings
 }
@@ -38,7 +40,7 @@ function Create-DefaultSettings {
 function Show-SettingsDialog {
     $script:UI.Overlay.Visibility = "Visible"
     $script:UI.SettingsDialog.Visibility = "Visible"
-    
+
     # Populate current settings
     $script:UI.TxtDefaultShell.Text = $script:Settings.DefaultShell
     $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs
@@ -46,6 +48,7 @@ function Show-SettingsDialog {
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
     $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
+    $script:UI.TxtCommandHistoryLimit.Text = $script:Settings.CommandHistoryLimit
     $script:UI.TxtSettingsPath.Text = $script:Settings.SettingsPath
     $script:UI.TxtFavoritesPath.Text = $script:Settings.FavoritesPath
 }
@@ -66,6 +69,18 @@ function Apply-Settings {
     $script:Settings.SettingsPath = $script:UI.TxtSettingsPath.Text
     $script:Settings.FavoritesPath = $script:UI.TxtFavoritesPath.Text
     $script:Settings.ShowDebugTab = $script:UI.ChkShowDebugTab.IsChecked
+
+    # Validate and set CommandHistoryLimit
+    $historyLimit = 50  # Default value
+    if ([int]::TryParse($script:UI.TxtCommandHistoryLimit.Text, [ref]$historyLimit)) {
+        # Ensure it's within reasonable bounds
+        if ($historyLimit -lt 1) { $historyLimit = 1 }
+        if ($historyLimit -gt 1000) { $historyLimit = 1000 }
+        $script:Settings.CommandHistoryLimit = $historyLimit
+    } else {
+        $script:Settings.CommandHistoryLimit = 50
+        $script:UI.TxtCommandHistoryLimit.Text = "50"
+    }
 
     # Apply Debug tab visibility change immediately
     if ($script:Settings.ShowDebugTab) {
@@ -99,6 +114,9 @@ function Load-Settings {
     if (Get-Member -InputObject $settings -Name "DefaultDataFile" -MemberType Properties) {
         $script:Settings.DefaultDataFile = $settings.DefaultDataFile
     }
+    if (Get-Member -InputObject $settings -Name "CommandHistoryLimit" -MemberType Properties) {
+        $script:Settings.CommandHistoryLimit = $settings.CommandHistoryLimit
+    }
 }
 
 # Save settings to file
@@ -119,8 +137,9 @@ function Save-Settings {
             FavoritesPath = $script:Settings.FavoritesPath
             ShowDebugTab = $script:Settings.ShowDebugTab
             DefaultDataFile = $script:Settings.DefaultDataFile
+            CommandHistoryLimit = $script:Settings.CommandHistoryLimit
         }
-        
+
         $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
         Write-Status "Settings saved"
     }
