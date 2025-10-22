@@ -1276,15 +1276,23 @@ function New-GridColumn {
         [bool]$isFavorites
     )
 
-    $column = New-Object System.Windows.Controls.DataGridTextColumn
-    $column.Header = $propertyName
-    $column.Binding = New-Object System.Windows.Data.Binding $propertyName
-    
+    # Create a checkbox column for SkipParameterSelect
+    if ($propertyName -eq "SkipParameterSelect") {
+        $column = New-Object System.Windows.Controls.DataGridCheckBoxColumn
+        $column.Header = $propertyName
+        $column.Binding = New-Object System.Windows.Data.Binding $propertyName
+    }
+    else {
+        $column = New-Object System.Windows.Controls.DataGridTextColumn
+        $column.Header = $propertyName
+        $column.Binding = New-Object System.Windows.Data.Binding $propertyName
+    }
+
     if ($propertyName -eq "Order") {
         $column.IsReadOnly = $false
         $column.Visibility = $script:State.ExtraColumnsVisibility
     }
-    
+
     return $column
 }
 
