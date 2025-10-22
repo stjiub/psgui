@@ -142,11 +142,11 @@
                         <MenuItem Header="_Edit Mode" IsCheckable="True" Name="BtnMenuEdit" Icon="{md:PackIcon Kind=Edit}"/>
                     </MenuItem>
                     <MenuItem Header="_Run" FontSize="12" VerticalAlignment="Center">
-                        <MenuItem Name="BtnMenuRunInternal" Header="Run (_Attached)"/>
-                        <MenuItem Name="BtnMenuRunExternal" Header="Run (_Detached)"/>
-                        <MenuItem Name="BtnMenuRunReopenLast" Header="Reopen Last Command"/>
-                        <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command"/>
-                        <MenuItem Name="BtnMenuRunCopyToClipboard" Header="Copy Last Command To Clipboard"/>
+                        <MenuItem Name="BtnMenuRunInternal" Header="Run (_Attached)" Icon="{md:PackIcon Kind=Play}"/>
+                        <MenuItem Name="BtnMenuRunExternal" Header="Run (_Detached)" Icon="{md:PackIcon Kind=OpenInNew}"/>
+                        <MenuItem Name="BtnMenuRunReopenLast" Header="Modify Last Command" Icon="{md:PackIcon Kind=FileDocumentEdit}"/>
+                        <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command" Icon="{md:PackIcon Kind=Refresh}"/>
+                        <MenuItem Name="BtnMenuRunCopyToClipboard" Header="Copy to Clipboard" Icon="{md:PackIcon Kind=ClipboardMultipleOutline}"/>
                     </MenuItem>
                 </Menu>
                 <TextBox AcceptsReturn="True" />
