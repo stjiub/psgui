@@ -1,14 +1,21 @@
 properties {
     $ProjectRoot = Split-Path -Parent $PSScriptRoot
-    $script:CurrentVersion = (Get-Item "$ProjectRoot\PSGUI.exe").Versioninfo.FileVersionRaw
+    if (Test-Path "$ProjectRoot\PSGUI.exe") {
+        $script:CurrentVersion = (Get-Item "$ProjectRoot\PSGUI.exe").Versioninfo.FileVersionRaw
+    }
 
     $RequiredFiles = @("PSGUI.exe", "MainWindow.xaml", "icon.ico", "Assembly")
     $InstallLocations = @("C:\Program Files\PSGUI")
 }
 
-task default -depends Build
+task default -depends Combine
 
-    task Build {
+    task Combine {
+        Get-Content "$($ProjectRoot)\Functions\*.ps1" | Set-Content -Path "$($ProjectRoot)\PSGUI.ps1"
+        Get-Content "$($ProjectRoot)\Main.ps1" | Add-Content -Path "$($ProjectRoot)\PSGUI.ps1"
+    }
+
+    task Build -depends Combine {
         $module = Get-Module -ListAvailable PS2Exe
 
         if (-not $module) {
