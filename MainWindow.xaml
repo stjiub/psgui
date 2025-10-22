@@ -22,7 +22,10 @@
                 <md:BundledTheme BaseTheme="Light" PrimaryColor="Blue" SecondaryColor="Purple" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            
+
+            <!-- App Theme Colors -->
+            <SolidColorBrush x:Key="AppPrimaryBrush" Color="#2096F4"/>
+
             <Style TargetType="TabItem">
                 <Setter Property="Background" Value="#2096F4"/>
                 <Setter Property="Foreground" Value="White"/>
@@ -183,28 +186,6 @@
                     <Button.ToolTip>
                         <ToolTip>
                             <TextBlock>Remove Selected Command(s)</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-                <Button Name="BtnMainMoveUp" Visibility="Collapsed" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                    <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                    </Button.LayoutTransform>
-                    <md:PackIcon Kind="ArrowUpBold" Foreground="Black"/>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Move Favorite Up</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-                <Button Name="BtnMainMoveDown" Visibility="Collapsed" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                    <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                    </Button.LayoutTransform>
-                    <md:PackIcon Kind="ArrowDownBold" Foreground="Black"/>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Move Favorite Down</TextBlock>
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>

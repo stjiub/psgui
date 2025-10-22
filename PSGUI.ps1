@@ -46,17 +46,14 @@ function Initialize-Application() {
         RunCommandInternal = $script:Settings.DefaultRunCommandInternal
         ExtraColumnsVisibility = "Collapsed"
         ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
-        UpDownButtons = @{
-            Up = $null
-            Down = $null
-        }
-        AddRemoveButtons = @{
-            Add = $null
-            Remove = $null
-        }
         SubGridExpandedHeight = 300
         HasUnsavedChanges = $false
         CurrentCommandListId = $null
+        DragDrop = @{
+            DraggedItem = $null
+            LastHighlightedRow = $null
+            IsBottomBorder = $false
+        }
     }
 
     # Load necessary assemblies
@@ -119,6 +116,10 @@ function Start-MainWindow {
         }
     })
     $favTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+
+    # Add drag/drop event handlers for reordering favorites
+    Initialize-FavoritesDragDrop -Grid $favTab.Content
+
     $script:UI.Tabs.Add("Favorites", $favTab)
     if ($favItemsSource.Count -eq 0) {
         $script:UI.TabControl.SelectedItem = $allTab
@@ -170,8 +171,6 @@ function Register-EventHandlers {
 
     # Main Buttons
     $script:UI.BtnMainFavorite.Add_Click({  Invoke-MainFavoriteClick })
-    $script:UI.BtnMainMoveUp.Add_Click({ Move-FavoriteItem -Direction "Up" })
-    $script:UI.BtnMainMoveDown.Add_Click({ Move-FavoriteItem -Direction "Down" })
     $script:UI.BtnMainAdd.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMainRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
@@ -454,25 +453,6 @@ function Invoke-ToggleSubGrid {
         #     Kind = "ArrowCollapseDown"
         #     Foreground = "Black"
         # }
-    }
-}
-
-function Invoke-TabControlSelectionChanged {
-    param($sender, $e)
-        
-    $selectedTab = $sender.SelectedItem
-    if ($selectedTab.Header -eq "*") {
-        # Show Up/Down buttons, hide Add/Remove buttons
-        $script:UI.BtnMainMoveUp.Visibility = "Visible"
-        $script:UI.BtnMainMoveDown.Visibility = "Visible"
-        $script:UI.BtnMainAdd.Visibility = "Collapsed"
-        $script:UI.BtnMainRemove.Visibility = "Collapsed"
-    } else {
-        # Hide Up/Down buttons, show Add/Remove buttons
-        $script:UI.BtnMainMoveUp.Visibility = "Collapsed"
-        $script:UI.BtnMainMoveDown.Visibility = "Collapsed"
-        $script:UI.BtnMainAdd.Visibility = "Visible"
-        $script:UI.BtnMainRemove.Visibility = "Visible"
     }
 }
 
@@ -902,26 +882,6 @@ function Set-GridExtraColumnsVisibility {
     }
 }
 
-function Update-ButtonVisibility {
-    param (
-        [string]$tabHeader
-    )
-    
-    if ($tabHeader -eq "*") {
-        # Show Up/Down buttons, hide Add/Remove buttons
-        $script:UI.BtnMainMoveUp.Visibility = "Visible"
-        $script:UI.BtnMainMoveDown.Visibility = "Visible"
-        $script:UI.BtnMainAdd.Visibility = "Collapsed"
-        $script:UI.BtnMainRemove.Visibility = "Collapsed"
-    } else {
-        # Hide Up/Down buttons, show Add/Remove buttons
-        $script:UI.BtnMainMoveUp.Visibility = "Collapsed"
-        $script:UI.BtnMainMoveDown.Visibility = "Collapsed"
-        $script:UI.BtnMainAdd.Visibility = "Visible"
-        $script:UI.BtnMainRemove.Visibility = "Visible"
-    }
-}
-
 function Update-OrderColumnVisibility {
     param (
         [System.Windows.Controls.TabItem]$selectedTab
@@ -941,7 +901,6 @@ function Handle-TabSelection {
         [System.Windows.Controls.TabItem]$selectedTab
     )
 
-    Update-ButtonVisibility -TabHeader $selectedTab.Header
     Update-OrderColumnVisibility -SelectedTab $selectedTab
 }
 
@@ -1094,7 +1053,7 @@ function New-DataGridBase {
     $iconStyle = $script:UI.Window.FindResource("ContextMenuIconStyle")
 
     if ($name -eq "*") {
-        # Favorites tab - different menu items
+        # Favorites tab - simplified menu items (drag-and-drop handles reordering)
         $runMenuItem = New-Object System.Windows.Controls.MenuItem
         $runMenuItem.Header = "Run"
         $runIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
@@ -1105,33 +1064,13 @@ function New-DataGridBase {
         [void]$contextMenu.Items.Add($runMenuItem)
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
-        $favoriteMenuItem.Header = "Favorite"
+        $favoriteMenuItem.Header = "Remove from Favorites"
         $favIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
-        $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Star
+        $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::StarOff
         $favIcon.Style = $iconStyle
         $favoriteMenuItem.Icon = $favIcon
         $favoriteMenuItem.Add_Click({ Invoke-MainFavoriteClick })
         [void]$contextMenu.Items.Add($favoriteMenuItem)
-
-        [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
-
-        $moveUpMenuItem = New-Object System.Windows.Controls.MenuItem
-        $moveUpMenuItem.Header = "Move Up"
-        $upIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
-        $upIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::ArrowUpBold
-        $upIcon.Style = $iconStyle
-        $moveUpMenuItem.Icon = $upIcon
-        $moveUpMenuItem.Add_Click({ Move-FavoriteItem -Direction "Up" })
-        [void]$contextMenu.Items.Add($moveUpMenuItem)
-
-        $moveDownMenuItem = New-Object System.Windows.Controls.MenuItem
-        $moveDownMenuItem.Header = "Move Down"
-        $downIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
-        $downIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::ArrowDownBold
-        $downIcon.Style = $iconStyle
-        $moveDownMenuItem.Icon = $downIcon
-        $moveDownMenuItem.Add_Click({ Move-FavoriteItem -Direction "Down" })
-        [void]$contextMenu.Items.Add($moveDownMenuItem)
     } else {
         # Regular tabs - standard menu items
         $runMenuItem = New-Object System.Windows.Controls.MenuItem
@@ -2146,6 +2085,9 @@ function Load-NewDataFile {
         }
         $script:UI.Tabs["Favorites"].Content.ItemsSource = $favItemsSource
 
+        # Reinitialize drag/drop for favorites grid
+        Initialize-FavoritesDragDrop -Grid $script:UI.Tabs["Favorites"].Content
+
         Sort-TabControl -TabControl $script:UI.TabControl
     }
     catch {
@@ -2315,46 +2257,6 @@ function Load-Favorites {
     return @()
 }
 
-function Move-FavoriteItem {
-    param (
-        [string]$direction
-    )
-    
-    $grid = $script:UI.Tabs["Favorites"].Content
-    $selectedItem = $grid.SelectedItem
-    if (-not $selectedItem) { return }
-    
-    $itemsSource = $grid.ItemsSource
-    $currentIndex = $itemsSource.IndexOf($selectedItem)
-    $count = $itemsSource.Count
-    
-    # Calculate new index based on direction
-    $newIndex = if ($direction -eq "Up") {
-        if ($currentIndex -eq 0) { $count - 1 } else { $currentIndex - 1 }
-    } else {
-        if ($currentIndex -eq ($count - 1)) { 0 } else { $currentIndex + 1 }
-    }
-    
-    # Store current orders
-    $currentOrder = $selectedItem.Order
-    $swapWithItem = $itemsSource[$newIndex]
-    $swapWithOrder = $swapWithItem.Order
-    
-    # Swap order numbers
-    $selectedItem.Order = $swapWithOrder
-    $swapWithItem.Order = $currentOrder
-    
-    # Remove from current position and insert at new position
-    $itemsSource.RemoveAt($currentIndex)
-    $itemsSource.Insert($newIndex, $selectedItem)
-    
-    # Keep the moved item selected
-    $grid.SelectedItem = $selectedItem
-    $grid.ScrollIntoView($selectedItem)
-    
-    Save-Favorites -Favorites $itemsSource
-}
-
 # Update the data file indicator text
 function Update-WindowTitle {
     $unsavedIndicator = if ($script:State.HasUnsavedChanges) { "*" } else { "" }
@@ -2421,6 +2323,245 @@ function Update-FavoriteHighlighting {
                 }
             }, "Normal")
         }
+    }
+}
+
+# Initialize drag and drop functionality for the Favorites grid
+function Initialize-FavoritesDragDrop {
+    param (
+        [System.Windows.Controls.DataGrid]$grid
+    )
+
+    # Enable drag/drop on the grid
+    $grid.AllowDrop = $true
+
+    # Handle mouse down to capture the item being dragged
+    $grid.Add_PreviewMouseLeftButtonDown({
+        param($sender, $e)
+
+        $row = Get-DataGridRowFromPoint -Grid $sender -Point ($e.GetPosition($sender))
+        if ($row -and $row.Item) {
+            $script:State.DragDrop.DraggedItem = $row.Item
+        }
+    })
+
+    # Handle mouse move to initiate drag operation
+    $grid.Add_MouseMove({
+        param($sender, $e)
+
+        if ($e.LeftButton -eq [System.Windows.Input.MouseButtonState]::Pressed -and
+            $script:State.DragDrop.DraggedItem -ne $null) {
+
+            $dragData = New-Object System.Windows.DataObject([System.Windows.DataFormats]::Serializable, $script:State.DragDrop.DraggedItem)
+            [System.Windows.DragDrop]::DoDragDrop($sender, $dragData, [System.Windows.DragDropEffects]::Move)
+        }
+    })
+
+    # Handle drag over to show drop feedback
+    $grid.Add_DragOver({
+        param($sender, $e)
+
+        $position = $e.GetPosition($sender)
+        $row = Get-DataGridRowFromPoint -Grid $sender -Point $position
+
+        if ($row) {
+            # Normal drop - highlight top border of target row
+            # Only update highlighting if the row object or border type changed
+            if ($row -ne $script:State.DragDrop.LastHighlightedRow -or $script:State.DragDrop.IsBottomBorder -eq $true) {
+                Clear-DropHighlight
+                $script:State.DragDrop.IsBottomBorder = $false
+                Set-DropHighlight -Row $row -IsBottomBorder $false
+            }
+            $e.Effects = [System.Windows.DragDropEffects]::Move
+        }
+        elseif (Test-IsPositionBelowLastRow -Grid $sender -Position $position) {
+            # Drop after last item - highlight bottom border of last row
+            $lastRow = $sender.ItemContainerGenerator.ContainerFromIndex($sender.Items.Count - 1)
+
+            # Only update if we're not already highlighting this row's bottom border
+            if ($lastRow -ne $script:State.DragDrop.LastHighlightedRow -or $script:State.DragDrop.IsBottomBorder -eq $false) {
+                Clear-DropHighlight
+                $script:State.DragDrop.IsBottomBorder = $true
+                Set-DropHighlight -Row $lastRow -IsBottomBorder $true
+            }
+            $e.Effects = [System.Windows.DragDropEffects]::Move
+        }
+        else {
+            $e.Effects = [System.Windows.DragDropEffects]::None
+        }
+        $e.Handled = $true
+    })
+
+    # Handle drag leave to clear feedback
+    $grid.Add_DragLeave({
+        param($sender, $e)
+        Clear-DropHighlight
+        $script:State.DragDrop.IsBottomBorder = $false
+    })
+
+    # Handle drop to reorder items
+    $grid.Add_Drop({
+        param($sender, $e)
+
+        Clear-DropHighlight
+
+        if ($script:State.DragDrop.DraggedItem -ne $null) {
+            $itemsSource = $sender.ItemsSource
+            $draggedItem = $script:State.DragDrop.DraggedItem
+            $position = $e.GetPosition($sender)
+
+            $targetRow = Get-DataGridRowFromPoint -Grid $sender -Point $position
+            $targetItem = $null
+            $isDropAfterLast = $false
+
+            # Determine drop target and whether dropping after last item
+            if (Test-IsPositionBelowLastRow -Grid $sender -Position $position) {
+                # Dropping after last item
+                $targetItem = $sender.Items[$sender.Items.Count - 1]
+                $isDropAfterLast = $true
+            }
+            elseif ($targetRow) {
+                # Normal drop on a row
+                $targetItem = $targetRow.Item
+            }
+
+            if ($targetItem -and ($draggedItem -ne $targetItem -or $isDropAfterLast)) {
+                $draggedOrder = $draggedItem.Order
+                $targetOrder = $targetItem.Order
+
+                if ($isDropAfterLast) {
+                    # Move to end - set Order to current maximum
+                    $maxOrder = ($itemsSource | Measure-Object -Property Order -Maximum).Maximum
+
+                    # Shift all items after the dragged item up by one
+                    foreach ($item in $itemsSource) {
+                        if ($item.Order -gt $draggedOrder) {
+                            $item.Order--
+                        }
+                    }
+                    $draggedItem.Order = $maxOrder
+                }
+                elseif ($draggedOrder -lt $targetOrder) {
+                    # Moving down - shift items between old and new position up
+                    foreach ($item in $itemsSource) {
+                        if ($item.Order -gt $draggedOrder -and $item.Order -le $targetOrder) {
+                            $item.Order--
+                        }
+                    }
+                    $draggedItem.Order = $targetOrder
+                }
+                elseif ($draggedOrder -gt $targetOrder) {
+                    # Moving up - shift items between new and old position down
+                    foreach ($item in $itemsSource) {
+                        if ($item.Order -ge $targetOrder -and $item.Order -lt $draggedOrder) {
+                            $item.Order++
+                        }
+                    }
+                    $draggedItem.Order = $targetOrder
+                }
+
+                # Refresh the sort to reflect new order
+                $sender.Items.SortDescriptions.Clear()
+                $sortDescription = New-Object System.ComponentModel.SortDescription("Order", [System.ComponentModel.ListSortDirection]::Ascending)
+                $sender.Items.SortDescriptions.Add($sortDescription)
+                $sender.Items.Refresh()
+
+                # Save favorites and keep selection
+                Save-Favorites -Favorites $itemsSource
+                $sender.SelectedItem = $draggedItem
+                $sender.ScrollIntoView($draggedItem)
+            }
+        }
+
+        # Reset drag state
+        $script:State.DragDrop.DraggedItem = $null
+        $script:State.DragDrop.IsBottomBorder = $false
+        $e.Handled = $true
+    })
+}
+
+# Get the DataGridRow at a specific point in the grid
+function Get-DataGridRowFromPoint {
+    param (
+        [System.Windows.Controls.DataGrid]$grid,
+        [System.Windows.Point]$point
+    )
+
+    # First try hit testing to find row from actual content
+    $element = $grid.InputHitTest($point)
+    while ($element -ne $null) {
+        if ($element -is [System.Windows.Controls.DataGridRow]) {
+            return $element
+        }
+        $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
+    }
+
+    # If hit testing didn't find a row, iterate through rows to find the closest by Y position
+    # This handles padding/margin areas between row content
+    if ($grid.Items.Count -gt 0) {
+        for ($i = 0; $i -lt $grid.Items.Count; $i++) {
+            $row = $grid.ItemContainerGenerator.ContainerFromIndex($i)
+            if ($row) {
+                $rowPosition = $row.TranslatePoint([System.Windows.Point]::new(0, 0), $grid)
+                $rowBottom = $rowPosition.Y + $row.ActualHeight
+
+                # Check if point is within this row's vertical bounds
+                if ($point.Y -ge $rowPosition.Y -and $point.Y -lt $rowBottom) {
+                    return $row
+                }
+            }
+        }
+    }
+
+    return $null
+}
+
+# Check if the mouse position is below the last row (for dropping at the end)
+function Test-IsPositionBelowLastRow {
+    param (
+        [System.Windows.Controls.DataGrid]$grid,
+        [System.Windows.Point]$position
+    )
+
+    if ($grid.Items.Count -eq 0) {
+        return $false
+    }
+
+    $lastRow = $grid.ItemContainerGenerator.ContainerFromIndex($grid.Items.Count - 1)
+    if ($lastRow) {
+        $lastRowTop = $lastRow.TranslatePoint([System.Windows.Point]::new(0, 0), $grid).Y
+        return $position.Y -gt $lastRowTop
+    }
+
+    return $false
+}
+
+# Set visual feedback for drop target
+function Set-DropHighlight {
+    param (
+        [System.Windows.Controls.DataGridRow]$row,
+        [bool]$isBottomBorder = $false
+    )
+
+    if ($row) {
+        # Use app theme color from XAML resources
+        $row.BorderBrush = $script:UI.Window.FindResource("AppPrimaryBrush")
+        if ($isBottomBorder) {
+            # Highlight bottom border for "drop after last item"
+            $row.BorderThickness = New-Object System.Windows.Thickness(0, 0, 0, 2)
+        } else {
+            # Highlight top border for normal drops
+            $row.BorderThickness = New-Object System.Windows.Thickness(0, 2, 0, 0)
+        }
+        $script:State.DragDrop.LastHighlightedRow = $row
+    }
+}
+
+# Clear drop target visual feedback
+function Clear-DropHighlight {
+    if ($script:State.DragDrop.LastHighlightedRow) {
+        $script:State.DragDrop.LastHighlightedRow.BorderThickness = New-Object System.Windows.Thickness(0)
+        $script:State.DragDrop.LastHighlightedRow = $null
     }
 }
 
