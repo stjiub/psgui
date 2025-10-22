@@ -114,7 +114,7 @@ function Register-EventHandlers {
     $script:UI.BtnMenuSaveAs.Add_Click({ Save-DataFileAs })
     $script:UI.BtnMenuOpen.Add_Click({ Open-DataFile })
     $script:UI.BtnMenuImport.Add_Click({ Invoke-ImportDataFileDialog })
-    $script:UI.BtnMenuEdit.Add_Click({ Edit-DataFile -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuEdit.Add_Click({ Toggle-EditMode -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuFavorite.Add_Click({ Toggle-CommandFavorite })
     $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
     $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-ShellGrid })
