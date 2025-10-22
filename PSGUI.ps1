@@ -184,14 +184,14 @@ function Register-EventHandlers {
     $script:UI.BtnMenuEdit.Add_Click({ Edit-DataFile -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuFavorite.Add_Click({ Toggle-CommandFavorite })
     $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
-    $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-SubGrid })
-    $script:UI.BtnMenuRunExternal.Add_Click({ 
+    $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-ShellGrid })
+    $script:UI.BtnMenuRunExternal.Add_Click({
         $script:State.RunCommandInternal = $false
-        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+        Invoke-MainRunClick -TabControl $script:UI.TabControl
     })
-    $script:UI.BtnMenuRunInternal.Add_Click({ 
+    $script:UI.BtnMenuRunInternal.Add_Click({
         $script:State.RunCommandInternal = $true
-        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+        Invoke-MainRunClick -TabControl $script:UI.TabControl -Internal $true 
     })
     $script:UI.BtnMenuRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Invoke-CommandDialog -Command $script:State.LastCommand } })
     $script:UI.BtnMenuRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
@@ -246,8 +246,8 @@ function Register-EventHandlers {
         $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
         Update-WindowTitle
 
-        if ($script:Settings.OpenShellAtStart) {
-            New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs
+        if (-not $script:Settings.OpenShellAtStart) {
+            Toggle-ShellGrid
         }
     })
 
@@ -488,6 +488,11 @@ function Invoke-MainRunClick {
         [System.Windows.Controls.TabControl]$tabControl
     )
 
+    if (($script:State.RunCommandInternal) -and ($script:UI.Shell.Visibility -ne "Visible"))
+    { 
+        Toggle-ShellGrid 
+    }
+
     $grid = $tabControl.SelectedItem.Content
     $selection = $grid.SelectedItems
     $command = New-Object Command
@@ -510,19 +515,19 @@ function Invoke-MainRunClick {
     }
 }
 
-function Toggle-SubGrid {    
-    if ($script:UI.Sub.Visibility -eq "Visible") {
+function Toggle-ShellGrid {    
+    if ($script:UI.Shell.Visibility -eq "Visible") {
         # Store current height before collapsing
-        $script:State.SubGridExpandedHeight = $script:UI.Window.FindName("SubGridRow").Height.Value
+        $script:State.SubGridExpandedHeight = $script:UI.Window.FindName("ShellRow").Height.Value
         
         # Collapse the Sub grid
-        $script:UI.Window.FindName("SubGridRow").Height = New-Object System.Windows.GridLength(0)
-        $script:UI.Sub.Visibility = "Collapsed"
+        $script:UI.Window.FindName("ShellRow").Height = New-Object System.Windows.GridLength(0)
+        $script:UI.Shell.Visibility = "Collapsed"
     } 
     else {
         # Restore previous height and visibility
-        $script:UI.Window.FindName("SubGridRow").Height = New-Object System.Windows.GridLength($script:State.SubGridExpandedHeight)
-        $script:UI.Sub.Visibility = "Visible"
+        $script:UI.Window.FindName("ShellRow").Height = New-Object System.Windows.GridLength($script:State.SubGridExpandedHeight)
+        $script:UI.Shell.Visibility = "Visible"
     }
 }
 
