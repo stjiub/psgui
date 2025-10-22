@@ -117,7 +117,7 @@
                 <RowDefinition Height="30"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="50"/>
-                <RowDefinition Height="300" Name="SubGridRow"/>
+                <RowDefinition Height="300" Name="ShellRow"/>
                 <RowDefinition Height="50"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
@@ -159,12 +159,12 @@
 
             <GridSplitter Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Gray"/>
 
-            <Grid Name="Sub" Grid.Row="3" Visibility="Visible" >
+            <Grid Name="Shell" Grid.Row="3" Visibility="Visible" >
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="5"/>
                 </Grid.RowDefinitions>
-                <TabControl Grid.Row="0" Name="SubGrid" HorizontalContentAlignment="Right" TabStripPlacement="Top" Margin="10,0,10,0" >
+                <TabControl Grid.Row="0" Name="TabControlShell" HorizontalContentAlignment="Right" TabStripPlacement="Top" Margin="10,0,10,0" >
                     <TabItem Header="Shell">
                         <Grid>
                             <Grid.RowDefinitions>
