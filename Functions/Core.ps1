@@ -110,6 +110,7 @@ function Register-EventHandlers {
     $script:UI.BtnMenuAdd.Add_Click({ Add-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuDuplicate.Add_Click({ Duplicate-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuRemove.Add_Click({ Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuUndoDelete.Add_Click({ Restore-DeletedCommand -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
     $script:UI.BtnMenuSaveAs.Add_Click({ Save-DataFileAs })
     $script:UI.BtnMenuOpen.Add_Click({ Open-DataFile })
