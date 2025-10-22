@@ -87,30 +87,141 @@ function Start-CommandDialog([Command]$command) {
 
     # If we are rerunning the command then the parameters are already saved
     if (-not $command.Parameters) {
-        Clear-Grid $script:UI.CommandGrid
+        # Show loading indicator immediately
+        Show-LoadingIndicator -Message "Loading parameters for $($command.Root)..."
 
-        try {
-            # We only want to process the command if it is a PS script or function
-            $type = Get-CommandType -Command $command.Root
-            if (($type -ne "Function") -and ($type -ne "Detached Script")) {
-                return
+        # Force UI update to show the loading indicator
+        $script:UI.Window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+
+        # Create a runspace to process parameters asynchronously
+        $runspace = [runspacefactory]::CreateRunspace()
+        $runspace.ApartmentState = "STA"
+        $runspace.ThreadOptions = "ReuseThread"
+        $runspace.Open()
+
+        # Create PowerShell instance
+        $powershell = [powershell]::Create()
+        $powershell.Runspace = $runspace
+
+        # Add script to extract parameters
+        [void]$powershell.AddScript({
+            param($commandName)
+
+            try {
+                # Get command type
+                $type = (Get-Command $commandName -ErrorAction Stop).CommandType
+                if (($type -ne "Function") -and ($type -ne "Script")) {
+                    return @{
+                        Success = $false
+                        Error = "Command type '$type' not supported"
+                        Type = $type
+                    }
+                }
+
+                # Parse parameters
+                $scriptBlock = (Get-Command $commandName -ErrorAction Stop).ScriptBlock
+                if (-not $scriptBlock) {
+                    return @{
+                        Success = $false
+                        Error = "Command does not have a script block"
+                    }
+                }
+
+                $parsed = [System.Management.Automation.Language.Parser]::ParseInput($scriptBlock.ToString(), [ref]$null, [ref]$null)
+                $parameters = $parsed.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true)
+
+                return @{
+                    Success = $true
+                    Parameters = $parameters
+                    Type = $type
+                }
             }
+            catch {
+                return @{
+                    Success = $false
+                    Error = $_.Exception.Message
+                }
+            }
+        }).AddArgument($command.Root)
 
-            # Parse the command for parameters to build command grid with
-            $command.Parameters = Get-ScriptBlockParameters -Command $command.Root
-            Build-CommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
+        # Begin async invocation
+        $asyncResult = $powershell.BeginInvoke()
+
+        # Capture variables needed in timer callback
+        $uiRef = $script:UI
+        $commandRef = $command
+
+        # Create timer to poll for completion
+        $timer = New-Object System.Windows.Threading.DispatcherTimer
+        $timer.Interval = [TimeSpan]::FromMilliseconds(100)
+        $timer.Tag = @{
+            AsyncResult = $asyncResult
+            PowerShell = $powershell
+            Runspace = $runspace
+            Command = $commandRef
+            UI = $uiRef
         }
-        catch {
-            Show-ParameterLoadError -CommandName $command.Root -ErrorMessage $_.Exception.Message
-            return
-        }
+
+        $timer.Add_Tick({
+            param($sender, $e)
+
+            $data = $sender.Tag
+
+            if ($data.AsyncResult.IsCompleted) {
+                $sender.Stop()
+
+                try {
+                    # Get results
+                    $result = $data.PowerShell.EndInvoke($data.AsyncResult)
+
+                    if ($result.Success) {
+                        # Update UI on dispatcher thread
+                        $data.UI.Window.Dispatcher.Invoke([action]{
+                            Clear-Grid $data.UI.CommandGrid
+                            $data.Command.Parameters = $result.Parameters
+                            Build-CommandGrid -Grid $data.UI.CommandGrid -Parameters $data.Command.Parameters
+
+                            # Assign the command as the current command
+                            $script:State.CurrentCommand = $data.Command
+                            $data.UI.BoxCommandName.Text = $data.Command.Root
+
+                            # Hide loading and show dialog
+                            Hide-LoadingIndicator
+                            Show-CommandDialog
+                        }, "Normal")
+                    }
+                    else {
+                        # Handle error
+                        $data.UI.Window.Dispatcher.Invoke([action]{
+                            Hide-LoadingIndicator
+                            Show-ParameterLoadError -CommandName $data.Command.Root -ErrorMessage $result.Error
+                        }, "Normal")
+                    }
+                }
+                catch {
+                    $errorMsg = $_.Exception.Message
+                    $data.UI.Window.Dispatcher.Invoke([action]{
+                        Hide-LoadingIndicator
+                        Show-ParameterLoadError -CommandName $data.Command.Root -ErrorMessage $errorMsg
+                    }, "Normal")
+                }
+                finally {
+                    # Cleanup
+                    $data.PowerShell.Dispose()
+                    $data.Runspace.Close()
+                    $data.Runspace.Dispose()
+                }
+            }
+        })
+
+        $timer.Start()
     }
-
-    # Assign the command as the current command so that BtnCommandRun can obtain it
-    $script:State.CurrentCommand = $command
-
-    $script:UI.BoxCommandName.Text = $command.Root
-    Show-CommandDialog
+    else {
+        # Parameters already loaded, show dialog immediately
+        $script:State.CurrentCommand = $command
+        $script:UI.BoxCommandName.Text = $command.Root
+        Show-CommandDialog
+    }
 }
 
 # Display the hidden CommandDialog grid
@@ -123,6 +234,29 @@ function Show-CommandDialog {
 function Hide-CommandDialog() {
     $script:UI.CommandDialog.Visibility = "Hidden"
     $script:UI.Overlay.Visibility = "Collapsed"
+}
+
+# Show loading indicator with optional custom message
+function Show-LoadingIndicator {
+    param (
+        [string]$Message = "Loading command parameters..."
+    )
+
+    $script:UI.Window.Dispatcher.Invoke([action]{
+        $script:UI.LoadingText.Text = $Message
+        $script:UI.Overlay.Visibility = "Visible"
+        $script:UI.LoadingIndicator.Visibility = "Visible"
+        $script:UI.Window.Cursor = [System.Windows.Input.Cursors]::Wait
+    }, "Send")
+}
+
+# Hide loading indicator
+function Hide-LoadingIndicator {
+    $script:UI.Window.Dispatcher.Invoke([action]{
+        $script:UI.LoadingIndicator.Visibility = "Collapsed"
+        $script:UI.Overlay.Visibility = "Collapsed"
+        $script:UI.Window.Cursor = [System.Windows.Input.Cursors]::Arrow
+    }, "Send")
 }
 
 # Construct the CommandDialog grid to show the correct content for each parameter
