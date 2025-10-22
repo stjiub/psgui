@@ -119,8 +119,26 @@ function Remove-CommandRow {
         }
     }
 
+    # Create a snapshot of the deleted items for the recycle bin
+    $deletedBatch = @{
+        Timestamp = Get-Date
+        Items = @()
+    }
+
     foreach ($item in $selectedItems) {
         $id = $item.Id
+
+        # Create a deep copy of the item for the recycle bin
+        $itemCopy = New-Object RowData
+        $itemCopy.Id = $item.Id
+        $itemCopy.Name = $item.Name
+        $itemCopy.Description = $item.Description
+        $itemCopy.Category = $item.Category
+        $itemCopy.Command = $item.Command
+        $itemCopy.SkipParameterSelect = $item.SkipParameterSelect
+        $itemCopy.PreCommand = $item.PreCommand
+
+        $deletedBatch.Items += $itemCopy
 
         # If item has a category then remove from category's tab and remove the tab
         # if it was the only item of that category
@@ -140,7 +158,86 @@ function Remove-CommandRow {
     }
 
     if ($selectedItems.Count -gt 0) {
+        # Add deleted items to recycle bin
+        $script:State.RecycleBin.Enqueue($deletedBatch)
+
+        # Maintain max size by removing oldest items
+        while ($script:State.RecycleBin.Count -gt $script:State.RecycleBinMaxSize) {
+            [void]$script:State.RecycleBin.Dequeue()
+        }
+
         Set-UnsavedChanges $true
+        $itemText = if ($selectedItems.Count -eq 1) { "command" } else { "commands" }
+        Write-Status "Deleted $($selectedItems.Count) $($itemText) (can be restored with Undo Delete)"
+    }
+}
+
+# Restore the last deleted command(s) from the recycle bin
+function Restore-DeletedCommand {
+    param (
+        [System.Windows.Controls.TabControl]$tabControl,
+        [hashtable]$tabs
+    )
+
+    if ($script:State.RecycleBin.Count -eq 0) {
+        Write-Status "No deleted commands to restore"
+        [System.Windows.MessageBox]::Show("The recycle bin is empty. There are no deleted commands to restore.", "Recycle Bin Empty", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        return
+    }
+
+    # Get the most recent deletion batch
+    $deletedBatch = $script:State.RecycleBin.Dequeue()
+    $restoredCount = 0
+
+    $allTab = $tabs["All"]
+    $allGrid = $allTab.Content
+    $allData = $allGrid.ItemsSource
+
+    foreach ($item in $deletedBatch.Items) {
+        # Check if an item with this ID already exists (to prevent duplicates)
+        $existingIndex = Get-GridIndexOfId -Grid $allGrid -Id $item.Id
+        if ($existingIndex -ge 0) {
+            Write-Log "Skipping restore of command ID $($item.Id) - already exists"
+            continue
+        }
+
+        # Add to All tab
+        $allData.Add($item)
+
+        # If the item has a category, add to category tab (create if needed)
+        if ($item.Category) {
+            $categoryTab = $tabs[$item.Category]
+            if (-not $categoryTab) {
+                # Create new category tab
+                $itemsSource = New-Object System.Collections.ObjectModel.ObservableCollection[RowData]
+                $categoryTab = New-DataTab -Name $item.Category -ItemsSource $itemsSource -TabControl $tabControl
+                $tabs.Add($item.Category, $categoryTab)
+
+                # Assign event handlers to the new tab
+                $categoryTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+                $categoryTab.Content.Add_PreviewKeyDown({
+                    param($sender,$e)
+                    if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
+                        Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
+                    }
+                    elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
+                        $e.Handled = $true
+                        Invoke-MainRunClick -TabControl $script:UI.TabControl
+                    }
+                })
+                Sort-TabControl -TabControl $tabControl
+            }
+            $categoryTab.Content.ItemsSource.Add($item)
+        }
+
+        $restoredCount++
+    }
+
+    if ($restoredCount -gt 0) {
+        Set-UnsavedChanges $true
+        Update-FavoriteHighlighting
+        $itemText = if ($restoredCount -eq 1) { "command" } else { "commands" }
+        Write-Status "Restored $restoredCount $($itemText)"
     }
 }
 

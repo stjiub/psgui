@@ -139,6 +139,7 @@
                         <MenuItem Header="_Add" Name="BtnMenuAdd" Icon="{md:PackIcon Kind=AddBox}"/>
                         <MenuItem Header="_Duplicate" Name="BtnMenuDuplicate" Icon="{md:PackIcon Kind=ContentCopy}"/>
                         <MenuItem Header="_Remove" Name="BtnMenuRemove" Icon="{md:PackIcon Kind=TrashCan}"/>
+                        <MenuItem Header="_Undo Delete" Name="BtnMenuUndoDelete" Icon="{md:PackIcon Kind=DeleteRestore}"/>
                         <MenuItem Header="_Favorite" Name="BtnMenuFavorite" Icon="{md:PackIcon Kind=Star}"/>
                         <MenuItem Header="_Edit Mode" IsCheckable="True" Name="BtnMenuEdit" Icon="{md:PackIcon Kind=Edit}"/>
                     </MenuItem>
