@@ -297,8 +297,18 @@ function Invoke-MainAddClick {
         Set-TabsReadOnlyStatus -Tabs $tabs
         Set-TabsExtraColumnsVisibility -Tabs $tabs
     }
+    # Select the new row and set it as the current item
     $grid.SelectedItem = $newRow
+    $grid.CurrentItem = $newRow
     $grid.ScrollIntoView($newRow)
+    $grid.Focus()
+    # Update the layout to ensure the selection is processed
+    $grid.UpdateLayout()
+    # Set the current cell to the Name column of the new row
+    $nameColumn = $grid.Columns | Where-Object { $_.Header -eq "Name" } | Select-Object -First 1
+    if ($nameColumn) {
+        $grid.CurrentCell = New-Object System.Windows.Controls.DataGridCellInfo($newRow, $nameColumn)
+    }
     $grid.BeginEdit()
 }
 
@@ -838,7 +848,7 @@ function Set-TabsReadOnlyStatus {
         [hashtable]$tabs
     )
 
-    $script:UI.BtnMainEdit.IsChecked = $script:State.TabsReadOnly
+    $script:UI.BtnMenuEdit.IsChecked = $script:State.TabsReadOnly
     $script:State.TabsReadOnly = (-not $script:State.TabsReadOnly)
     foreach ($tab in $tabs.GetEnumerator()) {
         $tab.Value.Content.IsReadOnly = $script:State.TabsReadOnly
