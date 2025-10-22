@@ -2143,17 +2143,18 @@ function Import-DataFile {
 
     try {
         $importedJson = Load-DataFile $filePath
-        if (-not $importedJson) {
+        if (-not $importedJson -or $importedJson.Count -eq 0) {
             Write-Status "No data found in file to import"
             return
         }
 
         $allData = $script:UI.Tabs["All"].Content.ItemsSource
-        if (-not $allData) {
+        if ($null -eq $allData) {
             Write-Status "Error: All tab data source not found"
             return
         }
 
+        $importCount = 0
         foreach ($item in $importedJson) {
             if (-not $item) { continue }
 
@@ -2171,6 +2172,7 @@ function Import-DataFile {
 
             # Add to All tab
             $allData.Add($item)
+            $importCount++
 
             # Add to category tab if category exists
             if ($item.Category -and $item.Category -ne "") {
@@ -2189,8 +2191,15 @@ function Import-DataFile {
             }
         }
 
+        # Refresh the grid items to ensure UI updates
+        $script:UI.Tabs["All"].Content.Items.Refresh()
+
+        # Update favorite highlighting in case any imported items are favorites
+        Update-FavoriteHighlighting
+
         Set-UnsavedChanges $true
         Sort-TabControl -TabControl $script:UI.TabControl
+        Write-Log "Imported $importCount command(s) from: $filePath"
     }
     catch {
         Show-ErrorMessageBox "Failed to import data file: $_"
