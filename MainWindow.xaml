@@ -23,7 +23,6 @@
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- App Theme Colors -->
             <SolidColorBrush x:Key="AppPrimaryBrush" Color="#2096F4"/>
 
             <Style TargetType="TabItem">
@@ -116,7 +115,6 @@
         <Grid Background="{DynamicResource MaterialDesignPaper}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="30"/>
-                <RowDefinition Height="30"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="50"/>
                 <RowDefinition Height="300" Name="SubGridRow"/>
@@ -144,7 +142,6 @@
                         <MenuItem Header="_Enable Edit" IsCheckable="True" Name="BtnMenuEdit" Icon="{md:PackIcon Kind=Edit}"/>
                     </MenuItem>
                     <MenuItem Header="_Run" FontSize="12" VerticalAlignment="Center">
-                        <!-- <MenuItem Header="_Run" Name="BtnMainRun" /> -->
                         <MenuItem Name="BtnMenuRunExternal" Header="Run _Externally"/>
                         <MenuItem Name="BtnMenuRunInternal" Header="Run _Internally"/>
                         <MenuItem Name="BtnMenuRunReopenLast" Header="Reopen Last Command"/>
@@ -155,62 +152,13 @@
                 <TextBox AcceptsReturn="True" />
             </DockPanel>
 
-            <StackPanel Grid.Row="1" Margin="10 0 0 0" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left">
-                <Button Name="BtnMainFavorite" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                    <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                    </Button.LayoutTransform>
-                    <md:PackIcon Kind="Star" Foreground="Gold"/>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Add/Remove Favorite</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-                <Button Name="BtnMainAdd" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                    <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                    </Button.LayoutTransform>
-                    <md:PackIcon Kind="AddBox" Foreground="Green"/>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Add New Command</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-                <Button Name="BtnMainRemove" VerticalAlignment="Center" Style="{StaticResource ActionButton}" Background="Transparent">
-                    <Button.LayoutTransform>
-                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                    </Button.LayoutTransform>
-                    <md:PackIcon Kind="TrashCan" Foreground="Red"/>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Remove Selected Command(s)</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-                <!-- <ToggleButton Name="BtnMainEdit" VerticalAlignment="Center" Margin="5 0 0 0" Background="Transparent" Style="{StaticResource MaterialDesignActionToggleButton}">
-                    <ToggleButton.Content>
-                        <md:PackIcon Kind="Edit" Foreground="Orange"/>
-                    </ToggleButton.Content>
-                    <md:ToggleButtonAssist.OnContent >
-                        <md:PackIcon Kind="EditOff" Foreground="Black"/>
-                    </md:ToggleButtonAssist.OnContent>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock>Edit Commands</TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </ToggleButton> -->
-            </StackPanel>
-
-            <Grid Name="Main" Grid.Row="2">
+            <Grid Name="Main" Grid.Row="1">
                 <TabControl Name="TabControl" Margin="1 0 0 0" HorizontalContentAlignment="Left" />
             </Grid>
 
-            <GridSplitter Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Gray"/>
+            <GridSplitter Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Gray"/>
 
-            <Grid Name="Sub" Grid.Row="4" Visibility="Visible" >
+            <Grid Name="Sub" Grid.Row="3" Visibility="Visible" >
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="5"/>
@@ -271,7 +219,7 @@
                 <Separator Grid.Row="1" />
             </Grid>
 
-            <Grid Name="CommandControls" Grid.Row="5">
+            <Grid Name="CommandControls" Grid.Row="4">
                 <StackPanel Grid.Row="0" Margin="50 10 10 10" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Center">
                     <Button Name="BtnMainRun" Content="Run" IsDefault="True" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="250" Height="30"/>
                     <Button Name="BtnMainRunMenu" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
@@ -292,7 +240,7 @@
                 </StackPanel>
             </Grid>
 
-            <Grid Grid.Row="6">
+            <Grid Grid.Row="5">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="5"/>
                     <RowDefinition Height="20"/>
