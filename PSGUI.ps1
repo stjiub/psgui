@@ -96,7 +96,16 @@ function Start-MainWindow {
     $script:UI.Tabs = @{}
     $allTab = New-DataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl
     $allTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $allTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+    $allTab.Content.Add_PreviewKeyDown({
+        param($sender,$e)
+        if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
+            Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
+        }
+        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
+            $e.Handled = $true
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        }
+    })
     $script:UI.Tabs.Add("All", $allTab)
 
     $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
@@ -115,7 +124,16 @@ function Start-MainWindow {
             Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
         }
     })
-    $favTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+    $favTab.Content.Add_PreviewKeyDown({
+        param($sender,$e)
+        if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
+            Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
+        }
+        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
+            $e.Handled = $true
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        }
+    })
 
     # Add drag/drop event handlers for reordering favorites
     Initialize-FavoritesDragDrop -Grid $favTab.Content
@@ -129,7 +147,16 @@ function Start-MainWindow {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
         $tab = New-DataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
         $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
-        $tab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+        $tab.Content.Add_PreviewKeyDown({
+            param($sender,$e)
+            if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
+                Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
+            }
+            elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
+                $e.Handled = $true
+                Invoke-MainRunClick -TabControl $script:UI.TabControl
+            }
+        })
         $script:UI.Tabs.Add($category, $tab)
     }
     Sort-TabControl -TabControl $script:UI.TabControl
@@ -510,7 +537,16 @@ function Invoke-CellEditEndingHandler {
 
             # Assign the CellEditEnding event to the new tab
             $newTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-            $newTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+            $newTab.Content.Add_PreviewKeyDown({
+                param($sender,$e)
+                if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
+                    Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
+                }
+                elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
+                    $e.Handled = $true
+                    Invoke-MainRunClick -TabControl $script:UI.TabControl
+                }
+            })
         }
         $newTab.Content.ItemsSource.Add($editedObject)
         Sort-TabControl -TabControl $tabControl
