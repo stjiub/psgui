@@ -239,6 +239,29 @@
 
         <Rectangle Name="Overlay" Fill="Black" Opacity="0.5" Visibility="Collapsed" Panel.ZIndex="999"/>
 
+        <!-- Loading Indicator -->
+        <Grid Name="LoadingIndicator" Panel.ZIndex="1001" Visibility="Collapsed" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <Border Background="White" BorderBrush="#2096F4" BorderThickness="2" CornerRadius="5" Padding="20">
+                <StackPanel Orientation="Horizontal">
+                    <md:PackIcon Kind="Loading" Width="32" Height="32" Foreground="#2096F4" Margin="0,0,10,0">
+                        <md:PackIcon.RenderTransform>
+                            <RotateTransform CenterX="16" CenterY="16"/>
+                        </md:PackIcon.RenderTransform>
+                        <md:PackIcon.Triggers>
+                            <EventTrigger RoutedEvent="md:PackIcon.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetProperty="(md:PackIcon.RenderTransform).(RotateTransform.Angle)" From="0" To="360" Duration="0:0:1"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </md:PackIcon.Triggers>
+                    </md:PackIcon>
+                    <TextBlock Name="LoadingText" Text="Loading command parameters..." FontSize="14" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
         <Grid Name="CommandDialog" Panel.ZIndex="1000" Background="White" Visibility="Hidden" VerticalAlignment="Center" HorizontalAlignment="Center" >
             <Border BorderBrush="Black" BorderThickness="1">
                 <Grid>
