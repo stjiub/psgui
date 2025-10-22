@@ -5,8 +5,8 @@ function Invoke-MainRunClick {
     )
 
     if (($script:State.RunCommandAttached) -and ($script:UI.Shell.Visibility -ne "Visible"))
-    { 
-        Toggle-ShellGrid 
+    {
+        Toggle-ShellGrid
     }
 
     $grid = $tabControl.SelectedItem.Content
@@ -23,6 +23,10 @@ function Invoke-MainRunClick {
                 $command.Full = $command.PreCommand + "; "
             }
             $command.Full += $command.Root
+
+            # Add to command history (no grid since parameters were skipped)
+            Add-CommandToHistory -Command $command
+
             Run-Command $command $script:State.RunCommandAttached
         }
         else {
@@ -343,6 +347,10 @@ function Invoke-CommandRunClick {
 
     Compile-Command -Command $command -Grid $grid
     $script:State.LastCommand = $command
+
+    # Add to command history
+    Add-CommandToHistory -Command $command -Grid $grid
+
     Run-Command $command $script:Settings.DefaultRunCommandAttached
     Hide-CommandDialog
 }

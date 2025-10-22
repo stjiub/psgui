@@ -176,6 +176,9 @@ function Register-EventHandlers {
     # Log Tab events
     $script:UI.LogAddTab.Add_PreviewMouseLeftButtonDown({ Open-LogFile })
 
+    # Command History events
+    Initialize-CommandHistoryUI
+
     $script:UI.Window.Add_Loaded({
         $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
         Update-WindowTitle
