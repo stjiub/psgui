@@ -96,7 +96,7 @@ function Start-MainWindow {
     $script:UI.Tabs = @{}
     $allTab = New-DataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl
     $allTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $allTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+    $allTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
     $script:UI.Tabs.Add("All", $allTab)
 
     $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
@@ -115,7 +115,7 @@ function Start-MainWindow {
             Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
         }
     })
-    $favTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+    $favTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
 
     # Add drag/drop event handlers for reordering favorites
     Initialize-FavoritesDragDrop -Grid $favTab.Content
@@ -129,7 +129,7 @@ function Start-MainWindow {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
         $tab = New-DataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
         $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
-        $tab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+        $tab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
         $script:UI.Tabs.Add($category, $tab)
     }
     Sort-TabControl -TabControl $script:UI.TabControl
@@ -147,16 +147,16 @@ function Start-MainWindow {
 # Register all GUI events
 function Register-EventHandlers {
     # Dock Panel Menu Buttons
-    $script:UI.BtnMenuAdd.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $script:UI.BtnMenuRemove.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuAdd.Add_Click({ Add-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuRemove.Add_Click({ Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuSave.Add_Click({ Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource) })
-    $script:UI.BtnMenuSaveAs.Add_Click({ Invoke-MainSaveAsClick })
-    $script:UI.BtnMenuOpen.Add_Click({ Invoke-MainOpenClick })
-    $script:UI.BtnMenuImport.Add_Click({ Invoke-MainImportClick })
-    $script:UI.BtnMenuEdit.Add_Click({ Invoke-MainEditClick -Tabs $script:UI.Tabs })
-    $script:UI.BtnMenuFavorite.Add_Click({  Invoke-MainFavoriteClick })
+    $script:UI.BtnMenuSaveAs.Add_Click({ Save-DataFileAs })
+    $script:UI.BtnMenuOpen.Add_Click({ Open-DataFile })
+    $script:UI.BtnMenuImport.Add_Click({ Invoke-ImportDataFileDialog })
+    $script:UI.BtnMenuEdit.Add_Click({ Edit-DataFile -Tabs $script:UI.Tabs })
+    $script:UI.BtnMenuFavorite.Add_Click({ Toggle-CommandFavorite })
     $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
-    $script:UI.BtnMenuToggleSub.Add_Click({ Invoke-ToggleSubGrid })
+    $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-SubGrid })
     $script:UI.BtnMenuRunExternal.Add_Click({ 
         $script:State.RunCommandInternal = $false
         Invoke-MainRunClick -TabControl $script:UI.TabControl 
@@ -165,24 +165,12 @@ function Register-EventHandlers {
         $script:State.RunCommandInternal = $true
         Invoke-MainRunClick -TabControl $script:UI.TabControl 
     })
-    $script:UI.BtnMenuRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Start-CommandDialog -Command $script:State.LastCommand } })
+    $script:UI.BtnMenuRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Invoke-CommandDialog -Command $script:State.LastCommand } })
     $script:UI.BtnMenuRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
     $script:UI.BtnMenuRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
 
     # Main Buttons
     $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
-    $script:UI.BtnMainRunMenu.Add_Click({ $script:UI.ContextMenuMainRunMenu.IsOpen = $true })
-    $script:UI.BtnMainRunExternal.Add_Click({ 
-        $script:State.RunCommandInternal = $false
-        Invoke-MainRunClick -TabControl $script:UI.TabControl 
-    })
-    $script:UI.BtnMainRunInternal.Add_Click({ 
-        $script:State.RunCommandInternal = $true
-        Invoke-MainRunClick -TabControl $script:UI.TabControl 
-    })
-    $script:UI.BtnMainRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Start-CommandDialog -Command $script:State.LastCommand } })
-    $script:UI.BtnMainRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
-    $script:UI.BtnMainRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
 
     # Command dialog button events
     $script:UI.BtnCommandClose.Add_Click({ Hide-CommandDialog })
@@ -279,7 +267,7 @@ function Invoke-WindowClosing {
 }
 
 # Handle the Main Window Add Button click event to add a new RowData object to the collection
-function Invoke-MainAddClick {
+function Add-CommandRow {
     param (
         [System.Windows.Controls.TabControl]$tabControl,
         [hashtable]$tabs
@@ -313,7 +301,7 @@ function Invoke-MainAddClick {
 }
 
 # Handle the Main Window Remove Button click event to remove one or multiple RowData objects from the collection
-function Invoke-MainRemoveClick {
+function Remove-CommandRow {
     param (
         [System.Windows.Controls.TabControl]$tabControl,
         [hashtable]$tabs
@@ -367,7 +355,7 @@ function Invoke-MainRemoveClick {
 }
 
 # Handle the Main Edit Button click event to enable or disable editing of the grids
-function Invoke-MainEditClick {
+function Edit-DataFile {
     param (
         [hashtable]$tabs
     )
@@ -376,7 +364,7 @@ function Invoke-MainEditClick {
     Set-TabsExtraColumnsVisibility -Tabs $tabs
 }
 
-function Invoke-MainFavoriteClick {
+function Toggle-CommandFavorite {
     $selectedTab = $script:UI.TabControl.SelectedItem
     $grid = $selectedTab.Content
     $selectedItem = $grid.SelectedItem
@@ -436,7 +424,7 @@ function Invoke-MainRunClick {
     }
 }
 
-function Invoke-ToggleSubGrid {    
+function Toggle-SubGrid {    
     if ($script:UI.Sub.Visibility -eq "Visible") {
         # Store current height before collapsing
         $script:State.SubGridExpandedHeight = $script:UI.Window.FindName("SubGridRow").Height.Value
@@ -444,22 +432,11 @@ function Invoke-ToggleSubGrid {
         # Collapse the Sub grid
         $script:UI.Window.FindName("SubGridRow").Height = New-Object System.Windows.GridLength(0)
         $script:UI.Sub.Visibility = "Collapsed"
-        
-        # Change the icon to indicate collapsed state
-        # $script:UI.BtnToggleSub.Content = New-Object MaterialDesignThemes.Wpf.PackIcon -Property @{
-        #     Kind = "ArrowCollapseUp"
-        #     Foreground = "Black"
-        # }
-    } else {
+    } 
+    else {
         # Restore previous height and visibility
         $script:UI.Window.FindName("SubGridRow").Height = New-Object System.Windows.GridLength($script:State.SubGridExpandedHeight)
         $script:UI.Sub.Visibility = "Visible"
-        
-        # Change the icon to indicate expanded state
-        # $script:UI.BtnToggleSub.Content = New-Object MaterialDesignThemes.Wpf.PackIcon -Property @{
-        #     Kind = "ArrowCollapseDown"
-        #     Foreground = "Black"
-        # }
     }
 }
 
@@ -533,7 +510,7 @@ function Invoke-CellEditEndingHandler {
 
             # Assign the CellEditEnding event to the new tab
             $newTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-            $newTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+            $newTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
         }
         $newTab.Content.ItemsSource.Add($editedObject)
         Sort-TabControl -TabControl $tabControl
@@ -1093,7 +1070,7 @@ function New-DataGridBase {
         $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::StarOff
         $favIcon.Style = $iconStyle
         $favoriteMenuItem.Icon = $favIcon
-        $favoriteMenuItem.Add_Click({ Invoke-MainFavoriteClick })
+        $favoriteMenuItem.Add_Click({ Toggle-CommandFavorite })
         [void]$contextMenu.Items.Add($favoriteMenuItem)
     } else {
         # Regular tabs - standard menu items
@@ -1129,7 +1106,7 @@ function New-DataGridBase {
         $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Star
         $favIcon.Style = $iconStyle
         $favoriteMenuItem.Icon = $favIcon
-        $favoriteMenuItem.Add_Click({ Invoke-MainFavoriteClick })
+        $favoriteMenuItem.Add_Click({ Toggle-CommandFavorite })
         [void]$contextMenu.Items.Add($favoriteMenuItem)
 
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
@@ -1140,7 +1117,7 @@ function New-DataGridBase {
         $addIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::AddBox
         $addIcon.Style = $iconStyle
         $addMenuItem.Icon = $addIcon
-        $addMenuItem.Add_Click({ Invoke-MainAddClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+        $addMenuItem.Add_Click({ Add-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
         [void]$contextMenu.Items.Add($addMenuItem)
 
         $removeMenuItem = New-Object System.Windows.Controls.MenuItem
@@ -1149,7 +1126,7 @@ function New-DataGridBase {
         $removeIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::TrashCan
         $removeIcon.Style = $iconStyle
         $removeMenuItem.Icon = $removeIcon
-        $removeMenuItem.Add_Click({ Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+        $removeMenuItem.Add_Click({ Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
         [void]$contextMenu.Items.Add($removeMenuItem)
     }
 
@@ -2016,7 +1993,7 @@ function Invoke-BrowseDataFile {
     }
 }
 
-function Invoke-MainOpenClick {
+function Open-DataFile {
     # Check for unsaved changes first
     if (-not (Confirm-SaveBeforeAction "opening a new data file")) {
         return
@@ -2037,7 +2014,7 @@ function Invoke-MainOpenClick {
     }
 }
 
-function Invoke-MainSaveAsClick {
+function Save-DataFileAs {
     $dialog = New-Object Microsoft.Win32.SaveFileDialog
     $dialog.InitialDirectory = Split-Path $script:State.CurrentDataFile -Parent
     $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
@@ -2072,7 +2049,7 @@ function Invoke-MainSaveAsClick {
     }
 }
 
-function Invoke-MainImportClick {
+function Invoke-ImportDataFileDialog {
     $dialog = New-Object Microsoft.Win32.OpenFileDialog
     $dialog.InitialDirectory = Split-Path $script:State.CurrentDataFile -Parent
     $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
@@ -2114,7 +2091,7 @@ function Load-NewDataFile {
             $categoryItemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
             $tab = New-DataTab -Name $category -ItemsSource $categoryItemsSource -TabControl $script:UI.TabControl
             $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-            $tab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+            $tab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
             $script:UI.Tabs.Add($category, $tab)
         }
 
@@ -2182,7 +2159,7 @@ function Import-DataFile {
                     $categoryItemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
                     $categoryTab = New-DataTab -Name $item.Category -ItemsSource $categoryItemsSource -TabControl $script:UI.TabControl
                     $categoryTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-                    $categoryTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Invoke-MainRemoveClick -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+                    $categoryTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
                     $script:UI.Tabs.Add($item.Category, $categoryTab)
                 }
                 if ($categoryTab -and $categoryTab.Content -and $categoryTab.Content.ItemsSource) {

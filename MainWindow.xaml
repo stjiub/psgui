@@ -139,11 +139,11 @@
                         <MenuItem Header="_Add" Name="BtnMenuAdd" Icon="{md:PackIcon Kind=AddBox}"/>
                         <MenuItem Header="_Remove" Name="BtnMenuRemove" Icon="{md:PackIcon Kind=TrashCan}"/>
                         <MenuItem Header="_Favorite" Name="BtnMenuFavorite" Icon="{md:PackIcon Kind=Star}"/>
-                        <MenuItem Header="_Enable Edit" IsCheckable="True" Name="BtnMenuEdit" Icon="{md:PackIcon Kind=Edit}"/>
+                        <MenuItem Header="_Edit Mode" IsCheckable="True" Name="BtnMenuEdit" Icon="{md:PackIcon Kind=Edit}"/>
                     </MenuItem>
                     <MenuItem Header="_Run" FontSize="12" VerticalAlignment="Center">
-                        <MenuItem Name="BtnMenuRunExternal" Header="Run _Externally"/>
-                        <MenuItem Name="BtnMenuRunInternal" Header="Run _Internally"/>
+                        <MenuItem Name="BtnMenuRunInternal" Header="Run (_Attached)"/>
+                        <MenuItem Name="BtnMenuRunExternal" Header="Run (_Detached)"/>
                         <MenuItem Name="BtnMenuRunReopenLast" Header="Reopen Last Command"/>
                         <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command"/>
                         <MenuItem Name="BtnMenuRunCopyToClipboard" Header="Copy Last Command To Clipboard"/>
@@ -222,21 +222,6 @@
             <Grid Name="CommandControls" Grid.Row="4">
                 <StackPanel Grid.Row="0" Margin="50 10 10 10" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Center">
                     <Button Name="BtnMainRun" Content="Run" IsDefault="True" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="250" Height="30"/>
-                    <Button Name="BtnMainRunMenu" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                        <Button.LayoutTransform>
-                            <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
-                        </Button.LayoutTransform>
-                        <md:PackIcon Kind="Menu" Foreground="Black"/>
-                        <Button.ContextMenu>
-                            <ContextMenu Name="ContextMenuMainRunMenu">
-                                <MenuItem Name="BtnMainRunExternal" Header="Run Externally"/>
-                                <MenuItem Name="BtnMainRunInternal" Header="Run Internally"/>
-                                <MenuItem Name="BtnMainRunReopenLast" Header="Reopen Last Command"/>
-                                <MenuItem Name="BtnMainRunRerunLast" Header="Rerun Last Command"/>
-                                <MenuItem Name="BtnMainRunCopyToClipboard" Header="Copy Last Command To Clipboard"/>
-                            </ContextMenu>
-                        </Button.ContextMenu>
-                    </Button>
                 </StackPanel>
             </Grid>
 
