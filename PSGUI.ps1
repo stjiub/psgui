@@ -1061,14 +1061,31 @@ function New-DataGridBase {
 
     if ($name -eq "*") {
         # Favorites tab - simplified menu items (drag-and-drop handles reordering)
-        $runMenuItem = New-Object System.Windows.Controls.MenuItem
-        $runMenuItem.Header = "Run"
-        $runIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
-        $runIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Play
-        $runIcon.Style = $iconStyle
-        $runMenuItem.Icon = $runIcon
-        $runMenuItem.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
-        [void]$contextMenu.Items.Add($runMenuItem)
+        $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
+        $runAttachedMenuItem.Header = "Run (Attached)"
+        $runAttachedIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $runAttachedIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Play
+        $runAttachedIcon.Style = $iconStyle
+        $runAttachedMenuItem.Icon = $runAttachedIcon
+        $runAttachedMenuItem.Add_Click({
+            $script:State.RunCommandInternal = $true
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($runAttachedMenuItem)
+
+        $runDetachedMenuItem = New-Object System.Windows.Controls.MenuItem
+        $runDetachedMenuItem.Header = "Run (Detached)"
+        $runDetachedIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $runDetachedIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::OpenInNew
+        $runDetachedIcon.Style = $iconStyle
+        $runDetachedMenuItem.Icon = $runDetachedIcon
+        $runDetachedMenuItem.Add_Click({
+            $script:State.RunCommandInternal = $false
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($runDetachedMenuItem)
+
+        [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
         $favoriteMenuItem.Header = "Remove from Favorites"
@@ -1080,14 +1097,31 @@ function New-DataGridBase {
         [void]$contextMenu.Items.Add($favoriteMenuItem)
     } else {
         # Regular tabs - standard menu items
-        $runMenuItem = New-Object System.Windows.Controls.MenuItem
-        $runMenuItem.Header = "Run"
-        $runIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
-        $runIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Play
-        $runIcon.Style = $iconStyle
-        $runMenuItem.Icon = $runIcon
-        $runMenuItem.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
-        [void]$contextMenu.Items.Add($runMenuItem)
+        $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
+        $runAttachedMenuItem.Header = "Run (Attached)"
+        $runAttachedIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $runAttachedIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Play
+        $runAttachedIcon.Style = $iconStyle
+        $runAttachedMenuItem.Icon = $runAttachedIcon
+        $runAttachedMenuItem.Add_Click({
+            $script:State.RunCommandInternal = $true
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($runAttachedMenuItem)
+
+        $runDetachedMenuItem = New-Object System.Windows.Controls.MenuItem
+        $runDetachedMenuItem.Header = "Run (Detached)"
+        $runDetachedIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $runDetachedIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::OpenInNew
+        $runDetachedIcon.Style = $iconStyle
+        $runDetachedMenuItem.Icon = $runDetachedIcon
+        $runDetachedMenuItem.Add_Click({
+            $script:State.RunCommandInternal = $false
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($runDetachedMenuItem)
+
+        [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
         $favoriteMenuItem.Header = "Favorite"
