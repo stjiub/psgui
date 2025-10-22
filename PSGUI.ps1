@@ -1101,18 +1101,54 @@ function New-DataGridBase {
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
-        $favoriteMenuItem.Header = "Favorite"
+        $favoriteMenuItem.Header = "Add to Favorites"
         $favIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Star
         $favIcon.Style = $iconStyle
         $favoriteMenuItem.Icon = $favIcon
         $favoriteMenuItem.Add_Click({ Toggle-CommandFavorite })
+
+        # Store reference to favorite menu item so we can update it
+        $contextMenu.Tag = @{
+            FavoriteMenuItem = $favoriteMenuItem
+            IconStyle = $iconStyle
+        }
+
+        # Add event handler to update the favorite menu item text/icon when context menu opens
+        $contextMenu.Add_Opened({
+            param($sender, $e)
+            $currentGrid = $script:UI.TabControl.SelectedItem.Content
+            $selectedItem = $currentGrid.SelectedItem
+            if ($selectedItem -and $script:UI.Tabs["Favorites"]) {
+                $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
+                $existingFavorite = $favorites | Where-Object { $_.Id -eq $selectedItem.Id }
+
+                # Get the favorite menu item from the context menu's tag
+                $favMenuItem = $sender.Tag.FavoriteMenuItem
+                $style = $sender.Tag.IconStyle
+
+                # Create new icon each time to avoid reference issues
+                $newFavIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+                $newFavIcon.Style = $style
+
+                if ($existingFavorite) {
+                    $favMenuItem.Header = "Remove from Favorites"
+                    $newFavIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::StarOff
+                } else {
+                    $favMenuItem.Header = "Add to Favorites"
+                    $newFavIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Star
+                }
+
+                $favMenuItem.Icon = $newFavIcon
+            }
+        })
+
         [void]$contextMenu.Items.Add($favoriteMenuItem)
 
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
 
         $addMenuItem = New-Object System.Windows.Controls.MenuItem
-        $addMenuItem.Header = "Add"
+        $addMenuItem.Header = "Add Command"
         $addIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $addIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::AddBox
         $addIcon.Style = $iconStyle
@@ -1121,7 +1157,7 @@ function New-DataGridBase {
         [void]$contextMenu.Items.Add($addMenuItem)
 
         $removeMenuItem = New-Object System.Windows.Controls.MenuItem
-        $removeMenuItem.Header = "Remove"
+        $removeMenuItem.Header = "Remove Command(s)"
         $removeIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $removeIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::TrashCan
         $removeIcon.Style = $iconStyle
