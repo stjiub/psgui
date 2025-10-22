@@ -11,7 +11,7 @@ $script:WS_OVERLAPPEDWINDOW = 0x00CF0000
 $script:Settings = @{
     DefaultShell = "powershell"
     DefaultShellArgs = "-ExecutionPolicy Bypass -NoExit -Command `" & { [System.Console]::Title = 'PS' } `""
-    DefaultRunCommandInternal = $true
+    DefaultRunCommandAttached = $true
     OpenShellAtStart = $false
     StatusTimeout = 3
     DefaultLogsPath = Join-Path $env:APPDATA "PSGUI"
@@ -43,7 +43,7 @@ function Initialize-Application() {
         HighestId = 0
         FavoritesHighestOrder = 0
         TabsReadOnly = $true
-        RunCommandInternal = $script:Settings.DefaultRunCommandInternal
+        RunCommandAttached = $script:Settings.DefaultRunCommandAttached
         ExtraColumnsVisibility = "Collapsed"
         ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
         SubGridExpandedHeight = 300
@@ -61,7 +61,7 @@ function Initialize-Application() {
     [Void][System.Reflection.Assembly]::LoadFrom($script:ApplicationPaths.MaterialDesignThemes)
     [Void][System.Reflection.Assembly]::LoadFrom($script:ApplicationPaths.MaterialDesignColors)
 
-    # Load Win32 API functions from external file
+    # Load Win32 API functions from Detached file
     Add-Type -Path $script:ApplicationPaths.Win32APIFile
 }
 
@@ -185,15 +185,15 @@ function Register-EventHandlers {
     $script:UI.BtnMenuFavorite.Add_Click({ Toggle-CommandFavorite })
     $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
     $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-ShellGrid })
-    $script:UI.BtnMenuRunExternal.Add_Click({
-        $script:State.RunCommandInternal = $false
+    $script:UI.BtnMenuRunDetached.Add_Click({
+        $script:State.RunCommandAttached = $false
         Invoke-MainRunClick -TabControl $script:UI.TabControl
     })
-    $script:UI.BtnMenuRunInternal.Add_Click({
-        $script:State.RunCommandInternal = $true
-        Invoke-MainRunClick -TabControl $script:UI.TabControl -Internal $true 
+    $script:UI.BtnMenuRunAttached.Add_Click({
+        $script:State.RunCommandAttached = $true
+        Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true 
     })
-    $script:UI.BtnMenuRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Invoke-CommandDialog -Command $script:State.LastCommand } })
+    $script:UI.BtnMenuRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Show-CommandDialog -Command $script:State.LastCommand } })
     $script:UI.BtnMenuRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
     $script:UI.BtnMenuRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
 
@@ -488,7 +488,7 @@ function Invoke-MainRunClick {
         [System.Windows.Controls.TabControl]$tabControl
     )
 
-    if (($script:State.RunCommandInternal) -and ($script:UI.Shell.Visibility -ne "Visible"))
+    if (($script:State.RunCommandAttached) -and ($script:UI.Shell.Visibility -ne "Visible"))
     { 
         Toggle-ShellGrid 
     }
@@ -507,7 +507,7 @@ function Invoke-MainRunClick {
                 $command.Full = $command.PreCommand + "; "
             }
             $command.Full += $command.Root
-            Run-Command $command $script:State.RunCommandInternal
+            Run-Command $command $script:State.RunCommandAttached
         }
         else {
             Start-CommandDialog -Command $command
@@ -627,7 +627,7 @@ function Start-CommandDialog([Command]$command) {
         try {
             # We only want to process the command if it is a PS script or function
             $type = Get-CommandType -Command $command.Root
-            if (($type -ne "Function") -and ($type -ne "External Script")) {
+            if (($type -ne "Function") -and ($type -ne "Detached Script")) {
                 return
             }
 
@@ -777,7 +777,7 @@ function Invoke-CommandRunClick {
 
     Compile-Command -Command $command -Grid $grid
     $script:State.LastCommand = $command
-    Run-Command $command $script:Settings.DefaultRunCommandInternal
+    Run-Command $command $script:Settings.DefaultRunCommandAttached
     Hide-CommandDialog
 }
 
@@ -804,13 +804,13 @@ function Run-Command {
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
     $escapedCommand = $command.Full -replace '"', '\"'
 
-    if ($script:State.RunCommandInternal) {
+    if ($script:State.RunCommandAttached) {
         New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root
     }
     else {
         Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
     }
-    $script:State.RunCommandInternal = $script:Settings.DefaultRunCommandInternal
+    $script:State.RunCommandAttached = $script:Settings.DefaultRunCommandAttached
 }
 
 # Determine the PowerShell command type (Function,Script,Cmdlet)
@@ -1145,7 +1145,7 @@ function New-DataGridBase {
         $runAttachedIcon.Style = $iconStyle
         $runAttachedMenuItem.Icon = $runAttachedIcon
         $runAttachedMenuItem.Add_Click({
-            $script:State.RunCommandInternal = $true
+            $script:State.RunCommandAttached = $true
             Invoke-MainRunClick -TabControl $script:UI.TabControl
         })
         [void]$contextMenu.Items.Add($runAttachedMenuItem)
@@ -1157,7 +1157,7 @@ function New-DataGridBase {
         $runDetachedIcon.Style = $iconStyle
         $runDetachedMenuItem.Icon = $runDetachedIcon
         $runDetachedMenuItem.Add_Click({
-            $script:State.RunCommandInternal = $false
+            $script:State.RunCommandAttached = $false
             Invoke-MainRunClick -TabControl $script:UI.TabControl
         })
         [void]$contextMenu.Items.Add($runDetachedMenuItem)
@@ -1192,7 +1192,7 @@ function New-DataGridBase {
         $runAttachedIcon.Style = $iconStyle
         $runAttachedMenuItem.Icon = $runAttachedIcon
         $runAttachedMenuItem.Add_Click({
-            $script:State.RunCommandInternal = $true
+            $script:State.RunCommandAttached = $true
             Invoke-MainRunClick -TabControl $script:UI.TabControl
         })
         [void]$contextMenu.Items.Add($runAttachedMenuItem)
@@ -1204,7 +1204,7 @@ function New-DataGridBase {
         $runDetachedIcon.Style = $iconStyle
         $runDetachedMenuItem.Icon = $runDetachedIcon
         $runDetachedMenuItem.Add_Click({
-            $script:State.RunCommandInternal = $false
+            $script:State.RunCommandAttached = $false
             Invoke-MainRunClick -TabControl $script:UI.TabControl
         })
         [void]$contextMenu.Items.Add($runDetachedMenuItem)
@@ -1903,7 +1903,7 @@ function Detach-CurrentTab {
     }
 }
 
-# Popup window to select external PowerShell windows to attach
+# Popup window to select Detached PowerShell windows to attach
 function Show-AttachWindow {
     $attachWindow = New-Object System.Windows.Window
     $attachWindow.Title = "Attach PowerShell Window"
@@ -1937,7 +1937,7 @@ function Show-AttachWindow {
         $selectedItem = $listBox.SelectedItem
         if ($selectedItem) {
             $proc = $selectedItem.Tag
-            Attach-ExternalWindow -Process $proc
+            Attach-DetachedWindow -Process $proc
             $attachWindow.Close()
         }
     })
@@ -1945,8 +1945,8 @@ function Show-AttachWindow {
     $attachWindow.ShowDialog()
 }
 
-# Attach and reparent an external window as an embedded tab
-function Attach-ExternalWindow {
+# Attach and reparent an Detached window as an embedded tab
+function Attach-DetachedWindow {
     param (
         [System.Diagnostics.Process]$Process
     )
@@ -2007,7 +2007,7 @@ function Initialize-Settings {
     # Update UI elements with loaded settings
     $script:UI.TxtDefaultShell.Text = $script:Settings.DefaultShell
     $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs
-    $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
+    $script:UI.ChkRunCommandAttached.IsChecked = $script:Settings.DefaultRunCommandAttached
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
     $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
@@ -2026,7 +2026,7 @@ function Create-DefaultSettings {
     $defaultSettings = @{
         DefaultShell = $script:Settings.DefaultShell
         DefaultShellArgs = $script:Settings.DefaultShellArgs
-        RunCommandInternal = $script:Settings.DefaultRunCommandInternal
+        RunCommandAttached = $script:Settings.DefaultRunCommandAttached
         OpenShellAtStart = $script:Settings.OpenShellAtStart
         DefaultLogsPath = $script:Settings.DefaultLogsPath
         SettingsPath = $script:Settings.SettingsPath
@@ -2045,7 +2045,7 @@ function Show-SettingsDialog {
     # Populate current settings
     $script:UI.TxtDefaultShell.Text = $script:Settings.DefaultShell
     $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs
-    $script:UI.ChkRunCommandInternal.IsChecked = $script:Settings.DefaultRunCommandInternal
+    $script:UI.ChkRunCommandAttached.IsChecked = $script:Settings.DefaultRunCommandAttached
     $script:UI.ChkOpenShellAtStart.IsChecked = $script:Settings.OpenShellAtStart
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
     $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
@@ -2062,7 +2062,7 @@ function Hide-SettingsDialog {
 function Apply-Settings {
     $script:Settings.DefaultShell = $script:UI.TxtDefaultShell.Text
     $script:Settings.DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
-    $script:Settings.DefaultRunCommandInternal = $script:UI.ChkRunCommandInternal.IsChecked
+    $script:Settings.DefaultRunCommandAttached = $script:UI.ChkRunCommandAttached.IsChecked
     $script:Settings.OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
     $script:Settings.DefaultLogsPath = $script:UI.TxtDefaultLogsPath.Text
     $script:Settings.DefaultDataFile = $script:UI.TxtDefaultDataFile.Text
@@ -2089,7 +2089,7 @@ function Load-Settings {
     # Apply loaded settings to script variables
     $script:Settings.DefaultShell = $settings.DefaultShell
     $script:Settings.DefaultShellArgs = $settings.DefaultShellArgs
-    $script:Settings.DefaultRunCommandInternal = $settings.RunCommandInternal
+    $script:Settings.DefaultRunCommandAttached = $settings.RunCommandAttached
     $script:Settings.OpenShellAtStart = $settings.OpenShellAtStart
     $script:Settings.DefaultLogsPath = $settings.DefaultLogsPath
     $script:Settings.SettingsPath = $settings.SettingsPath
@@ -2115,7 +2115,7 @@ function Save-Settings {
         $settings = @{
             DefaultShell = $script:Settings.DefaultShell
             DefaultShellArgs = $script:Settings.DefaultShellArgs
-            RunCommandInternal = $script:Settings.DefaultRunCommandInternal
+            RunCommandAttached = $script:Settings.DefaultRunCommandAttached
             OpenShellAtStart = $script:Settings.OpenShellAtStart
             DefaultLogsPath = $script:Settings.DefaultLogsPath
             SettingsPath = $script:Settings.SettingsPath

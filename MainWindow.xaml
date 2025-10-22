@@ -143,8 +143,8 @@
                         <MenuItem Header="_Edit Mode" IsCheckable="True" Name="BtnMenuEdit" Icon="{md:PackIcon Kind=Edit}"/>
                     </MenuItem>
                     <MenuItem Header="_Run" FontSize="12" VerticalAlignment="Center">
-                        <MenuItem Name="BtnMenuRunInternal" Header="Run (_Attached)" Icon="{md:PackIcon Kind=Play}"/>
-                        <MenuItem Name="BtnMenuRunExternal" Header="Run (_Detached)" Icon="{md:PackIcon Kind=OpenInNew}"/>
+                        <MenuItem Name="BtnMenuRunAttached" Header="Run (_Attached)" Icon="{md:PackIcon Kind=Play}"/>
+                        <MenuItem Name="BtnMenuRunDetached" Header="Run (_Detached)" Icon="{md:PackIcon Kind=OpenInNew}"/>
                         <MenuItem Name="BtnMenuRunReopenLast" Header="Modify Last Command" Icon="{md:PackIcon Kind=FileDocumentEdit}"/>
                         <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command" Icon="{md:PackIcon Kind=Refresh}"/>
                         <MenuItem Name="BtnMenuRunCopyToClipboard" Header="Copy to Clipboard" Icon="{md:PackIcon Kind=ClipboardMultipleOutline}"/>
@@ -331,8 +331,8 @@
                                 <Label Grid.Row="1" Grid.Column="0" Content="Default Shell Args:"/>
                                 <TextBox Grid.Row="1" Grid.Column="1" Name="TxtDefaultShellArgs" Margin="5"/>
 
-                                <Label Grid.Row="2" Grid.Column="0" Content="Run Command Internal:"/>
-                                <CheckBox Grid.Row="2" Grid.Column="1" Name="ChkRunCommandInternal" Margin="5" VerticalAlignment="Center"/>
+                                <Label Grid.Row="2" Grid.Column="0" Content="Default Run Command Attached:"/>
+                                <CheckBox Grid.Row="2" Grid.Column="1" Name="ChkRunCommandAttached" Margin="5" VerticalAlignment="Center"/>
 
                                 <Label Grid.Row="3" Grid.Column="0" Content="Open Shell At Start:"/>
                                 <CheckBox Grid.Row="3" Grid.Column="1" Name="ChkOpenShellAtStart" Margin="5" VerticalAlignment="Center"/>
