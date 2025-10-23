@@ -143,13 +143,16 @@ function Register-EventHandlers {
     $script:UI.BtnMenuFavorite.Add_Click({ Toggle-CommandFavorite })
     $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
     $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-ShellGrid })
+    $script:UI.BtnMenuRunOpen.Add_Click({
+        Invoke-MainRunClick -TabControl $script:UI.TabControl
+    })
     $script:UI.BtnMenuRunDetached.Add_Click({
         $script:State.RunCommandAttached = $false
         Invoke-MainRunClick -TabControl $script:UI.TabControl
     })
     $script:UI.BtnMenuRunAttached.Add_Click({
         $script:State.RunCommandAttached = $true
-        Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true 
+        Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true
     })
     $script:UI.BtnMenuRunRerunLast.Add_Click({
         if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
@@ -181,6 +184,7 @@ function Register-EventHandlers {
     $script:UI.TabControl.Add_SelectionChanged({
         param($sender, $e)
         Handle-TabSelection -SelectedTab $sender.SelectedItem
+        Update-MainRunButtonText
     })
 
     # Process Tab events
@@ -270,6 +274,50 @@ function Register-EventHandlers {
     })
 
     $script:UI.Window.Add_Closing({ param($sender, $e) Invoke-WindowClosing -Sender $sender -E $e })
+}
+
+# Update the main Run button text and menu items visibility based on the selected command
+function Update-MainRunButtonText {
+    if (-not $script:UI.TabControl.SelectedItem) {
+        $script:UI.BtnMainRun.Content = "Run"
+        $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        return
+    }
+
+    $grid = $script:UI.TabControl.SelectedItem.Content
+    if (-not $grid -or -not $grid.SelectedItem) {
+        $script:UI.BtnMainRun.Content = "Run"
+        $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        return
+    }
+
+    $selectedItem = $grid.SelectedItem
+
+    if ($selectedItem.SkipParameterSelect) {
+        # Show Run (Attached) or Run (Detached) based on DefaultRunCommandAttached setting
+        if ($script:Settings.DefaultRunCommandAttached) {
+            $script:UI.BtnMainRun.Content = "Run (Attached)"
+        }
+        else {
+            $script:UI.BtnMainRun.Content = "Run (Detached)"
+        }
+        # Hide Open menu item, show Run items
+        $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Collapsed
+        $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+    }
+    else {
+        # Show "Open" when SkipParameterSelect is false
+        $script:UI.BtnMainRun.Content = "Open"
+        # Show Open menu item, hide Run items
+        $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Collapsed
+        $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Collapsed
+    }
 }
 
 function Invoke-WindowClosing {
