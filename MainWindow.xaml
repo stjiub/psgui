@@ -318,7 +318,7 @@
 
             <Grid Name="CommandControls" Grid.Row="4">
                 <StackPanel Grid.Row="0" Margin="50 10 10 10" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Center">
-                    <Button Name="BtnMainRun" Content="Run" IsDefault="True" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="250" Height="30"/>
+                    <Button Name="BtnMainRun" Content="Run" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="250" Height="30"/>
                 </StackPanel>
             </Grid>
 

@@ -7,6 +7,7 @@ class RowData {
     [string]$Command
     [bool]$SkipParameterSelect
     [string]$PreCommand
+    [bool]$Log
 }
 
 class FavoriteRowData : RowData {
@@ -20,6 +21,7 @@ class FavoriteRowData : RowData {
         $this.Command = $rowData.Command
         $this.SkipParameterSelect = $rowData.SkipParameterSelect
         $this.PreCommand = $rowData.PreCommand
+        $this.Log = $rowData.Log
         $this.Order = $order
     }
 }
@@ -31,4 +33,5 @@ class Command {
     [string]$PreCommand
     [System.Object[]]$Parameters
     [bool]$SkipParameterSelect
+    [bool]$Log
 }

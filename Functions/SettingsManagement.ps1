@@ -1,6 +1,17 @@
 # Set app settings from loaded settings
 function Initialize-Settings {
     Load-Settings
+
+    # Ensure logs directory exists
+    if (-not (Test-Path $script:Settings.DefaultLogsPath)) {
+        try {
+            New-Item -ItemType Directory -Path $script:Settings.DefaultLogsPath -Force | Out-Null
+        }
+        catch {
+            # Silently continue if directory creation fails during init
+        }
+    }
+
     # Update UI elements with loaded settings
     $script:UI.TxtDefaultShell.Text = $script:Settings.DefaultShell
     $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs

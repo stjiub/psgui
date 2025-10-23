@@ -220,9 +220,17 @@ function Restore-DeletedCommand {
                     if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
                         Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
                     }
-                    elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
-                        $e.Handled = $true
-                        Invoke-MainRunClick -TabControl $script:UI.TabControl
+                    elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
+                        # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
+                        if (-not $script:State.TabsReadOnly) {
+                            $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+                            $e.Handled = $true
+                        }
+                        # If Edit Mode is disabled (TabsReadOnly is true), run the command
+                        else {
+                            $e.Handled = $true
+                            Invoke-MainRunClick -TabControl $script:UI.TabControl
+                        }
                     }
                 })
                 Sort-TabControl -TabControl $tabControl
@@ -246,6 +254,17 @@ function Toggle-EditMode {
     param (
         [hashtable]$tabs
     )
+
+    # Commit any pending edits before toggling columns
+    foreach ($tab in $tabs.GetEnumerator()) {
+        $grid = $tab.Value.Content
+        if ($grid) {
+            # End any edit in progress
+            $grid.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+            # Update the layout to ensure changes are processed
+            $grid.UpdateLayout()
+        }
+    }
 
     Set-TabsReadOnlyStatus -Tabs $tabs
     Set-TabsExtraColumnsVisibility -Tabs $tabs
@@ -358,9 +377,17 @@ function Invoke-CellEditEndingHandler {
                 if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
                     Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
                 }
-                elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
-                    $e.Handled = $true
-                    Invoke-MainRunClick -TabControl $script:UI.TabControl
+                elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
+                    # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
+                    if (-not $script:State.TabsReadOnly) {
+                        $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+                        $e.Handled = $true
+                    }
+                    # If Edit Mode is disabled (TabsReadOnly is true), run the command
+                    else {
+                        $e.Handled = $true
+                        Invoke-MainRunClick -TabControl $script:UI.TabControl
+                    }
                 }
             })
         }
