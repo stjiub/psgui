@@ -103,12 +103,17 @@ function Write-Status {
 
         # Only set a timer if the message is not "Ready"
         if ($output -ne "Ready") {
-            # Create a new timer
+            # Create a new timer that only fires once
             $script:StatusTimer = New-Object System.Windows.Threading.DispatcherTimer
             $script:StatusTimer.Interval = [TimeSpan]::FromSeconds($script:Settings.StatusTimeout)
+
+            # Store timer reference for the event handler
+            $timer = $script:StatusTimer
+
             $script:StatusTimer.Add_Tick({
                 $script:UI.StatusBox.Text = "Ready"
-                $script:StatusTimer.Stop()
+                # Stop and clean up the timer
+                $timer.Stop()
                 $script:StatusTimer = $null
             })
             $script:StatusTimer.Start()

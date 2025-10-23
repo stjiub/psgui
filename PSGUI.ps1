@@ -1433,7 +1433,7 @@ function Start-MainWindow {
             }
         }
     })
-    $script:UI.Tabs.Add("All", $allTab)
+    [void]$script:UI.Tabs.Add("All", $allTab)
 
     $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
     $loadedFavorites = Load-Favorites -AllData $json
@@ -1473,7 +1473,7 @@ function Start-MainWindow {
     # Add drag/drop event handlers for reordering favorites
     Initialize-FavoritesDragDrop -Grid $favTab.Content
 
-    $script:UI.Tabs.Add("Favorites", $favTab)
+    [void]$script:UI.Tabs.Add("Favorites", $favTab)
     if ($favItemsSource.Count -eq 0) {
         $script:UI.TabControl.SelectedItem = $allTab
     }
@@ -4034,12 +4034,17 @@ function Write-Status {
 
         # Only set a timer if the message is not "Ready"
         if ($output -ne "Ready") {
-            # Create a new timer
+            # Create a new timer that only fires once
             $script:StatusTimer = New-Object System.Windows.Threading.DispatcherTimer
             $script:StatusTimer.Interval = [TimeSpan]::FromSeconds($script:Settings.StatusTimeout)
+
+            # Store timer reference for the event handler
+            $timer = $script:StatusTimer
+
             $script:StatusTimer.Add_Tick({
                 $script:UI.StatusBox.Text = "Ready"
-                $script:StatusTimer.Stop()
+                # Stop and clean up the timer
+                $timer.Stop()
                 $script:StatusTimer = $null
             })
             $script:StatusTimer.Start()
@@ -4100,7 +4105,7 @@ $script:Settings = @{
     DefaultShellArgs = "-ExecutionPolicy Bypass -NoExit -Command `" & { [System.Console]::Title = 'PS' } `""
     DefaultRunCommandAttached = $true
     OpenShellAtStart = $false
-    StatusTimeout = 3
+    StatusTimeout = 6
     DefaultLogsPath = Join-Path $env:APPDATA "PSGUI\Logs"
     SettingsPath = Join-Path $env:APPDATA "PSGUI\settings.json"
     FavoritesPath = Join-Path $env:APPDATA "PSGUI\favorites.json"
