@@ -386,6 +386,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <Label Grid.Row="0" Grid.Column="0" Content="Default Shell:"/>
@@ -459,8 +460,11 @@
                                 <Label Grid.Row="8" Grid.Column="0" Content="Command History Limit:"/>
                                 <TextBox Grid.Row="8" Grid.Column="1" Name="TxtCommandHistoryLimit" Margin="5"/>
 
-                                <Label Grid.Row="9" Grid.Column="0" Content="Show Debug Tab:"/>
-                                <CheckBox Grid.Row="9" Grid.Column="1" Name="ChkShowDebugTab" Margin="5" VerticalAlignment="Center"/>
+                                <Label Grid.Row="9" Grid.Column="0" Content="Status Timeout (seconds):"/>
+                                <TextBox Grid.Row="9" Grid.Column="1" Name="TxtStatusTimeout" Margin="5"/>
+
+                                <Label Grid.Row="10" Grid.Column="0" Content="Show Debug Tab:"/>
+                                <CheckBox Grid.Row="10" Grid.Column="1" Name="ChkShowDebugTab" Margin="5" VerticalAlignment="Center"/>
                             </Grid>
                         </ScrollViewer>
 

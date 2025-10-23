@@ -7,20 +7,8 @@ $script:GWL_STYLE = -16
 $script:WS_BORDERLESS = 0x800000  # WS_POPUP without WS_BORDER, WS_CAPTION, etc.
 $script:WS_OVERLAPPEDWINDOW = 0x00CF0000
 
-# Settings
-$script:Settings = @{
-    DefaultShell = "powershell"
-    DefaultShellArgs = "-ExecutionPolicy Bypass -NoExit -Command `" & { [System.Console]::Title = 'PS' } `""
-    DefaultRunCommandAttached = $true
-    OpenShellAtStart = $false
-    StatusTimeout = 6
-    DefaultLogsPath = Join-Path $env:APPDATA "PSGUI\Logs"
-    SettingsPath = Join-Path $env:APPDATA "PSGUI\settings.json"
-    FavoritesPath = Join-Path $env:APPDATA "PSGUI\favorites.json"
-    ShowDebugTab = $false
-    DefaultDataFile = Join-Path $env:APPDATA "PSGUI\data.json"
-    CommandHistoryLimit = 50
-}
+# Settings - will be loaded from defaultsettings.json
+$script:Settings = @{}
 
 $script:State = @{
     CurrentDataFile = $null
@@ -62,9 +50,29 @@ $script:ApplicationPaths = @{
     MaterialDesignThemes = Join-Path $script:Path "Assembly\MaterialDesignThemes.Wpf.dll"
     MaterialDesignColors = Join-Path $script:Path "Assembly\MaterialDesignColors.dll"
     DefaultDataFile = Join-Path $script:Path "data.json"
+    DefaultSettingsFile = Join-Path $script:Path "defaultsettings.json"
     SettingsFilePath = Join-Path $env:APPDATA "PSGUI\settings.json"
     IconFile = Join-Path $script:Path "icon.ico"
     Win32APIFile = Join-Path $script:Path "Win32API.cs"
+}
+
+# Load default settings from defaultsettings.json
+if (Test-Path $script:ApplicationPaths.DefaultSettingsFile) {
+    try {
+        $defaultSettings = Get-Content $script:ApplicationPaths.DefaultSettingsFile | ConvertFrom-Json
+        foreach ($key in $defaultSettings.PSObject.Properties.Name) {
+            $value = $defaultSettings.$key
+            # Expand environment variables in paths
+            if ($value -is [string] -and $value -match '%\w+%') {
+                $script:Settings[$key] = [Environment]::ExpandEnvironmentVariables($value)
+            } else {
+                $script:Settings[$key] = $value
+            }
+        }
+    }
+    catch {
+        Write-Warning "Failed to load default settings from defaultsettings.json: $_"
+    }
 }
 
 # Load necessary assemblies
