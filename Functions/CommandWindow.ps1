@@ -61,11 +61,21 @@ function Toggle-ShellGrid {
         # Collapse the Sub grid
         $script:UI.Window.FindName("ShellRow").Height = New-Object System.Windows.GridLength(0)
         $script:UI.Shell.Visibility = "Collapsed"
+
+        # Update toggle button state
+        if ($script:UI.BtnToggleShell) {
+            $script:UI.BtnToggleShell.IsChecked = $false
+        }
     }
     else {
         # Restore previous height and visibility
         $script:UI.Window.FindName("ShellRow").Height = New-Object System.Windows.GridLength($script:State.SubGridExpandedHeight)
         $script:UI.Shell.Visibility = "Visible"
+
+        # Update toggle button state
+        if ($script:UI.BtnToggleShell) {
+            $script:UI.BtnToggleShell.IsChecked = $true
+        }
     }
 }
 

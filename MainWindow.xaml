@@ -175,7 +175,6 @@
                                     <md:PackIcon Kind="CogOutline" Style="{StaticResource ContextMenuIconStyle}"/>
                                 </MenuItem.Icon>
                             </MenuItem>
-                            <MenuItem Header="Toggle Shell" IsCheckable="True" Name="BtnMenuToggleSub"/>
                             <Separator />
                             <MenuItem Header="_Exit"/>
                         </MenuItem>
@@ -337,6 +336,25 @@
             </Grid>
 
             <Grid Name="CommandControls" Grid.Row="4">
+                <ToggleButton Name="BtnToggleShell"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Left"
+                              Margin="10,0,0,0"
+                              Background="Transparent"
+                              Style="{StaticResource MaterialDesignActionToggleButton}"
+                              IsChecked="True">
+                    <ToggleButton.Content>
+                        <md:PackIcon Kind="ChevronUp" Foreground="Black"/>
+                    </ToggleButton.Content>
+                    <md:ToggleButtonAssist.OnContent>
+                        <md:PackIcon Kind="ChevronDown" Foreground="Black"/>
+                    </md:ToggleButtonAssist.OnContent>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Toggle Shell Grid</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </ToggleButton>
                 <StackPanel Grid.Row="0" Margin="50 10 10 10" VerticalAlignment="Center" Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Center">
                     <Button Name="BtnMainRun" Content="Run" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="250" Height="30"/>
                 </StackPanel>
