@@ -40,6 +40,18 @@ function New-DataGridBase {
 
     if ($name -eq "*") {
         # Favorites tab - simplified menu items (drag-and-drop handles reordering)
+        $openMenuItem = New-Object System.Windows.Controls.MenuItem
+        $openMenuItem.Header = "Open"
+        $openMenuItem.Style = $menuItemStyle
+        $openIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $openIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::FileDocumentEditOutline
+        $openIcon.Style = $iconStyle
+        $openMenuItem.Icon = $openIcon
+        $openMenuItem.Add_Click({
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($openMenuItem)
+
         $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
         $runAttachedMenuItem.Header = "Run (Attached)"
         $runAttachedMenuItem.Style = $menuItemStyle
@@ -66,6 +78,38 @@ function New-DataGridBase {
         })
         [void]$contextMenu.Items.Add($runDetachedMenuItem)
 
+        # Add event handler to update run/open visibility when context menu opens
+        $contextMenu.Add_Opened({
+            param($sender, $e)
+            $currentGrid = $script:UI.TabControl.SelectedItem.Content
+            $selectedItem = $currentGrid.SelectedItem
+            if ($selectedItem) {
+                # Update Run/Open menu item visibility based on SkipParameterSelect
+                $openItem = $sender.Tag.OpenMenuItem
+                $runAttachedItem = $sender.Tag.RunAttachedMenuItem
+                $runDetachedItem = $sender.Tag.RunDetachedMenuItem
+
+                if ($selectedItem.SkipParameterSelect) {
+                    # Show Run (Attached) and Run (Detached), hide Open
+                    $openItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $runAttachedItem.Visibility = [System.Windows.Visibility]::Visible
+                    $runDetachedItem.Visibility = [System.Windows.Visibility]::Visible
+                } else {
+                    # Show Open, hide Run (Attached) and Run (Detached)
+                    $openItem.Visibility = [System.Windows.Visibility]::Visible
+                    $runAttachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $runDetachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                }
+            }
+        })
+
+        # Store references for dynamic visibility
+        $contextMenu.Tag = @{
+            OpenMenuItem = $openMenuItem
+            RunAttachedMenuItem = $runAttachedMenuItem
+            RunDetachedMenuItem = $runDetachedMenuItem
+        }
+
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
@@ -91,6 +135,18 @@ function New-DataGridBase {
         [void]$contextMenu.Items.Add($duplicateMenuItem)
     } else {
         # Regular tabs - standard menu items
+        $openMenuItem = New-Object System.Windows.Controls.MenuItem
+        $openMenuItem.Header = "Open"
+        $openMenuItem.Style = $menuItemStyle
+        $openIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $openIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::FileDocumentEditOutline
+        $openIcon.Style = $iconStyle
+        $openMenuItem.Icon = $openIcon
+        $openMenuItem.Add_Click({
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($openMenuItem)
+
         $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
         $runAttachedMenuItem.Header = "Run (Attached)"
         $runAttachedMenuItem.Style = $menuItemStyle
@@ -128,13 +184,16 @@ function New-DataGridBase {
         $favoriteMenuItem.Icon = $favIcon
         $favoriteMenuItem.Add_Click({ Toggle-CommandFavorite })
 
-        # Store reference to favorite menu item so we can update it
+        # Store reference to favorite menu item and run/open items so we can update them
         $contextMenu.Tag = @{
             FavoriteMenuItem = $favoriteMenuItem
             IconStyle = $iconStyle
+            OpenMenuItem = $openMenuItem
+            RunAttachedMenuItem = $runAttachedMenuItem
+            RunDetachedMenuItem = $runDetachedMenuItem
         }
 
-        # Add event handler to update the favorite menu item text/icon when context menu opens
+        # Add event handler to update the favorite menu item text/icon and run/open visibility when context menu opens
         $contextMenu.Add_Opened({
             param($sender, $e)
             $currentGrid = $script:UI.TabControl.SelectedItem.Content
@@ -160,6 +219,23 @@ function New-DataGridBase {
                 }
 
                 $favMenuItem.Icon = $newFavIcon
+
+                # Update Run/Open menu item visibility based on SkipParameterSelect
+                $openItem = $sender.Tag.OpenMenuItem
+                $runAttachedItem = $sender.Tag.RunAttachedMenuItem
+                $runDetachedItem = $sender.Tag.RunDetachedMenuItem
+
+                if ($selectedItem.SkipParameterSelect) {
+                    # Show Run (Attached) and Run (Detached), hide Open
+                    $openItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $runAttachedItem.Visibility = [System.Windows.Visibility]::Visible
+                    $runDetachedItem.Visibility = [System.Windows.Visibility]::Visible
+                } else {
+                    # Show Open, hide Run (Attached) and Run (Detached)
+                    $openItem.Visibility = [System.Windows.Visibility]::Visible
+                    $runAttachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $runDetachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                }
             }
         })
 
@@ -226,6 +302,11 @@ function New-DataGridBase {
 
     $grid.ContextMenu = $contextMenu
     $grid.AutoGenerateColumns = $false
+
+    # Add selection changed event to update the Run button text
+    $grid.Add_SelectionChanged({
+        Update-MainRunButtonText
+    })
 
     # Apply the favorite row style (skip for Favorites tab since it only contains favorites)
     if ($name -ne "*") {

@@ -1227,7 +1227,8 @@ function Compile-Command {
 # Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
 function Invoke-CommandRunClick {
     param (
-        [System.Windows.Window]$CommandWindow
+        [System.Windows.Window]$CommandWindow,
+        [bool]$RunAttached
     )
 
     # Get command and grid from the window
@@ -1244,7 +1245,7 @@ function Invoke-CommandRunClick {
     # Close the window
     $CommandWindow.Close()
 
-    Run-Command -Command $command -RunAttached $script:State.RunCommandAttached -HistoryEntry $historyEntry
+    Run-Command -Command $command -RunAttached $RunAttached -HistoryEntry $historyEntry
 }
 
 function Invoke-CommandCopyToClipboard {
@@ -1528,13 +1529,16 @@ function Register-EventHandlers {
     $script:UI.BtnMenuFavorite.Add_Click({ Toggle-CommandFavorite })
     $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
     $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-ShellGrid })
+    $script:UI.BtnMenuRunOpen.Add_Click({
+        Invoke-MainRunClick -TabControl $script:UI.TabControl
+    })
     $script:UI.BtnMenuRunDetached.Add_Click({
         $script:State.RunCommandAttached = $false
         Invoke-MainRunClick -TabControl $script:UI.TabControl
     })
     $script:UI.BtnMenuRunAttached.Add_Click({
         $script:State.RunCommandAttached = $true
-        Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true 
+        Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true
     })
     $script:UI.BtnMenuRunRerunLast.Add_Click({
         if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
@@ -1566,6 +1570,7 @@ function Register-EventHandlers {
     $script:UI.TabControl.Add_SelectionChanged({
         param($sender, $e)
         Handle-TabSelection -SelectedTab $sender.SelectedItem
+        Update-MainRunButtonText
     })
 
     # Process Tab events
@@ -1655,6 +1660,50 @@ function Register-EventHandlers {
     })
 
     $script:UI.Window.Add_Closing({ param($sender, $e) Invoke-WindowClosing -Sender $sender -E $e })
+}
+
+# Update the main Run button text and menu items visibility based on the selected command
+function Update-MainRunButtonText {
+    if (-not $script:UI.TabControl.SelectedItem) {
+        $script:UI.BtnMainRun.Content = "Run"
+        $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        return
+    }
+
+    $grid = $script:UI.TabControl.SelectedItem.Content
+    if (-not $grid -or -not $grid.SelectedItem) {
+        $script:UI.BtnMainRun.Content = "Run"
+        $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        return
+    }
+
+    $selectedItem = $grid.SelectedItem
+
+    if ($selectedItem.SkipParameterSelect) {
+        # Show Run (Attached) or Run (Detached) based on DefaultRunCommandAttached setting
+        if ($script:Settings.DefaultRunCommandAttached) {
+            $script:UI.BtnMainRun.Content = "Run (Attached)"
+        }
+        else {
+            $script:UI.BtnMainRun.Content = "Run (Detached)"
+        }
+        # Hide Open menu item, show Run items
+        $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Collapsed
+        $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+    }
+    else {
+        # Show "Open" when SkipParameterSelect is false
+        $script:UI.BtnMainRun.Content = "Open"
+        # Show Open menu item, hide Run items
+        $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Collapsed
+        $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Collapsed
+    }
 }
 
 function Invoke-WindowClosing {
@@ -2442,6 +2491,18 @@ function New-DataGridBase {
 
     if ($name -eq "*") {
         # Favorites tab - simplified menu items (drag-and-drop handles reordering)
+        $openMenuItem = New-Object System.Windows.Controls.MenuItem
+        $openMenuItem.Header = "Open"
+        $openMenuItem.Style = $menuItemStyle
+        $openIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $openIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::FileDocumentEditOutline
+        $openIcon.Style = $iconStyle
+        $openMenuItem.Icon = $openIcon
+        $openMenuItem.Add_Click({
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($openMenuItem)
+
         $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
         $runAttachedMenuItem.Header = "Run (Attached)"
         $runAttachedMenuItem.Style = $menuItemStyle
@@ -2468,6 +2529,38 @@ function New-DataGridBase {
         })
         [void]$contextMenu.Items.Add($runDetachedMenuItem)
 
+        # Add event handler to update run/open visibility when context menu opens
+        $contextMenu.Add_Opened({
+            param($sender, $e)
+            $currentGrid = $script:UI.TabControl.SelectedItem.Content
+            $selectedItem = $currentGrid.SelectedItem
+            if ($selectedItem) {
+                # Update Run/Open menu item visibility based on SkipParameterSelect
+                $openItem = $sender.Tag.OpenMenuItem
+                $runAttachedItem = $sender.Tag.RunAttachedMenuItem
+                $runDetachedItem = $sender.Tag.RunDetachedMenuItem
+
+                if ($selectedItem.SkipParameterSelect) {
+                    # Show Run (Attached) and Run (Detached), hide Open
+                    $openItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $runAttachedItem.Visibility = [System.Windows.Visibility]::Visible
+                    $runDetachedItem.Visibility = [System.Windows.Visibility]::Visible
+                } else {
+                    # Show Open, hide Run (Attached) and Run (Detached)
+                    $openItem.Visibility = [System.Windows.Visibility]::Visible
+                    $runAttachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $runDetachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                }
+            }
+        })
+
+        # Store references for dynamic visibility
+        $contextMenu.Tag = @{
+            OpenMenuItem = $openMenuItem
+            RunAttachedMenuItem = $runAttachedMenuItem
+            RunDetachedMenuItem = $runDetachedMenuItem
+        }
+
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
@@ -2493,6 +2586,18 @@ function New-DataGridBase {
         [void]$contextMenu.Items.Add($duplicateMenuItem)
     } else {
         # Regular tabs - standard menu items
+        $openMenuItem = New-Object System.Windows.Controls.MenuItem
+        $openMenuItem.Header = "Open"
+        $openMenuItem.Style = $menuItemStyle
+        $openIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $openIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::FileDocumentEditOutline
+        $openIcon.Style = $iconStyle
+        $openMenuItem.Icon = $openIcon
+        $openMenuItem.Add_Click({
+            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($openMenuItem)
+
         $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
         $runAttachedMenuItem.Header = "Run (Attached)"
         $runAttachedMenuItem.Style = $menuItemStyle
@@ -2530,13 +2635,16 @@ function New-DataGridBase {
         $favoriteMenuItem.Icon = $favIcon
         $favoriteMenuItem.Add_Click({ Toggle-CommandFavorite })
 
-        # Store reference to favorite menu item so we can update it
+        # Store reference to favorite menu item and run/open items so we can update them
         $contextMenu.Tag = @{
             FavoriteMenuItem = $favoriteMenuItem
             IconStyle = $iconStyle
+            OpenMenuItem = $openMenuItem
+            RunAttachedMenuItem = $runAttachedMenuItem
+            RunDetachedMenuItem = $runDetachedMenuItem
         }
 
-        # Add event handler to update the favorite menu item text/icon when context menu opens
+        # Add event handler to update the favorite menu item text/icon and run/open visibility when context menu opens
         $contextMenu.Add_Opened({
             param($sender, $e)
             $currentGrid = $script:UI.TabControl.SelectedItem.Content
@@ -2562,6 +2670,23 @@ function New-DataGridBase {
                 }
 
                 $favMenuItem.Icon = $newFavIcon
+
+                # Update Run/Open menu item visibility based on SkipParameterSelect
+                $openItem = $sender.Tag.OpenMenuItem
+                $runAttachedItem = $sender.Tag.RunAttachedMenuItem
+                $runDetachedItem = $sender.Tag.RunDetachedMenuItem
+
+                if ($selectedItem.SkipParameterSelect) {
+                    # Show Run (Attached) and Run (Detached), hide Open
+                    $openItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $runAttachedItem.Visibility = [System.Windows.Visibility]::Visible
+                    $runDetachedItem.Visibility = [System.Windows.Visibility]::Visible
+                } else {
+                    # Show Open, hide Run (Attached) and Run (Detached)
+                    $openItem.Visibility = [System.Windows.Visibility]::Visible
+                    $runAttachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $runDetachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                }
             }
         })
 
@@ -2628,6 +2753,11 @@ function New-DataGridBase {
 
     $grid.ContextMenu = $contextMenu
     $grid.AutoGenerateColumns = $false
+
+    # Add selection changed event to update the Run button text
+    $grid.Add_SelectionChanged({
+        Update-MainRunButtonText
+    })
 
     # Apply the favorite row style (skip for Favorites tab since it only contains favorites)
     if ($name -ne "*") {
@@ -3610,14 +3740,25 @@ function New-CommandWindow {
 
         # Register event handlers for this specific window
 
-        $commandWindow.BtnCommandRun.Add_Click({
+        $commandWindow.BtnCommandRunAttached.Add_Click({
             param($sender, $e)
             $window = $sender.Parent
             while ($window -and $window -isnot [System.Windows.Window]) {
                 $window = $window.Parent
             }
             if ($window) {
-                Invoke-CommandRunClick -CommandWindow $window
+                Invoke-CommandRunClick -CommandWindow $window -RunAttached $true
+            }
+        })
+
+        $commandWindow.BtnCommandRunDetached.Add_Click({
+            param($sender, $e)
+            $window = $sender.Parent
+            while ($window -and $window -isnot [System.Windows.Window]) {
+                $window = $window.Parent
+            }
+            if ($window) {
+                Invoke-CommandRunClick -CommandWindow $window -RunAttached $false
             }
         })
 

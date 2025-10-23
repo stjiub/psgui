@@ -63,7 +63,10 @@
         </Grid>
 
         <Grid Grid.Row="1">
-            <Button Name="BtnCommandRun" Content="Run" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" HorizontalAlignment="Center" Margin="0,15,0,10"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,10">
+                <Button Name="BtnCommandRunAttached" Content="Run (Attached)" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" Margin="0,0,10,0"/>
+                <Button Name="BtnCommandRunDetached" Content="Run (Detached)" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30"/>
+            </StackPanel>
             <StackPanel VerticalAlignment="Center" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,5,0">
                 <Button Name="BtnCommandCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
                 <Button.LayoutTransform>

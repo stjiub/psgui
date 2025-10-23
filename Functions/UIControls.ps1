@@ -46,14 +46,25 @@ function New-CommandWindow {
 
         # Register event handlers for this specific window
 
-        $commandWindow.BtnCommandRun.Add_Click({
+        $commandWindow.BtnCommandRunAttached.Add_Click({
             param($sender, $e)
             $window = $sender.Parent
             while ($window -and $window -isnot [System.Windows.Window]) {
                 $window = $window.Parent
             }
             if ($window) {
-                Invoke-CommandRunClick -CommandWindow $window
+                Invoke-CommandRunClick -CommandWindow $window -RunAttached $true
+            }
+        })
+
+        $commandWindow.BtnCommandRunDetached.Add_Click({
+            param($sender, $e)
+            $window = $sender.Parent
+            while ($window -and $window -isnot [System.Windows.Window]) {
+                $window = $window.Parent
+            }
+            if ($window) {
+                Invoke-CommandRunClick -CommandWindow $window -RunAttached $false
             }
         })
 

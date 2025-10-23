@@ -387,7 +387,8 @@ function Compile-Command {
 # Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
 function Invoke-CommandRunClick {
     param (
-        [System.Windows.Window]$CommandWindow
+        [System.Windows.Window]$CommandWindow,
+        [bool]$RunAttached
     )
 
     # Get command and grid from the window
@@ -404,7 +405,7 @@ function Invoke-CommandRunClick {
     # Close the window
     $CommandWindow.Close()
 
-    Run-Command -Command $command -RunAttached $script:State.RunCommandAttached -HistoryEntry $historyEntry
+    Run-Command -Command $command -RunAttached $RunAttached -HistoryEntry $historyEntry
 }
 
 function Invoke-CommandCopyToClipboard {

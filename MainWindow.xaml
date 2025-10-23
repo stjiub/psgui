@@ -206,6 +206,11 @@
                         </MenuItem>
                     </MenuItem>
                     <MenuItem Header="_Run" FontSize="12" VerticalAlignment="Center">
+                        <MenuItem Name="BtnMenuRunOpen" Header="_Open">
+                            <MenuItem.Icon>
+                                <md:PackIcon Kind="FileDocumentEditOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
                         <MenuItem Name="BtnMenuRunAttached" Header="Run (_Attached)">
                             <MenuItem.Icon>
                                 <md:PackIcon Kind="Play" Style="{StaticResource ContextMenuIconStyle}"/>
