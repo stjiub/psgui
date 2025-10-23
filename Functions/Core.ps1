@@ -132,7 +132,10 @@ function Register-EventHandlers {
     $script:UI.BtnMenuRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
 
     # Main Buttons
-    $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
+    $script:UI.BtnMainRun.Add_Click({
+        $script:State.RunCommandAttached = $script:Settings.DefaultRunCommandAttached 
+        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+    })
 
     # Command dialog button events
     $script:UI.BtnCommandClose.Add_Click({ Hide-CommandDialog })

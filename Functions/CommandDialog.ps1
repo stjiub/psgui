@@ -351,7 +351,7 @@ function Invoke-CommandRunClick {
     # Add to command history
     Add-CommandToHistory -Command $command -Grid $grid
 
-    Run-Command $command $script:Settings.DefaultRunCommandAttached
+    Run-Command $command $script:State.RunCommandAttached
     Hide-CommandDialog
 }
 
@@ -370,7 +370,8 @@ function Invoke-CommandCopyToClipboard {
 # Execute a command string
 function Run-Command {
     param (
-        [Command]$command
+        [Command]$command,
+        [bool]$runAttached
     )    
 
     Write-Log "Running: $($command.Root)"
@@ -378,13 +379,12 @@ function Run-Command {
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
     $escapedCommand = $command.Full -replace '"', '\"'
 
-    if ($script:State.RunCommandAttached) {
+    if ($runAttached) {
         New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root
     }
     else {
         Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
     }
-    $script:State.RunCommandAttached = $script:Settings.DefaultRunCommandAttached
 }
 
 # Determine the PowerShell command type (Function,Script,Cmdlet)

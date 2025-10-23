@@ -24,7 +24,7 @@ function Create-DefaultSettings {
     $defaultSettings = @{
         DefaultShell = $script:Settings.DefaultShell
         DefaultShellArgs = $script:Settings.DefaultShellArgs
-        RunCommandAttached = $script:Settings.DefaultRunCommandAttached
+        DefaultRunCommandAttached = $script:Settings.DefaultRunCommandAttached
         OpenShellAtStart = $script:Settings.OpenShellAtStart
         DefaultLogsPath = $script:Settings.DefaultLogsPath
         SettingsPath = $script:Settings.SettingsPath
@@ -101,7 +101,7 @@ function Load-Settings {
     # Apply loaded settings to script variables
     $script:Settings.DefaultShell = $settings.DefaultShell
     $script:Settings.DefaultShellArgs = $settings.DefaultShellArgs
-    $script:Settings.DefaultRunCommandAttached = $settings.RunCommandAttached
+    $script:Settings.DefaultRunCommandAttached = $settings.DefaultRunCommandAttached
     $script:Settings.OpenShellAtStart = $settings.OpenShellAtStart
     $script:Settings.DefaultLogsPath = $settings.DefaultLogsPath
     $script:Settings.SettingsPath = $settings.SettingsPath
@@ -130,7 +130,7 @@ function Save-Settings {
         $settings = @{
             DefaultShell = $script:Settings.DefaultShell
             DefaultShellArgs = $script:Settings.DefaultShellArgs
-            RunCommandAttached = $script:Settings.DefaultRunCommandAttached
+            DefaultRunCommandAttached = $script:Settings.DefaultRunCommandAttached
             OpenShellAtStart = $script:Settings.OpenShellAtStart
             DefaultLogsPath = $script:Settings.DefaultLogsPath
             SettingsPath = $script:Settings.SettingsPath
