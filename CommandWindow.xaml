@@ -52,6 +52,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Grid Name="CommandGrid" Grid.Row="0" Margin="0,10,0,0">
@@ -62,7 +64,29 @@
             </Grid.ColumnDefinitions>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <!-- Common PowerShell Parameters Section -->
+        <Grid Name="CommonParametersGrid" Grid.Row="1" Margin="0,10,0,0" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="100"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="250"/>
+            </Grid.ColumnDefinitions>
+        </Grid>
+
+        <!-- Toggle Icon for Common Parameters -->
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Button Name="BtnToggleCommonParameters"
+                    HorizontalAlignment="Left"
+                    Style="{StaticResource ActionButton}"
+                    ToolTip="Show Common Parameters">
+                <Button.LayoutTransform>
+                    <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+                </Button.LayoutTransform>
+                <md:PackIcon Name="IconToggleCommonParameters" Kind="ChevronDown" Foreground="#2096F4"/>
+            </Button>
+        </Grid>
+
+        <Grid Grid.Row="3">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,10">
                 <Button Name="BtnCommandRunAttached" Content="Run (Attached)" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" Margin="0,0,10,0"/>
                 <Button Name="BtnCommandRunDetached" Content="Run (Detached)" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30"/>
