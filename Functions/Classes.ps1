@@ -30,4 +30,5 @@ class Command {
     [string]$Full
     [string]$PreCommand
     [System.Object[]]$Parameters
+    [bool]$SkipParameterSelect
 }

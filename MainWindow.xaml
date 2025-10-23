@@ -146,7 +146,6 @@
                     <MenuItem Header="_Run" FontSize="12" VerticalAlignment="Center">
                         <MenuItem Name="BtnMenuRunAttached" Header="Run (_Attached)" Icon="{md:PackIcon Kind=Play}"/>
                         <MenuItem Name="BtnMenuRunDetached" Header="Run (_Detached)" Icon="{md:PackIcon Kind=OpenInNew}"/>
-                        <MenuItem Name="BtnMenuRunReopenLast" Header="Modify Last Command" Icon="{md:PackIcon Kind=FileDocumentEdit}"/>
                         <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command" Icon="{md:PackIcon Kind=Refresh}"/>
                         <MenuItem Name="BtnMenuRunCopyToClipboard" Header="Copy to Clipboard" Icon="{md:PackIcon Kind=ClipboardMultipleOutline}"/>
                     </MenuItem>

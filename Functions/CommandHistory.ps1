@@ -120,6 +120,13 @@ function Reopen-CommandFromHistory {
             return
         }
 
+        # If SkipParameterSelect is true, just rerun the command
+        if ($command.SkipParameterSelect) {
+            Run-Command $command $script:State.RunCommandAttached
+            Write-Status "Command rerun from history"
+            return
+        }
+
         # Clear the command grid before rebuilding
         Clear-Grid $script:UI.CommandGrid
 
@@ -154,7 +161,7 @@ function Reopen-CommandFromHistory {
 
         Write-Status "Command reopened from history"
 
-    } 
+    }
     catch {
         Write-Log "Error reopening command from history: $_"
         Write-Status "Error reopening command from history"
