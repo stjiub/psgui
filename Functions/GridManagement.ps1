@@ -506,6 +506,10 @@ function Set-TabsReadOnlyStatus {
 
     $script:UI.BtnMenuEdit.IsChecked = $script:State.TabsReadOnly
     $script:State.TabsReadOnly = (-not $script:State.TabsReadOnly)
+
+    # Sync both toggle buttons (MaterialDesign will handle icon switching automatically)
+    $script:UI.BtnToggleEditMode.IsChecked = (-not $script:State.TabsReadOnly)
+
     foreach ($tab in $tabs.GetEnumerator()) {
         $tab.Value.Content.IsReadOnly = $script:State.TabsReadOnly
     }
