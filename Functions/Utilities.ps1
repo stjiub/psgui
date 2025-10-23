@@ -92,10 +92,30 @@ function Write-Status {
         [string]$output
     )
 
-    $script:UI.Window.Dispatcher.Invoke([action]{$script:UI.StatusBox.Text = $output}, "Normal")
+    $script:UI.Window.Dispatcher.Invoke([action]{
+        $script:UI.StatusBox.Text = $output
+
+        # Stop any existing timer
+        if ($script:StatusTimer) {
+            $script:StatusTimer.Stop()
+            $script:StatusTimer = $null
+        }
+
+        # Only set a timer if the message is not "Ready"
+        if ($output -ne "Ready") {
+            # Create a new timer
+            $script:StatusTimer = New-Object System.Windows.Threading.DispatcherTimer
+            $script:StatusTimer.Interval = [TimeSpan]::FromSeconds($script:Settings.StatusTimeout)
+            $script:StatusTimer.Add_Tick({
+                $script:UI.StatusBox.Text = "Ready"
+                $script:StatusTimer.Stop()
+                $script:StatusTimer = $null
+            })
+            $script:StatusTimer.Start()
+        }
+    }, "Normal")
+
     $script:UI.Window.Dispatcher.Invoke([action]{$script:UI.LogBox.AppendText("$output`n")}, "Normal")
-    #Start-Sleep -Seconds $script:StatusTimeout; 
-    #$script:UI.Window.Dispatcher.Invoke([action]{$script.UI.StatusBox.Text = ""}, "Normal")
 }
 
 # Update the data file indicator text

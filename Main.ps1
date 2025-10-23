@@ -13,7 +13,7 @@ $script:Settings = @{
     DefaultShellArgs = "-ExecutionPolicy Bypass -NoExit -Command `" & { [System.Console]::Title = 'PS' } `""
     DefaultRunCommandAttached = $true
     OpenShellAtStart = $false
-    StatusTimeout = 3
+    StatusTimeout = 6
     DefaultLogsPath = Join-Path $env:APPDATA "PSGUI\Logs"
     SettingsPath = Join-Path $env:APPDATA "PSGUI\settings.json"
     FavoritesPath = Join-Path $env:APPDATA "PSGUI\favorites.json"
@@ -44,6 +44,9 @@ $script:State = @{
         IsBottomBorder = $false
     }
 }
+
+# Initialize status timer variable
+$script:StatusTimer = $null
 
 # Determine app pathing whether running as PS script or EXE
 if ($PSScriptRoot) { 
