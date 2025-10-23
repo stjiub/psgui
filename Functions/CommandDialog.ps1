@@ -349,9 +349,9 @@ function Invoke-CommandRunClick {
 
     # Add to command history
     Add-CommandToHistory -Command $command -Grid $grid
-
-    Run-Command $command $script:State.RunCommandAttached
+        
     Hide-CommandDialog
+    Run-Command $command $script:State.RunCommandAttached
 }
 
 function Invoke-CommandCopyToClipboard {
@@ -371,7 +371,7 @@ function Run-Command {
     param (
         [Command]$command,
         [bool]$runAttached
-    )    
+    )
 
     Write-Log "Running: $($command.Root)"
 
@@ -379,7 +379,17 @@ function Run-Command {
     $escapedCommand = $command.Full -replace '"', '\"'
 
     if ($runAttached) {
+        # Show loading indicator while PowerShell window is being created
+        Show-LoadingIndicator -Message "Starting PowerShell: $($command.Root)..."
+
+        # Force UI update to show the loading indicator
+        $script:UI.Window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+
+        # Synchronously create the process tab (the 2-second wait is already in New-ProcessTab)
         New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root
+
+        # Hide loading indicator after tab is created
+        Hide-LoadingIndicator
     }
     else {
         Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
