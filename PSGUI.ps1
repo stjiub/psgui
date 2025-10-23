@@ -1057,11 +1057,21 @@ function Toggle-ShellGrid {
         # Collapse the Sub grid
         $script:UI.Window.FindName("ShellRow").Height = New-Object System.Windows.GridLength(0)
         $script:UI.Shell.Visibility = "Collapsed"
+
+        # Update toggle button state
+        if ($script:UI.BtnToggleShell) {
+            $script:UI.BtnToggleShell.IsChecked = $false
+        }
     }
     else {
         # Restore previous height and visibility
         $script:UI.Window.FindName("ShellRow").Height = New-Object System.Windows.GridLength($script:State.SubGridExpandedHeight)
         $script:UI.Shell.Visibility = "Visible"
+
+        # Update toggle button state
+        if ($script:UI.BtnToggleShell) {
+            $script:UI.BtnToggleShell.IsChecked = $true
+        }
     }
 }
 
@@ -1811,7 +1821,6 @@ function Register-EventHandlers {
     $script:UI.BtnToggleEditMode.Add_Click({ Toggle-EditMode -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuFavorite.Add_Click({ Toggle-CommandFavorite })
     $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
-    $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-ShellGrid })
     $script:UI.BtnMenuRunOpen.Add_Click({
         Invoke-MainRunClick -TabControl $script:UI.TabControl
     })
@@ -1835,9 +1844,10 @@ function Register-EventHandlers {
 
     # Main Buttons
     $script:UI.BtnMainRun.Add_Click({
-        $script:State.RunCommandAttached = $script:Settings.DefaultRunCommandAttached 
-        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+        $script:State.RunCommandAttached = $script:Settings.DefaultRunCommandAttached
+        Invoke-MainRunClick -TabControl $script:UI.TabControl
     })
+    $script:UI.BtnToggleShell.Add_Click({ Toggle-ShellGrid })
 
     # Command dialog button events - Now handled per-window in New-CommandWindow
 
