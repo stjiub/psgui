@@ -164,7 +164,7 @@
                                 <md:PackIcon Kind="FileImportOutline" Style="{StaticResource ContextMenuIconStyle}"/>
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Header="_Preferences" Name="BtnMenuSettings">
+                        <MenuItem Header="_Settings" Name="BtnMenuSettings">
                             <MenuItem.Icon>
                                 <md:PackIcon Kind="CogOutline" Style="{StaticResource ContextMenuIconStyle}"/>
                             </MenuItem.Icon>
