@@ -47,7 +47,7 @@ function Start-MainWindow {
             }
         }
     })
-    $script:UI.Tabs.Add("All", $allTab)
+    [void]$script:UI.Tabs.Add("All", $allTab)
 
     $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
     $loadedFavorites = Load-Favorites -AllData $json
@@ -87,7 +87,7 @@ function Start-MainWindow {
     # Add drag/drop event handlers for reordering favorites
     Initialize-FavoritesDragDrop -Grid $favTab.Content
 
-    $script:UI.Tabs.Add("Favorites", $favTab)
+    [void]$script:UI.Tabs.Add("Favorites", $favTab)
     if ($favItemsSource.Count -eq 0) {
         $script:UI.TabControl.SelectedItem = $allTab
     }
