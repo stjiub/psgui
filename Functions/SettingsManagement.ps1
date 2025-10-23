@@ -187,7 +187,7 @@ function Invoke-BrowseLogs {
 }
 
 function Invoke-BrowseSettings {
-    $dialog = New-Object Microsoft.Win32.SaveFileDialog
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
     $dialog.FileName = $script:UI.TxtSettingsPath.Text
     $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
     $dialog.DefaultExt = ".json"
@@ -197,7 +197,7 @@ function Invoke-BrowseSettings {
 }
 
 function Invoke-BrowseFavorites {
-    $dialog = New-Object Microsoft.Win32.SaveFileDialog
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
     $dialog.FileName = $script:UI.TxtFavoritesPath.Text
     $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
     $dialog.DefaultExt = ".json"
@@ -207,7 +207,7 @@ function Invoke-BrowseFavorites {
 }
 
 function Invoke-BrowseDataFile {
-    $dialog = New-Object Microsoft.Win32.SaveFileDialog
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
     $dialog.FileName = $script:UI.TxtDefaultDataFile.Text
     $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
     $dialog.DefaultExt = ".json"
