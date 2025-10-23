@@ -7,6 +7,7 @@ class RowData {
     [string]$Command
     [bool]$SkipParameterSelect
     [string]$PreCommand
+    [bool]$Log
 }
 
 class FavoriteRowData : RowData {
@@ -20,6 +21,7 @@ class FavoriteRowData : RowData {
         $this.Command = $rowData.Command
         $this.SkipParameterSelect = $rowData.SkipParameterSelect
         $this.PreCommand = $rowData.PreCommand
+        $this.Log = $rowData.Log
         $this.Order = $order
     }
 }
@@ -31,6 +33,7 @@ class Command {
     [string]$PreCommand
     [System.Object[]]$Parameters
     [bool]$SkipParameterSelect
+    [bool]$Log
 }
 function Add-CommandToHistory {
     param(
@@ -575,9 +578,17 @@ function Restore-DeletedCommand {
                     if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
                         Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
                     }
-                    elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
-                        $e.Handled = $true
-                        Invoke-MainRunClick -TabControl $script:UI.TabControl
+                    elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
+                        # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
+                        if (-not $script:State.TabsReadOnly) {
+                            $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+                            $e.Handled = $true
+                        }
+                        # If Edit Mode is disabled (TabsReadOnly is true), run the command
+                        else {
+                            $e.Handled = $true
+                            Invoke-MainRunClick -TabControl $script:UI.TabControl
+                        }
                     }
                 })
                 Sort-TabControl -TabControl $tabControl
@@ -601,6 +612,17 @@ function Toggle-EditMode {
     param (
         [hashtable]$tabs
     )
+
+    # Commit any pending edits before toggling columns
+    foreach ($tab in $tabs.GetEnumerator()) {
+        $grid = $tab.Value.Content
+        if ($grid) {
+            # End any edit in progress
+            $grid.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+            # Update the layout to ensure changes are processed
+            $grid.UpdateLayout()
+        }
+    }
 
     Set-TabsReadOnlyStatus -Tabs $tabs
     Set-TabsExtraColumnsVisibility -Tabs $tabs
@@ -713,9 +735,17 @@ function Invoke-CellEditEndingHandler {
                 if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
                     Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
                 }
-                elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
-                    $e.Handled = $true
-                    Invoke-MainRunClick -TabControl $script:UI.TabControl
+                elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
+                    # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
+                    if (-not $script:State.TabsReadOnly) {
+                        $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+                        $e.Handled = $true
+                    }
+                    # If Edit Mode is disabled (TabsReadOnly is true), run the command
+                    else {
+                        $e.Handled = $true
+                        Invoke-MainRunClick -TabControl $script:UI.TabControl
+                    }
                 }
             })
         }
@@ -736,13 +766,33 @@ function Invoke-MainRunClick {
     $command.Root = $selection.Command
     $command.PreCommand = $selection.PreCommand
     $command.SkipParameterSelect = $selection.SkipParameterSelect
+    $command.Log = $selection.Log
+
+    Write-Log "Command created - Root: $($command.Root), Log: $($command.Log), SkipParameterSelect: $($command.SkipParameterSelect)"
 
     if ($command.Root) {
         if ($selection.SkipParameterSelect) {
-            if ($command.PreCommand) {
-                $command.Full = $command.PreCommand + "; "
+            $command.Full = ""
+
+            # Add log command if logging is enabled
+            if ($command.Log) {
+                $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+                $logPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+                $command.Full = "Start-Transcript -Path `"$logPath`""
+                $command.Full += "; "
             }
+
+            # Add PreCommand if it exists
+            if ($command.PreCommand) {
+                $command.Full += $command.PreCommand + "; "
+            }
+
             $command.Full += $command.Root
+
+            # Add Stop-Transcript if logging is enabled
+            if ($command.Log) {
+                $command.Full += "; Stop-Transcript"
+            }
 
             # Add to command history (no grid since parameters were skipped)
             Add-CommandToHistory -Command $command
@@ -1030,13 +1080,23 @@ function Compile-Command {
     )
 
     $grid = $CommandWindow.CommandGrid
-    # Clear if it existed from rerunning previous command
+
+    # Build the full command string
+    $command.Full = ""
+
+    # Add log command if logging is enabled
+    if ($command.Log) {
+        $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $logPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+        $command.Full = "Start-Transcript -Path `"$logPath`""
+        $command.Full += "; "
+    }
+
+    # Add PreCommand if it exists
     if ($command.PreCommand) {
-        $command.Full = $command.PreCommand + "; "
+        $command.Full += $command.PreCommand + "; "
     }
-    else {
-        $command.Full = ""
-    }
+
     $args = @{}
     $command.Full += "$($command.Root)"
 
@@ -1071,6 +1131,11 @@ function Compile-Command {
         elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
             $command.Full += " -$paramName `"$($args[$paramName])`""
         }
+    }
+
+    # Add Stop-Transcript if logging is enabled
+    if ($command.Log) {
+        $command.Full += "; Stop-Transcript"
     }
 }
 
@@ -1122,9 +1187,28 @@ function Run-Command {
     )
 
     Write-Log "Running: $($command.Root)"
+    Write-Log "Full Command: $($command.Full)"
+    Write-Log "Log Enabled: $($command.Log)"
+
+    # Ensure log directory exists if logging is enabled
+    if ($command.Log) {
+        try {
+            if (-not (Test-Path $script:Settings.DefaultLogsPath)) {
+                New-Item -ItemType Directory -Path $script:Settings.DefaultLogsPath -Force | Out-Null
+                Write-Log "Created log directory: $($script:Settings.DefaultLogsPath)"
+            }
+            else {
+                Write-Log "Log directory exists: $($script:Settings.DefaultLogsPath)"
+            }
+        }
+        catch {
+            Write-Log "Warning: Could not create log directory: $_"
+        }
+    }
 
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
     $escapedCommand = $command.Full -replace '"', '\"'
+    Write-Log "Escaped Command: $escapedCommand"
 
     if ($runAttached) {
         # Show the shell grid if it's not visible
@@ -1249,9 +1333,17 @@ function Start-MainWindow {
         if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
             Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
         }
-        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
-            $e.Handled = $true
-            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
+            # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
+            if (-not $script:State.TabsReadOnly) {
+                $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+                $e.Handled = $true
+            }
+            # If Edit Mode is disabled (TabsReadOnly is true), run the command
+            else {
+                $e.Handled = $true
+                Invoke-MainRunClick -TabControl $script:UI.TabControl
+            }
         }
     })
     $script:UI.Tabs.Add("All", $allTab)
@@ -1277,9 +1369,17 @@ function Start-MainWindow {
         if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
             Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
         }
-        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
-            $e.Handled = $true
-            Invoke-MainRunClick -TabControl $script:UI.TabControl
+        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
+            # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
+            if (-not $script:State.TabsReadOnly) {
+                $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+                $e.Handled = $true
+            }
+            # If Edit Mode is disabled (TabsReadOnly is true), run the command
+            else {
+                $e.Handled = $true
+                Invoke-MainRunClick -TabControl $script:UI.TabControl
+            }
         }
     })
 
@@ -1300,9 +1400,17 @@ function Start-MainWindow {
             if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
                 Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
             }
-            elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem -and -not $sender.IsInEditMode) {
-                $e.Handled = $true
-                Invoke-MainRunClick -TabControl $script:UI.TabControl
+            elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
+                # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
+                if (-not $script:State.TabsReadOnly) {
+                    $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+                    $e.Handled = $true
+                }
+                # If Edit Mode is disabled (TabsReadOnly is true), run the command
+                else {
+                    $e.Handled = $true
+                    Invoke-MainRunClick -TabControl $script:UI.TabControl
+                }
             }
         })
         $script:UI.Tabs.Add($category, $tab)
@@ -2428,8 +2536,8 @@ function New-GridColumn {
         [bool]$isFavorites
     )
 
-    # Create a checkbox column for SkipParameterSelect
-    if ($propertyName -eq "SkipParameterSelect") {
+    # Create a checkbox column for SkipParameterSelect and Log
+    if ($propertyName -eq "SkipParameterSelect" -or $propertyName -eq "Log") {
         $column = New-Object System.Windows.Controls.DataGridCheckBoxColumn
         $column.Header = $propertyName
         $column.Binding = New-Object System.Windows.Data.Binding $propertyName
@@ -2957,6 +3065,17 @@ function Attach-DetachedWindow {
 # Set app settings from loaded settings
 function Initialize-Settings {
     Load-Settings
+
+    # Ensure logs directory exists
+    if (-not (Test-Path $script:Settings.DefaultLogsPath)) {
+        try {
+            New-Item -ItemType Directory -Path $script:Settings.DefaultLogsPath -Force | Out-Null
+        }
+        catch {
+            # Silently continue if directory creation fails during init
+        }
+    }
+
     # Update UI elements with loaded settings
     $script:UI.TxtDefaultShell.Text = $script:Settings.DefaultShell
     $script:UI.TxtDefaultShellArgs.Text = $script:Settings.DefaultShellArgs
@@ -3495,7 +3614,7 @@ $script:Settings = @{
     DefaultRunCommandAttached = $true
     OpenShellAtStart = $false
     StatusTimeout = 3
-    DefaultLogsPath = Join-Path $env:APPDATA "PSGUI"
+    DefaultLogsPath = Join-Path $env:APPDATA "PSGUI\Logs"
     SettingsPath = Join-Path $env:APPDATA "PSGUI\settings.json"
     FavoritesPath = Join-Path $env:APPDATA "PSGUI\favorites.json"
     ShowDebugTab = $false
@@ -3511,7 +3630,7 @@ $script:State = @{
     TabsReadOnly = $true
     RunCommandAttached = $script:Settings.DefaultRunCommandAttached
     ExtraColumnsVisibility = "Collapsed"
-    ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand")
+    ExtraColumns = @("Id", "Command", "SkipParameterSelect", "PreCommand", "Log")
     SubGridExpandedHeight = 300
     HasUnsavedChanges = $false
     CurrentCommandListId = $null

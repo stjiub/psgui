@@ -11,13 +11,33 @@ function Invoke-MainRunClick {
     $command.Root = $selection.Command
     $command.PreCommand = $selection.PreCommand
     $command.SkipParameterSelect = $selection.SkipParameterSelect
+    $command.Log = $selection.Log
+
+    Write-Log "Command created - Root: $($command.Root), Log: $($command.Log), SkipParameterSelect: $($command.SkipParameterSelect)"
 
     if ($command.Root) {
         if ($selection.SkipParameterSelect) {
-            if ($command.PreCommand) {
-                $command.Full = $command.PreCommand + "; "
+            $command.Full = ""
+
+            # Add log command if logging is enabled
+            if ($command.Log) {
+                $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+                $logPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+                $command.Full = "Start-Transcript -Path `"$logPath`""
+                $command.Full += "; "
             }
+
+            # Add PreCommand if it exists
+            if ($command.PreCommand) {
+                $command.Full += $command.PreCommand + "; "
+            }
+
             $command.Full += $command.Root
+
+            # Add Stop-Transcript if logging is enabled
+            if ($command.Log) {
+                $command.Full += "; Stop-Transcript"
+            }
 
             # Add to command history (no grid since parameters were skipped)
             Add-CommandToHistory -Command $command
@@ -305,13 +325,23 @@ function Compile-Command {
     )
 
     $grid = $CommandWindow.CommandGrid
-    # Clear if it existed from rerunning previous command
+
+    # Build the full command string
+    $command.Full = ""
+
+    # Add log command if logging is enabled
+    if ($command.Log) {
+        $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $logPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+        $command.Full = "Start-Transcript -Path `"$logPath`""
+        $command.Full += "; "
+    }
+
+    # Add PreCommand if it exists
     if ($command.PreCommand) {
-        $command.Full = $command.PreCommand + "; "
+        $command.Full += $command.PreCommand + "; "
     }
-    else {
-        $command.Full = ""
-    }
+
     $args = @{}
     $command.Full += "$($command.Root)"
 
@@ -346,6 +376,11 @@ function Compile-Command {
         elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
             $command.Full += " -$paramName `"$($args[$paramName])`""
         }
+    }
+
+    # Add Stop-Transcript if logging is enabled
+    if ($command.Log) {
+        $command.Full += "; Stop-Transcript"
     }
 }
 
@@ -397,9 +432,28 @@ function Run-Command {
     )
 
     Write-Log "Running: $($command.Root)"
+    Write-Log "Full Command: $($command.Full)"
+    Write-Log "Log Enabled: $($command.Log)"
+
+    # Ensure log directory exists if logging is enabled
+    if ($command.Log) {
+        try {
+            if (-not (Test-Path $script:Settings.DefaultLogsPath)) {
+                New-Item -ItemType Directory -Path $script:Settings.DefaultLogsPath -Force | Out-Null
+                Write-Log "Created log directory: $($script:Settings.DefaultLogsPath)"
+            }
+            else {
+                Write-Log "Log directory exists: $($script:Settings.DefaultLogsPath)"
+            }
+        }
+        catch {
+            Write-Log "Warning: Could not create log directory: $_"
+        }
+    }
 
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
     $escapedCommand = $command.Full -replace '"', '\"'
+    Write-Log "Escaped Command: $escapedCommand"
 
     if ($runAttached) {
         # Show the shell grid if it's not visible
