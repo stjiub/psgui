@@ -66,6 +66,87 @@ function Toggle-ShellGrid {
     }
 }
 
+function Toggle-CommonParametersGrid {
+    param(
+        [System.Windows.Window]$CommandWindow
+    )
+
+    $commonGrid = $CommandWindow.FindName("CommonParametersGrid")
+    $toggleButton = $CommandWindow.FindName("BtnToggleCommonParameters")
+    $toggleIcon = $CommandWindow.FindName("IconToggleCommonParameters")
+
+    if ($commonGrid.Visibility -eq "Collapsed") {
+        # Build the common parameters grid if it hasn't been built yet
+        if ($commonGrid.Children.Count -eq 0) {
+            Build-CommonParametersGrid -CommandWindow $CommandWindow
+        }
+
+        # Show the grid
+        $commonGrid.Visibility = "Visible"
+        $toggleIcon.Kind = "ChevronUp"
+        $toggleButton.ToolTip = "Hide Common Parameters"
+    }
+    else {
+        # Hide the grid
+        $commonGrid.Visibility = "Collapsed"
+        $toggleIcon.Kind = "ChevronDown"
+        $toggleButton.ToolTip = "Show Common Parameters"
+    }
+}
+
+function Build-CommonParametersGrid {
+    param(
+        [System.Windows.Window]$CommandWindow
+    )
+
+    $grid = $CommandWindow.FindName("CommonParametersGrid")
+
+    # Define common PowerShell parameters
+    $commonParameters = @(
+        @{ Name = "Verbose"; Type = "Switch"; Description = "Displays detailed information about the operation" }
+        @{ Name = "Debug"; Type = "Switch"; Description = "Displays programmer-level detail about the operation" }
+        @{ Name = "ErrorAction"; Type = "ValidateSet"; Values = @("", "Continue", "Ignore", "Inquire", "SilentlyContinue", "Stop", "Suspend"); Description = "Determines how the cmdlet responds to errors" }
+        @{ Name = "WarningAction"; Type = "ValidateSet"; Values = @("", "Continue", "Inquire", "SilentlyContinue", "Stop"); Description = "Determines how the cmdlet responds to warnings" }
+        @{ Name = "InformationAction"; Type = "ValidateSet"; Values = @("", "Continue", "Ignore", "Inquire", "SilentlyContinue", "Stop", "Suspend"); Description = "Determines how the cmdlet responds to information messages" }
+        @{ Name = "ErrorVariable"; Type = "String"; Description = "Stores errors in the specified variable" }
+        @{ Name = "WarningVariable"; Type = "String"; Description = "Stores warnings in the specified variable" }
+        @{ Name = "InformationVariable"; Type = "String"; Description = "Stores information messages in the specified variable" }
+        @{ Name = "OutVariable"; Type = "String"; Description = "Stores output objects in the specified variable" }
+        @{ Name = "OutBuffer"; Type = "String"; Description = "Determines the number of objects to buffer before calling the next cmdlet" }
+        @{ Name = "PipelineVariable"; Type = "String"; Description = "Stores the current pipeline object in the specified variable" }
+    )
+
+    for ($i = 0; $i -lt $commonParameters.Count; $i++) {
+        $param = $commonParameters[$i]
+
+        # Add row definition
+        $rowDefinition = New-Object System.Windows.Controls.RowDefinition
+        [void]$grid.RowDefinitions.Add($rowDefinition)
+
+        # Create label
+        $label = New-Label -Content $param.Name -HAlign "Left" -VAlign "Center"
+        Add-ToGrid -Grid $grid -Element $label
+        Set-GridPosition -Element $label -Row $i -Column 0
+
+        # Add tooltip with description
+        $label.ToolTip = New-ToolTip -Content $param.Description
+
+        # Create appropriate control based on type
+        if ($param.Type -eq "Switch") {
+            $control = New-CheckBox -Name "Common_$($param.Name)" -IsChecked $false
+        }
+        elseif ($param.Type -eq "ValidateSet") {
+            $control = New-ComboBox -Name "Common_$($param.Name)" -ItemsSource $param.Values -SelectedItem ""
+        }
+        else {
+            $control = New-TextBox -Name "Common_$($param.Name)" -Text ""
+        }
+
+        Add-ToGrid -Grid $grid -Element $control
+        Set-GridPosition -Element $control -Row $i -Column 2
+    }
+}
+
 
 
 # Process the CommandWindow dialog grid to show command parameter list
@@ -279,7 +360,6 @@ function Build-CommandGrid {
         $label = New-Label -Content $paramName -HAlign "Left" -VAlign "Center"
         Add-ToGrid -Grid $Grid -Element $label
         Set-GridPosition -Element $label -Row $i -Column 0
-        $label.ToolTip = New-ToolTip -Content ""
 
         # Set asterisk next to values that are mandatory
         if ($isMandatory) {
@@ -375,6 +455,41 @@ function Compile-Command {
         }
         elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
             $command.Full += " -$paramName `"$($args[$paramName])`""
+        }
+    }
+
+    # Add common PowerShell parameters if the common parameters grid exists and is visible
+    $commonGrid = $CommandWindow.CommandGrid.Parent.FindName("CommonParametersGrid")
+    if ($commonGrid -and $commonGrid.Visibility -eq "Visible") {
+        # Common parameter names to process
+        $commonParamNames = @("Verbose", "Debug", "ErrorAction", "WarningAction", "InformationAction",
+                              "ErrorVariable", "WarningVariable", "InformationVariable",
+                              "OutVariable", "OutBuffer", "PipelineVariable")
+
+        foreach ($paramName in $commonParamNames) {
+            $controlName = "Common_$paramName"
+            $control = $commonGrid.Children | Where-Object { $_.Name -eq $controlName }
+
+            if ($control) {
+                # Handle switch parameters (Verbose, Debug)
+                if ($control -is [System.Windows.Controls.CheckBox]) {
+                    if ($control.IsChecked) {
+                        $command.Full += " -$paramName"
+                    }
+                }
+                # Handle ValidateSet parameters (ErrorAction, WarningAction, InformationAction)
+                elseif ($control -is [System.Windows.Controls.ComboBox]) {
+                    if ($control.SelectedItem -and -not [String]::IsNullOrWhiteSpace($control.SelectedItem)) {
+                        $command.Full += " -$paramName `"$($control.SelectedItem)`""
+                    }
+                }
+                # Handle string parameters (variables and buffers)
+                elseif ($control -is [System.Windows.Controls.TextBox]) {
+                    if (-not [String]::IsNullOrWhiteSpace($control.Text)) {
+                        $command.Full += " -$paramName `"$($control.Text)`""
+                    }
+                }
+            }
         }
     }
 

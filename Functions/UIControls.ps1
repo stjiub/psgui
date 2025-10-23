@@ -93,6 +93,17 @@ function New-CommandWindow {
             }
         })
 
+        $commandWindow.BtnToggleCommonParameters.Add_Click({
+            param($sender, $e)
+            $window = $sender.Parent
+            while ($window -and $window -isnot [System.Windows.Window]) {
+                $window = $window.Parent
+            }
+            if ($window) {
+                Toggle-CommonParametersGrid -CommandWindow $window
+            }
+        })
+
         # Handle window closing to remove from tracking
         $commandWindow.Window.Add_Closed({
             param($sender, $e)
