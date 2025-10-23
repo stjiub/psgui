@@ -4,11 +4,6 @@ function Invoke-MainRunClick {
         [System.Windows.Controls.TabControl]$tabControl
     )
 
-    if (($script:State.RunCommandAttached) -and ($script:UI.Shell.Visibility -ne "Visible"))
-    {
-        Toggle-ShellGrid
-    }
-
     $grid = $tabControl.SelectedItem.Content
     $selection = $grid.SelectedItems
     $command = New-Object Command
@@ -379,13 +374,25 @@ function Run-Command {
     $escapedCommand = $command.Full -replace '"', '\"'
 
     if ($runAttached) {
+        # Show the shell grid if it's not visible
+        if ($script:UI.Shell.Visibility -ne "Visible") {
+            Toggle-ShellGrid
+        }
+
         # Show loading indicator while PowerShell window is being created
         Show-LoadingIndicator -Message "Starting PowerShell: $($command.Root)..."
 
         # Force UI update to show the loading indicator
         $script:UI.Window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 
+        # Switch to the Shell tab in TabControlShell if not already selected
+        $shellTab = $script:UI.TabControlShell.Items | Where-Object { $_.Header -eq "Shell" }
+        if ($shellTab -and $script:UI.TabControlShell.SelectedItem -ne $shellTab) {
+            $script:UI.TabControlShell.SelectedItem = $shellTab
+        }
+
         # Synchronously create the process tab (the 2-second wait is already in New-ProcessTab)
+        # Note: New-ProcessTab automatically selects the newly created tab
         New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root
 
         # Hide loading indicator after tab is created
