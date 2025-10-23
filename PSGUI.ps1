@@ -30,6 +30,7 @@ class FavoriteRowData : RowData {
 class Command {
     [string]$Root
     [string]$Full
+    [string]$CleanCommand
     [string]$PreCommand
     [System.Object[]]$Parameters
     [bool]$SkipParameterSelect
@@ -72,6 +73,7 @@ function Add-CommandToHistory {
             Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             CommandName = $Command.Root
             FullCommand = $Command.Full
+            CleanCommand = $Command.CleanCommand
             PreCommand = $Command.PreCommand
             ParameterSummary = (Get-ParameterSummaryFromCommand -Command $Command)
             CommandObject = $Command
@@ -105,21 +107,23 @@ function Get-ParameterSummaryFromCommand {
         [Command]$Command
     )
 
-    if (-not $Command.Full) {
+    # Use CleanCommand if available, otherwise fall back to Full
+    $commandToProcess = if ($Command.CleanCommand) { $Command.CleanCommand } else { $Command.Full }
+
+    if (-not $commandToProcess) {
         return "(No parameters)"
     }
 
-    # Extract just the parameters part from the full command
-    $fullCmd = $Command.Full
+    # Extract just the parameters part from the clean command
     $rootCmd = $Command.Root
 
     if ($Command.PreCommand) {
         # Remove the PreCommand part
-        $fullCmd = $fullCmd -replace [regex]::Escape($Command.PreCommand + "; "), ""
+        $commandToProcess = $commandToProcess -replace [regex]::Escape($Command.PreCommand + "; "), ""
     }
 
     # Remove the root command to get just parameters
-    $paramsPart = $fullCmd -replace [regex]::Escape($rootCmd), ""
+    $paramsPart = $commandToProcess -replace [regex]::Escape($rootCmd), ""
     $paramsPart = $paramsPart.Trim()
 
     if ([string]::IsNullOrWhiteSpace($paramsPart)) {
@@ -314,8 +318,8 @@ function Copy-HistoryCommandToClipboard {
 
     try {
         $command = $HistoryEntry.CommandObject
-        if ($command -and $command.Full) {
-            Copy-ToClipboard -String $command.Full
+        if ($command -and $command.CleanCommand) {
+            Copy-ToClipboard -String $command.CleanCommand
             Write-Status "Command copied to clipboard"
         }
         else {
@@ -858,6 +862,7 @@ function Invoke-MainRunClick {
     if ($command.Root) {
         if ($selection.SkipParameterSelect) {
             $command.Full = ""
+            $command.CleanCommand = ""
 
             # Add log command if logging is enabled
             if ($command.Log) {
@@ -870,9 +875,11 @@ function Invoke-MainRunClick {
             # Add PreCommand if it exists
             if ($command.PreCommand) {
                 $command.Full += $command.PreCommand + "; "
+                $command.CleanCommand += $command.PreCommand + "; "
             }
 
             $command.Full += $command.Root
+            $command.CleanCommand += $command.Root
 
             # Add Stop-Transcript if logging is enabled
             if ($command.Log) {
@@ -1248,6 +1255,7 @@ function Compile-Command {
 
     # Build the full command string
     $command.Full = ""
+    $command.CleanCommand = ""
 
     # Add log command if logging is enabled
     if ($command.Log) {
@@ -1260,10 +1268,12 @@ function Compile-Command {
     # Add PreCommand if it exists
     if ($command.PreCommand) {
         $command.Full += $command.PreCommand + "; "
+        $command.CleanCommand += $command.PreCommand + "; "
     }
 
     $args = @{}
     $command.Full += "$($command.Root)"
+    $command.CleanCommand += "$($command.Root)"
 
     foreach ($param in $command.Parameters) {
         $isSwitch = $false
@@ -1292,9 +1302,11 @@ function Compile-Command {
 
         if ($isSwitch) {
             $command.Full += " -$paramName"
+            $command.CleanCommand += " -$paramName"
         }
         elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
             $command.Full += " -$paramName `"$($args[$paramName])`""
+            $command.CleanCommand += " -$paramName `"$($args[$paramName])`""
         }
     }
 
@@ -1315,18 +1327,21 @@ function Compile-Command {
                 if ($control -is [System.Windows.Controls.CheckBox]) {
                     if ($control.IsChecked) {
                         $command.Full += " -$paramName"
+                        $command.CleanCommand += " -$paramName"
                     }
                 }
                 # Handle ValidateSet parameters (ErrorAction, WarningAction, InformationAction)
                 elseif ($control -is [System.Windows.Controls.ComboBox]) {
                     if ($control.SelectedItem -and -not [String]::IsNullOrWhiteSpace($control.SelectedItem)) {
                         $command.Full += " -$paramName `"$($control.SelectedItem)`""
+                        $command.CleanCommand += " -$paramName `"$($control.SelectedItem)`""
                     }
                 }
                 # Handle string parameters (variables and buffers)
                 elseif ($control -is [System.Windows.Controls.TextBox]) {
                     if (-not [String]::IsNullOrWhiteSpace($control.Text)) {
                         $command.Full += " -$paramName `"$($control.Text)`""
+                        $command.CleanCommand += " -$paramName `"$($control.Text)`""
                     }
                 }
             }
@@ -1376,7 +1391,7 @@ function Invoke-CommandCopyToClipboard {
 
     if ($currentCommand) {
         Compile-Command -Command $currentCommand -CommandWindow $commandWindowHash
-        Copy-ToClipboard -String $currentCommand.Full
+        Copy-ToClipboard -String $currentCommand.CleanCommand
     }
 }
 

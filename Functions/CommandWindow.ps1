@@ -18,6 +18,7 @@ function Invoke-MainRunClick {
     if ($command.Root) {
         if ($selection.SkipParameterSelect) {
             $command.Full = ""
+            $command.CleanCommand = ""
 
             # Add log command if logging is enabled
             if ($command.Log) {
@@ -30,9 +31,11 @@ function Invoke-MainRunClick {
             # Add PreCommand if it exists
             if ($command.PreCommand) {
                 $command.Full += $command.PreCommand + "; "
+                $command.CleanCommand += $command.PreCommand + "; "
             }
 
             $command.Full += $command.Root
+            $command.CleanCommand += $command.Root
 
             # Add Stop-Transcript if logging is enabled
             if ($command.Log) {
@@ -408,6 +411,7 @@ function Compile-Command {
 
     # Build the full command string
     $command.Full = ""
+    $command.CleanCommand = ""
 
     # Add log command if logging is enabled
     if ($command.Log) {
@@ -420,10 +424,12 @@ function Compile-Command {
     # Add PreCommand if it exists
     if ($command.PreCommand) {
         $command.Full += $command.PreCommand + "; "
+        $command.CleanCommand += $command.PreCommand + "; "
     }
 
     $args = @{}
     $command.Full += "$($command.Root)"
+    $command.CleanCommand += "$($command.Root)"
 
     foreach ($param in $command.Parameters) {
         $isSwitch = $false
@@ -452,9 +458,11 @@ function Compile-Command {
 
         if ($isSwitch) {
             $command.Full += " -$paramName"
+            $command.CleanCommand += " -$paramName"
         }
         elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
             $command.Full += " -$paramName `"$($args[$paramName])`""
+            $command.CleanCommand += " -$paramName `"$($args[$paramName])`""
         }
     }
 
@@ -475,18 +483,21 @@ function Compile-Command {
                 if ($control -is [System.Windows.Controls.CheckBox]) {
                     if ($control.IsChecked) {
                         $command.Full += " -$paramName"
+                        $command.CleanCommand += " -$paramName"
                     }
                 }
                 # Handle ValidateSet parameters (ErrorAction, WarningAction, InformationAction)
                 elseif ($control -is [System.Windows.Controls.ComboBox]) {
                     if ($control.SelectedItem -and -not [String]::IsNullOrWhiteSpace($control.SelectedItem)) {
                         $command.Full += " -$paramName `"$($control.SelectedItem)`""
+                        $command.CleanCommand += " -$paramName `"$($control.SelectedItem)`""
                     }
                 }
                 # Handle string parameters (variables and buffers)
                 elseif ($control -is [System.Windows.Controls.TextBox]) {
                     if (-not [String]::IsNullOrWhiteSpace($control.Text)) {
                         $command.Full += " -$paramName `"$($control.Text)`""
+                        $command.CleanCommand += " -$paramName `"$($control.Text)`""
                     }
                 }
             }
@@ -536,7 +547,7 @@ function Invoke-CommandCopyToClipboard {
 
     if ($currentCommand) {
         Compile-Command -Command $currentCommand -CommandWindow $commandWindowHash
-        Copy-ToClipboard -String $currentCommand.Full
+        Copy-ToClipboard -String $currentCommand.CleanCommand
     }
 }
 
