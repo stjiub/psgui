@@ -112,8 +112,10 @@ function Write-Status {
 
             $script:StatusTimer.Add_Tick({
                 $script:UI.StatusBox.Text = "Ready"
-                # Stop and clean up the timer
-                $timer.Stop()
+                # Stop and clean up the timer (check for null first)
+                if ($timer) {
+                    $timer.Stop()
+                }
                 $script:StatusTimer = $null
             })
             $script:StatusTimer.Start()

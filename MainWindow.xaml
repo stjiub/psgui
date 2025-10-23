@@ -136,100 +136,125 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <DockPanel Grid.Row="0">
-                <Menu DockPanel.Dock="Top">
-                    <MenuItem Header="_File" FontSize="12" VerticalAlignment="Center">
-                        <MenuItem Header="_New">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="FilePlusOutline" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0">
+                    <Menu DockPanel.Dock="Top">
+                        <MenuItem Header="_File" FontSize="12" VerticalAlignment="Center">
+                            <MenuItem Header="_New">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="FilePlusOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Open" Name="BtnMenuOpen">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="FolderOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Save" Name="BtnMenuSave">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="ContentSaveOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="SaveAs" Name="BtnMenuSaveAs">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="ContentSaveMoveOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Import" Name="BtnMenuImport">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="FileImportOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Settings" Name="BtnMenuSettings">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="CogOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Toggle Shell" IsCheckable="True" Name="BtnMenuToggleSub"/>
+                            <Separator />
+                            <MenuItem Header="_Exit"/>
                         </MenuItem>
-                        <MenuItem Header="_Open" Name="BtnMenuOpen">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="FolderOutline" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
+                        <MenuItem Header="_Edit" FontSize="12" VerticalAlignment="Center">
+                            <MenuItem Header="_Add" Name="BtnMenuAdd">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="AddBox" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Duplicate" Name="BtnMenuDuplicate">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="ContentCopy" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Remove" Name="BtnMenuRemove">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="TrashCan" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Undo Delete" Name="BtnMenuUndoDelete">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="DeleteRestore" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Favorite" Name="BtnMenuFavorite">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="Star" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Edit Mode" IsCheckable="True" Name="BtnMenuEdit">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="Edit" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                         </MenuItem>
-                        <MenuItem Header="_Save" Name="BtnMenuSave">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="ContentSaveOutline" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
+                        <MenuItem Header="_Run" FontSize="12" VerticalAlignment="Center">
+                            <MenuItem Name="BtnMenuRunOpen" Header="_Open">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="FileDocumentEditOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Name="BtnMenuRunAttached" Header="Run (_Attached)">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="Play" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Name="BtnMenuRunDetached" Header="Run (_Detached)">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="OpenInNew" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="Refresh" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                         </MenuItem>
-                        <MenuItem Header="SaveAs" Name="BtnMenuSaveAs">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="ContentSaveMoveOutline" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="_Import" Name="BtnMenuImport">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="FileImportOutline" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="_Settings" Name="BtnMenuSettings">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="CogOutline" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="Toggle Shell" IsCheckable="True" Name="BtnMenuToggleSub"/>
-                        <Separator />
-                        <MenuItem Header="_Exit"/>
-                    </MenuItem>
-                    <MenuItem Header="_Edit" FontSize="12" VerticalAlignment="Center">
-                        <MenuItem Header="_Add" Name="BtnMenuAdd">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="AddBox" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="_Duplicate" Name="BtnMenuDuplicate">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="ContentCopy" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="_Remove" Name="BtnMenuRemove">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="TrashCan" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="_Undo Delete" Name="BtnMenuUndoDelete">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="DeleteRestore" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="_Favorite" Name="BtnMenuFavorite">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="Star" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="_Edit Mode" IsCheckable="True" Name="BtnMenuEdit">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="Edit" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                    </MenuItem>
-                    <MenuItem Header="_Run" FontSize="12" VerticalAlignment="Center">
-                        <MenuItem Name="BtnMenuRunOpen" Header="_Open">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="FileDocumentEditOutline" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Name="BtnMenuRunAttached" Header="Run (_Attached)">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="Play" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Name="BtnMenuRunDetached" Header="Run (_Detached)">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="OpenInNew" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command">
-                            <MenuItem.Icon>
-                                <md:PackIcon Kind="Refresh" Style="{StaticResource ContextMenuIconStyle}"/>
-                            </MenuItem.Icon>
-                        </MenuItem>
-                    </MenuItem>
-                </Menu>
-                <TextBox AcceptsReturn="True" />
-            </DockPanel>
+                    </Menu>
+                    <TextBox AcceptsReturn="True" />
+                </DockPanel>
+
+                <ToggleButton Grid.Column="1" Name="BtnToggleEditMode"
+                              VerticalAlignment="Center"
+                              Margin="5,0,5,0"
+                              Background="Transparent"
+                              Style="{StaticResource MaterialDesignActionToggleButton}">
+                    <ToggleButton.Content>
+                        <md:PackIcon Kind="Edit" Foreground="Orange"/>
+                    </ToggleButton.Content>
+                    <md:ToggleButtonAssist.OnContent>
+                        <md:PackIcon Kind="EditOff" Foreground="Black"/>
+                    </md:ToggleButtonAssist.OnContent>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Toggle Edit Mode</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </ToggleButton>
+            </Grid>
 
             <Grid Name="Main" Grid.Row="1">
                 <TabControl Name="TabControl" Margin="1 0 0 0" HorizontalContentAlignment="Left" />

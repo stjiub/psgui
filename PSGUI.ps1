@@ -1656,6 +1656,7 @@ function Register-EventHandlers {
     $script:UI.BtnMenuOpen.Add_Click({ Open-DataFile })
     $script:UI.BtnMenuImport.Add_Click({ Invoke-ImportDataFileDialog })
     $script:UI.BtnMenuEdit.Add_Click({ Toggle-EditMode -Tabs $script:UI.Tabs })
+    $script:UI.BtnToggleEditMode.Add_Click({ Toggle-EditMode -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuFavorite.Add_Click({ Toggle-CommandFavorite })
     $script:UI.BtnMenuSettings.Add_Click({ Show-SettingsDialog })
     $script:UI.BtnMenuToggleSub.Add_Click({ Toggle-ShellGrid })
@@ -3112,6 +3113,10 @@ function Set-TabsReadOnlyStatus {
 
     $script:UI.BtnMenuEdit.IsChecked = $script:State.TabsReadOnly
     $script:State.TabsReadOnly = (-not $script:State.TabsReadOnly)
+
+    # Sync both toggle buttons (MaterialDesign will handle icon switching automatically)
+    $script:UI.BtnToggleEditMode.IsChecked = (-not $script:State.TabsReadOnly)
+
     foreach ($tab in $tabs.GetEnumerator()) {
         $tab.Value.Content.IsReadOnly = $script:State.TabsReadOnly
     }
@@ -4267,8 +4272,10 @@ function Write-Status {
 
             $script:StatusTimer.Add_Tick({
                 $script:UI.StatusBox.Text = "Ready"
-                # Stop and clean up the timer
-                $timer.Stop()
+                # Stop and clean up the timer (check for null first)
+                if ($timer) {
+                    $timer.Stop()
+                }
                 $script:StatusTimer = $null
             })
             $script:StatusTimer.Start()
