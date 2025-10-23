@@ -384,7 +384,7 @@ function Invoke-CommandRunClick {
     # Add to command history
     Add-CommandToHistory -Command $command -Grid $grid
 
-    Run-Command $command $script:Settings.DefaultRunCommandAttached
+    Run-Command $command $script:State.RunCommandAttached
     Hide-CommandDialog
 }
 
@@ -403,7 +403,8 @@ function Invoke-CommandCopyToClipboard {
 # Execute a command string
 function Run-Command {
     param (
-        [Command]$command
+        [Command]$command,
+        [bool]$runAttached
     )    
 
     Write-Log "Running: $($command.Root)"
@@ -411,13 +412,12 @@ function Run-Command {
     # We must escape any quotation marks passed or it will cause problems being passed through Start-Process
     $escapedCommand = $command.Full -replace '"', '\"'
 
-    if ($script:State.RunCommandAttached) {
+    if ($runAttached) {
         New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root
     }
     else {
         Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
     }
-    $script:State.RunCommandAttached = $script:Settings.DefaultRunCommandAttached
 }
 
 # Determine the PowerShell command type (Function,Script,Cmdlet)
@@ -530,7 +530,8 @@ function Add-CommandToHistory {
         # Update the UI
         Update-CommandHistoryGrid
 
-    } catch {
+    } 
+    catch {
         Write-Log "Error adding command to history: $_"
     }
 }
@@ -576,7 +577,8 @@ function Update-CommandHistoryGrid {
             $grid.ItemsSource = $null
             $grid.ItemsSource = $script:State.CommandHistory
         }
-    } catch {
+    } 
+    catch {
         Write-Log "Error updating command history grid: $_"
     }
 }
@@ -631,7 +633,8 @@ function Reopen-CommandFromHistory {
 
         Write-Status "Command reopened from history"
 
-    } catch {
+    } 
+    catch {
         Write-Log "Error reopening command from history: $_"
         Write-Status "Error reopening command from history"
     }
@@ -651,7 +654,8 @@ function Clear-CommandHistory {
             Update-CommandHistoryGrid
             Write-Status "Command history cleared"
         }
-    } catch {
+    } 
+    catch {
         Write-Log "Error clearing command history: $_"
     }
 }
@@ -694,7 +698,8 @@ function Initialize-CommandHistoryUI {
         # Initialize grid
         Update-CommandHistoryGrid
 
-    } catch {
+    } 
+    catch {
         Write-Log "Error initializing command history UI: $_"
     }
 }
@@ -1202,7 +1207,10 @@ function Register-EventHandlers {
     $script:UI.BtnMenuRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
 
     # Main Buttons
-    $script:UI.BtnMainRun.Add_Click({ Invoke-MainRunClick -TabControl $script:UI.TabControl })
+    $script:UI.BtnMainRun.Add_Click({
+        $script:State.RunCommandAttached = $script:Settings.DefaultRunCommandAttached 
+        Invoke-MainRunClick -TabControl $script:UI.TabControl 
+    })
 
     # Command dialog button events
     $script:UI.BtnCommandClose.Add_Click({ Hide-CommandDialog })
@@ -2807,7 +2815,7 @@ function Create-DefaultSettings {
     $defaultSettings = @{
         DefaultShell = $script:Settings.DefaultShell
         DefaultShellArgs = $script:Settings.DefaultShellArgs
-        RunCommandAttached = $script:Settings.DefaultRunCommandAttached
+        DefaultRunCommandAttached = $script:Settings.DefaultRunCommandAttached
         OpenShellAtStart = $script:Settings.OpenShellAtStart
         DefaultLogsPath = $script:Settings.DefaultLogsPath
         SettingsPath = $script:Settings.SettingsPath
@@ -2884,7 +2892,7 @@ function Load-Settings {
     # Apply loaded settings to script variables
     $script:Settings.DefaultShell = $settings.DefaultShell
     $script:Settings.DefaultShellArgs = $settings.DefaultShellArgs
-    $script:Settings.DefaultRunCommandAttached = $settings.RunCommandAttached
+    $script:Settings.DefaultRunCommandAttached = $settings.DefaultRunCommandAttached
     $script:Settings.OpenShellAtStart = $settings.OpenShellAtStart
     $script:Settings.DefaultLogsPath = $settings.DefaultLogsPath
     $script:Settings.SettingsPath = $settings.SettingsPath
@@ -2913,7 +2921,7 @@ function Save-Settings {
         $settings = @{
             DefaultShell = $script:Settings.DefaultShell
             DefaultShellArgs = $script:Settings.DefaultShellArgs
-            RunCommandAttached = $script:Settings.DefaultRunCommandAttached
+            DefaultRunCommandAttached = $script:Settings.DefaultRunCommandAttached
             OpenShellAtStart = $script:Settings.OpenShellAtStart
             DefaultLogsPath = $script:Settings.DefaultLogsPath
             SettingsPath = $script:Settings.SettingsPath
