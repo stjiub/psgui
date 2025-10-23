@@ -25,7 +25,6 @@ $script:Settings = @{
 $script:State = @{
     CurrentDataFile = $null
     CurrentCommand = $null
-    LastCommand = $null
     HighestId = 0
     FavoritesHighestOrder = 0
     TabsReadOnly = $true

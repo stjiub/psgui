@@ -127,9 +127,24 @@ function Register-EventHandlers {
         $script:State.RunCommandAttached = $true
         Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true 
     })
-    $script:UI.BtnMenuRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Show-CommandDialog -Command $script:State.LastCommand } })
-    $script:UI.BtnMenuRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
-    $script:UI.BtnMenuRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
+    $script:UI.BtnMenuRunRerunLast.Add_Click({
+        if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
+            $lastHistoryEntry = $script:State.CommandHistory[0]
+            Reopen-CommandFromHistory -HistoryEntry $lastHistoryEntry
+        }
+        else {
+            Write-Status "No command history available"
+        }
+    })
+    $script:UI.BtnMenuRunCopyToClipboard.Add_Click({
+        if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
+            $lastCommand = $script:State.CommandHistory[0].CommandObject
+            Copy-ToClipboard -String $lastCommand.Full
+        }
+        else {
+            Write-Status "No command history available"
+        }
+    })
 
     # Main Buttons
     $script:UI.BtnMainRun.Add_Click({

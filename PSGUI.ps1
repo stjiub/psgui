@@ -30,6 +30,7 @@ class Command {
     [string]$Full
     [string]$PreCommand
     [System.Object[]]$Parameters
+    [bool]$SkipParameterSelect
 }
 # Handle the Main Run Button click event to run the selected command/launch the CommandDialog
 function Invoke-MainRunClick {
@@ -48,10 +49,10 @@ function Invoke-MainRunClick {
     $command.Full = ""
     $command.Root = $selection.Command
     $command.PreCommand = $selection.PreCommand
+    $command.SkipParameterSelect = $selection.SkipParameterSelect
 
     if ($command.Root) {
         if ($selection.SkipParameterSelect) {
-            $script:State.LastCommand = $command
             if ($command.PreCommand) {
                 $command.Full = $command.PreCommand + "; "
             }
@@ -379,7 +380,6 @@ function Invoke-CommandRunClick {
     )
 
     Compile-Command -Command $command -Grid $grid
-    $script:State.LastCommand = $command
 
     # Add to command history
     Add-CommandToHistory -Command $command -Grid $grid
@@ -599,6 +599,13 @@ function Reopen-CommandFromHistory {
             return
         }
 
+        # If SkipParameterSelect is true, just rerun the command
+        if ($command.SkipParameterSelect) {
+            Run-Command $command $script:State.RunCommandAttached
+            Write-Status "Command rerun from history"
+            return
+        }
+
         # Clear the command grid before rebuilding
         Clear-Grid $script:UI.CommandGrid
 
@@ -633,7 +640,7 @@ function Reopen-CommandFromHistory {
 
         Write-Status "Command reopened from history"
 
-    } 
+    }
     catch {
         Write-Log "Error reopening command from history: $_"
         Write-Status "Error reopening command from history"
@@ -1202,9 +1209,24 @@ function Register-EventHandlers {
         $script:State.RunCommandAttached = $true
         Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true 
     })
-    $script:UI.BtnMenuRunReopenLast.Add_Click({ if ($script:State.LastCommand) { Show-CommandDialog -Command $script:State.LastCommand } })
-    $script:UI.BtnMenuRunRerunLast.Add_Click({ if ($script:State.LastCommand) { Run-Command -Command $script:State.LastCommand } })
-    $script:UI.BtnMenuRunCopyToClipboard.Add_Click({ if ($script:State.LastCommand) { Copy-ToClipboard -String $script:State.LastCommand.Full } })
+    $script:UI.BtnMenuRunRerunLast.Add_Click({
+        if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
+            $lastHistoryEntry = $script:State.CommandHistory[0]
+            Reopen-CommandFromHistory -HistoryEntry $lastHistoryEntry
+        }
+        else {
+            Write-Status "No command history available"
+        }
+    })
+    $script:UI.BtnMenuRunCopyToClipboard.Add_Click({
+        if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
+            $lastCommand = $script:State.CommandHistory[0].CommandObject
+            Copy-ToClipboard -String $lastCommand.Full
+        }
+        else {
+            Write-Status "No command history available"
+        }
+    })
 
     # Main Buttons
     $script:UI.BtnMainRun.Add_Click({
@@ -3260,7 +3282,6 @@ $script:Settings = @{
 $script:State = @{
     CurrentDataFile = $null
     CurrentCommand = $null
-    LastCommand = $null
     HighestId = 0
     FavoritesHighestOrder = 0
     TabsReadOnly = $true

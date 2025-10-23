@@ -15,10 +15,10 @@ function Invoke-MainRunClick {
     $command.Full = ""
     $command.Root = $selection.Command
     $command.PreCommand = $selection.PreCommand
+    $command.SkipParameterSelect = $selection.SkipParameterSelect
 
     if ($command.Root) {
         if ($selection.SkipParameterSelect) {
-            $script:State.LastCommand = $command
             if ($command.PreCommand) {
                 $command.Full = $command.PreCommand + "; "
             }
@@ -346,7 +346,6 @@ function Invoke-CommandRunClick {
     )
 
     Compile-Command -Command $command -Grid $grid
-    $script:State.LastCommand = $command
 
     # Add to command history
     Add-CommandToHistory -Command $command -Grid $grid
