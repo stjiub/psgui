@@ -647,6 +647,46 @@ function Reopen-CommandFromHistory {
     }
 }
 
+function Remove-CommandFromHistory {
+    param(
+        [Parameter(Mandatory=$true)]
+        $SelectedItems
+    )
+
+    try {
+        if (-not $SelectedItems -or $SelectedItems.Count -eq 0) {
+            Write-Status "No commands selected"
+            return
+        }
+
+        $count = $SelectedItems.Count
+        $message = if ($count -eq 1) {
+            "Are you sure you want to remove this command from history?"
+        } else {
+            "Are you sure you want to remove $count commands from history?"
+        }
+
+        $result = [System.Windows.MessageBox]::Show(
+            $message,
+            "Remove From History",
+            [System.Windows.MessageBoxButton]::YesNo,
+            [System.Windows.MessageBoxImage]::Question
+        )
+
+        if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
+            foreach ($item in $SelectedItems) {
+                $script:State.CommandHistory.Remove($item)
+            }
+            Update-CommandHistoryGrid
+            Write-Status "Removed $count command(s) from history"
+        }
+    }
+    catch {
+        Write-Log "Error removing command from history: $_"
+        Write-Status "Error removing command from history"
+    }
+}
+
 function Clear-CommandHistory {
     try {
         $result = [System.Windows.MessageBox]::Show(
@@ -661,9 +701,31 @@ function Clear-CommandHistory {
             Update-CommandHistoryGrid
             Write-Status "Command history cleared"
         }
-    } 
+    }
     catch {
         Write-Log "Error clearing command history: $_"
+    }
+}
+
+function Copy-HistoryCommandToClipboard {
+    param(
+        [Parameter(Mandatory=$true)]
+        $HistoryEntry
+    )
+
+    try {
+        $command = $HistoryEntry.CommandObject
+        if ($command -and $command.Full) {
+            Copy-ToClipboard -String $command.Full
+            Write-Status "Command copied to clipboard"
+        }
+        else {
+            Write-Status "No command to copy"
+        }
+    }
+    catch {
+        Write-Log "Error copying command to clipboard: $_"
+        Write-Status "Error copying command to clipboard"
     }
 }
 
@@ -671,8 +733,10 @@ function Initialize-CommandHistoryUI {
     try {
         # Get UI elements
         $grid = $script:UI.Window.FindName("CommandHistoryGrid")
-        $btnReopen = $script:UI.Window.FindName("BtnReopenHistoryCommand")
-        $btnClear = $script:UI.Window.FindName("BtnClearHistory")
+        $menuRerun = $script:UI.Window.FindName("MenuHistoryRerun")
+        $menuCopy = $script:UI.Window.FindName("MenuHistoryCopyToClipboard")
+        $menuRemove = $script:UI.Window.FindName("MenuHistoryRemove")
+        $menuClear = $script:UI.Window.FindName("MenuHistoryClear")
 
         # Set up double-click handler for grid
         if ($grid) {
@@ -684,9 +748,9 @@ function Initialize-CommandHistoryUI {
             })
         }
 
-        # Set up button handlers
-        if ($btnReopen) {
-            $btnReopen.Add_Click({
+        # Set up context menu handlers
+        if ($menuRerun) {
+            $menuRerun.Add_Click({
                 $selectedItem = $script:UI.Window.FindName("CommandHistoryGrid").SelectedItem
                 if ($selectedItem) {
                     Reopen-CommandFromHistory -HistoryEntry $selectedItem
@@ -696,8 +760,32 @@ function Initialize-CommandHistoryUI {
             })
         }
 
-        if ($btnClear) {
-            $btnClear.Add_Click({
+        if ($menuCopy) {
+            $menuCopy.Add_Click({
+                $selectedItem = $script:UI.Window.FindName("CommandHistoryGrid").SelectedItem
+                if ($selectedItem) {
+                    Copy-HistoryCommandToClipboard -HistoryEntry $selectedItem
+                } else {
+                    Write-Status "Please select a command from history"
+                }
+            })
+        }
+
+        if ($menuRemove) {
+            $menuRemove.Add_Click({
+                $selectedItems = $script:UI.Window.FindName("CommandHistoryGrid").SelectedItems
+                if ($selectedItems -and $selectedItems.Count -gt 0) {
+                    # Convert to array to avoid modification during iteration
+                    $itemsArray = @($selectedItems)
+                    Remove-CommandFromHistory -SelectedItems $itemsArray
+                } else {
+                    Write-Status "Please select command(s) from history"
+                }
+            })
+        }
+
+        if ($menuClear) {
+            $menuClear.Add_Click({
                 Clear-CommandHistory
             })
         }
@@ -705,7 +793,7 @@ function Initialize-CommandHistoryUI {
         # Initialize grid
         Update-CommandHistoryGrid
 
-    } 
+    }
     catch {
         Write-Log "Error initializing command history UI: $_"
     }
@@ -1213,15 +1301,6 @@ function Register-EventHandlers {
         if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
             $lastHistoryEntry = $script:State.CommandHistory[0]
             Reopen-CommandFromHistory -HistoryEntry $lastHistoryEntry
-        }
-        else {
-            Write-Status "No command history available"
-        }
-    })
-    $script:UI.BtnMenuRunCopyToClipboard.Add_Click({
-        if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
-            $lastCommand = $script:State.CommandHistory[0].CommandObject
-            Copy-ToClipboard -String $lastCommand.Full
         }
         else {
             Write-Status "No command history available"
@@ -2825,10 +2904,13 @@ function Initialize-Settings {
     $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
 
     # Set the Debug tab visibility based on setting
-    if ($script:Settings.ShowDebugTab) {
-        $script:UI.LogTabControl.Items[0].Visibility = "Visible"
-    } else {
-        $script:UI.LogTabControl.Items[0].Visibility = "Collapsed"
+    $debugTab = $script:UI.Window.FindName("TabControlShell").Items | Where-Object { $_.Header -eq "Debug" }
+    if ($debugTab) {
+        if ($script:Settings.ShowDebugTab) {
+            $debugTab.Visibility = "Visible"
+        } else {
+            $debugTab.Visibility = "Collapsed"
+        }
     }
 }
 
@@ -2896,10 +2978,13 @@ function Apply-Settings {
     }
 
     # Apply Debug tab visibility change immediately
-    if ($script:Settings.ShowDebugTab) {
-        $script:UI.LogTabControl.Items[0].Visibility = "Visible"
-    } else {
-        $script:UI.LogTabControl.Items[0].Visibility = "Collapsed"
+    $debugTab = $script:UI.Window.FindName("TabControlShell").Items | Where-Object { $_.Header -eq "Debug" }
+    if ($debugTab) {
+        if ($script:Settings.ShowDebugTab) {
+            $debugTab.Visibility = "Visible"
+        } else {
+            $debugTab.Visibility = "Collapsed"
+        }
     }
 
     Save-Settings

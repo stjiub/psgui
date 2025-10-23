@@ -136,15 +136,6 @@ function Register-EventHandlers {
             Write-Status "No command history available"
         }
     })
-    $script:UI.BtnMenuRunCopyToClipboard.Add_Click({
-        if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
-            $lastCommand = $script:State.CommandHistory[0].CommandObject
-            Copy-ToClipboard -String $lastCommand.Full
-        }
-        else {
-            Write-Status "No command history available"
-        }
-    })
 
     # Main Buttons
     $script:UI.BtnMainRun.Add_Click({
