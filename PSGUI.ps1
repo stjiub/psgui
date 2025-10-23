@@ -92,6 +92,9 @@ function Add-CommandToHistory {
         # Update the UI
         Update-CommandHistoryGrid
 
+        # Save history to file if enabled
+        Save-CommandHistory
+
         # Return the history entry so it can be associated with tabs
         return $historyEntry
 
@@ -281,6 +284,7 @@ function Remove-CommandFromHistory {
                 $script:State.CommandHistory.Remove($item)
             }
             Update-CommandHistoryGrid
+            Save-CommandHistory
             Write-Status "Removed $count command(s) from history"
         }
     }
@@ -302,6 +306,7 @@ function Clear-CommandHistory {
         if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
             $script:State.CommandHistory.Clear()
             Update-CommandHistoryGrid
+            Save-CommandHistory
             Write-Status "Command history cleared"
         }
     }
@@ -443,6 +448,153 @@ function Initialize-CommandHistoryUI {
     }
     catch {
         Write-Log "Error initializing command history UI: $_"
+    }
+}
+
+function Save-CommandHistory {
+    try {
+        if (-not $script:Settings.SaveHistory) {
+            Write-Log "SaveHistory is disabled, skipping save"
+            return
+        }
+
+        $historyPath = $script:Settings.DefaultHistoryPath
+        Write-Log "Attempting to save command history to: $historyPath"
+
+        if ([string]::IsNullOrWhiteSpace($historyPath)) {
+            Write-Log "ERROR: DefaultHistoryPath is null or empty"
+            return
+        }
+
+        # Ensure directory exists
+        $historyDir = Split-Path -Parent $historyPath
+        if (-not (Test-Path $historyDir)) {
+            Write-Log "Creating history directory: $historyDir"
+            New-Item -ItemType Directory -Path $historyDir -Force | Out-Null
+        }
+
+        # Convert history entries to a serializable format
+        $serializedHistory = @()
+        foreach ($entry in $script:State.CommandHistory) {
+            if (-not $entry.CommandObject) {
+                Write-Log "WARNING: Skipping history entry with null CommandObject"
+                continue
+            }
+
+            # Convert ParameterValues hashtable to a simple object for JSON serialization
+            $paramValuesObj = $null
+            if ($entry.ParameterValues) {
+                $paramValuesObj = @{}
+                foreach ($key in $entry.ParameterValues.Keys) {
+                    # Convert key to string to ensure JSON compatibility
+                    $paramValuesObj[$key.ToString()] = $entry.ParameterValues[$key]
+                }
+            }
+
+            $serializedEntry = @{
+                Timestamp = $entry.Timestamp
+                CommandName = $entry.CommandName
+                FullCommand = $entry.FullCommand
+                CleanCommand = $entry.CleanCommand
+                PreCommand = $entry.PreCommand
+                ParameterSummary = $entry.ParameterSummary
+                LogPath = $entry.LogPath
+                # Store command properties separately since Command objects don't serialize well
+                CommandData = @{
+                    Root = $entry.CommandObject.Root
+                    Full = $entry.CommandObject.Full
+                    CleanCommand = $entry.CommandObject.CleanCommand
+                    PreCommand = $entry.CommandObject.PreCommand
+                    SkipParameterSelect = $entry.CommandObject.SkipParameterSelect
+                    Log = $entry.CommandObject.Log
+                    LogPath = $entry.CommandObject.LogPath
+                }
+                ParameterValues = $paramValuesObj
+            }
+            $serializedHistory += $serializedEntry
+        }
+
+        Write-Log "Serializing $($serializedHistory.Count) history entries"
+
+        # Save to JSON file
+        $serializedHistory | ConvertTo-Json -Depth 10 | Set-Content -Path $historyPath -Encoding UTF8
+        Write-Log "Command history saved successfully to $historyPath"
+    }
+    catch {
+        Write-Log "ERROR saving command history: $_"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)"
+    }
+}
+
+function Load-CommandHistory {
+    try {
+        if (-not $script:Settings.SaveHistory) {
+            Write-Log "SaveHistory is disabled, skipping load"
+            return
+        }
+
+        $historyPath = $script:Settings.DefaultHistoryPath
+        Write-Log "Attempting to load command history from: $historyPath"
+
+        if ([string]::IsNullOrWhiteSpace($historyPath)) {
+            Write-Log "ERROR: DefaultHistoryPath is null or empty"
+            return
+        }
+
+        if (-not (Test-Path $historyPath)) {
+            Write-Log "No command history file found at $historyPath (this is normal on first run)"
+            return
+        }
+
+        # Load history from JSON file
+        $serializedHistory = Get-Content -Path $historyPath -Raw | ConvertFrom-Json
+
+        if (-not $serializedHistory) {
+            Write-Log "History file is empty or invalid"
+            return
+        }
+
+        # Convert back to history entry objects
+        $script:State.CommandHistory.Clear()
+
+        foreach ($serialized in $serializedHistory) {
+            # Recreate Command object
+            $command = New-Object Command
+            $command.Root = $serialized.CommandData.Root
+            $command.Full = $serialized.CommandData.Full
+            $command.CleanCommand = $serialized.CommandData.CleanCommand
+            $command.PreCommand = $serialized.CommandData.PreCommand
+            $command.SkipParameterSelect = $serialized.CommandData.SkipParameterSelect
+            $command.Log = $serialized.CommandData.Log
+            $command.LogPath = $serialized.CommandData.LogPath
+
+            # Recreate history entry
+            $historyEntry = [PSCustomObject]@{
+                Timestamp = $serialized.Timestamp
+                CommandName = $serialized.CommandName
+                FullCommand = $serialized.FullCommand
+                CleanCommand = $serialized.CleanCommand
+                PreCommand = $serialized.PreCommand
+                ParameterSummary = $serialized.ParameterSummary
+                CommandObject = $command
+                ParameterValues = $serialized.ParameterValues
+                LogPath = $serialized.LogPath
+            }
+
+            $script:State.CommandHistory.Add($historyEntry)
+        }
+
+        # Trim to history limit
+        while ($script:State.CommandHistory.Count -gt $script:Settings.CommandHistoryLimit) {
+            $script:State.CommandHistory.RemoveAt($script:State.CommandHistory.Count - 1)
+        }
+
+        Update-CommandHistoryGrid
+        Write-Log "Loaded $($script:State.CommandHistory.Count) command(s) from history successfully"
+    }
+    catch {
+        Write-Log "ERROR loading command history: $_"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)"
     }
 }
 # Handle the Main Window Add Button click event to add a new RowData object to the collection
@@ -1694,6 +1846,7 @@ function Register-EventHandlers {
     $script:UI.BtnBrowseDataFile.Add_Click({ Invoke-BrowseDataFile })
     $script:UI.BtnBrowseSettings.Add_Click({ Invoke-BrowseSettings })
     $script:UI.BtnBrowseFavorites.Add_Click({ Invoke-BrowseFavorites })
+    $script:UI.BtnBrowseHistory.Add_Click({ Invoke-BrowseHistory })
     $script:UI.BtnApplySettings.Add_Click({ Apply-Settings })
     $script:UI.BtnCloseSettings.Add_Click({ Hide-SettingsDialog })
 
@@ -1780,6 +1933,7 @@ function Register-EventHandlers {
 
     # Command History events
     Initialize-CommandHistoryUI
+    Load-CommandHistory
 
     $script:UI.Window.Add_Loaded({
         $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
@@ -3746,10 +3900,12 @@ function Create-DefaultSettings {
         DefaultLogsPath = $script:Settings.DefaultLogsPath
         SettingsPath = $script:Settings.SettingsPath
         FavoritesPath = $script:Settings.FavoritesPath
+        DefaultHistoryPath = $script:Settings.DefaultHistoryPath
         ShowDebugTab = $script:Settings.ShowDebugTab
         DefaultDataFile = $script:Settings.DefaultDataFile
         CommandHistoryLimit = $script:Settings.CommandHistoryLimit
         StatusTimeout = $script:Settings.StatusTimeout
+        SaveHistory = $script:Settings.SaveHistory
     }
     return $defaultSettings
 }
@@ -3770,6 +3926,8 @@ function Show-SettingsDialog {
     $script:UI.TxtStatusTimeout.Text = $script:Settings.StatusTimeout
     $script:UI.TxtSettingsPath.Text = $script:Settings.SettingsPath
     $script:UI.TxtFavoritesPath.Text = $script:Settings.FavoritesPath
+    $script:UI.TxtDefaultHistoryPath.Text = $script:Settings.DefaultHistoryPath
+    $script:UI.ChkSaveHistory.IsChecked = $script:Settings.SaveHistory
 }
 
 
@@ -3787,6 +3945,8 @@ function Apply-Settings {
     $script:Settings.DefaultDataFile = $script:UI.TxtDefaultDataFile.Text
     $script:Settings.SettingsPath = $script:UI.TxtSettingsPath.Text
     $script:Settings.FavoritesPath = $script:UI.TxtFavoritesPath.Text
+    $script:Settings.DefaultHistoryPath = $script:UI.TxtDefaultHistoryPath.Text
+    $script:Settings.SaveHistory = $script:UI.ChkSaveHistory.IsChecked
     $script:Settings.ShowDebugTab = $script:UI.ChkShowDebugTab.IsChecked
 
     # Validate and set CommandHistoryLimit
@@ -3852,10 +4012,12 @@ function Load-Settings {
     $script:Settings.DefaultLogsPath = Get-SettingValue $settings "DefaultLogsPath" $defaultSettings.DefaultLogsPath
     $script:Settings.SettingsPath = Get-SettingValue $settings "SettingsPath" $defaultSettings.SettingsPath
     $script:Settings.FavoritesPath = Get-SettingValue $settings "FavoritesPath" $defaultSettings.FavoritesPath
+    $script:Settings.DefaultHistoryPath = Get-SettingValue $settings "DefaultHistoryPath" $defaultSettings.DefaultHistoryPath
     $script:Settings.ShowDebugTab = Get-SettingValue $settings "ShowDebugTab" $defaultSettings.ShowDebugTab
     $script:Settings.DefaultDataFile = Get-SettingValue $settings "DefaultDataFile" $defaultSettings.DefaultDataFile
     $script:Settings.CommandHistoryLimit = Get-SettingValue $settings "CommandHistoryLimit" $defaultSettings.CommandHistoryLimit
     $script:Settings.StatusTimeout = Get-SettingValue $settings "StatusTimeout" $defaultSettings.StatusTimeout
+    $script:Settings.SaveHistory = Get-SettingValue $settings "SaveHistory" $defaultSettings.SaveHistory
 }
 
 # Save settings to file
@@ -3874,10 +4036,12 @@ function Save-Settings {
             DefaultLogsPath = $script:Settings.DefaultLogsPath
             SettingsPath = $script:Settings.SettingsPath
             FavoritesPath = $script:Settings.FavoritesPath
+            DefaultHistoryPath = $script:Settings.DefaultHistoryPath
             ShowDebugTab = $script:Settings.ShowDebugTab
             DefaultDataFile = $script:Settings.DefaultDataFile
             CommandHistoryLimit = $script:Settings.CommandHistoryLimit
             StatusTimeout = $script:Settings.StatusTimeout
+            SaveHistory = $script:Settings.SaveHistory
         }
 
         $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
@@ -3926,6 +4090,16 @@ function Invoke-BrowseFavorites {
     $dialog.DefaultExt = ".json"
     if ($dialog.ShowDialog()) {
         $script:UI.TxtFavoritesPath.Text = $dialog.FileName
+    }
+}
+
+function Invoke-BrowseHistory {
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
+    $dialog.FileName = $script:UI.TxtDefaultHistoryPath.Text
+    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dialog.DefaultExt = ".json"
+    if ($dialog.ShowDialog()) {
+        $script:UI.TxtDefaultHistoryPath.Text = $dialog.FileName
     }
 }
 
