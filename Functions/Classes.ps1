@@ -30,6 +30,7 @@ class FavoriteRowData : RowData {
 class Command {
     [string]$Root
     [string]$Full
+    [string]$CleanCommand
     [string]$PreCommand
     [System.Object[]]$Parameters
     [bool]$SkipParameterSelect

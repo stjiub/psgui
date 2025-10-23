@@ -34,6 +34,7 @@ function Add-CommandToHistory {
             Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             CommandName = $Command.Root
             FullCommand = $Command.Full
+            CleanCommand = $Command.CleanCommand
             PreCommand = $Command.PreCommand
             ParameterSummary = (Get-ParameterSummaryFromCommand -Command $Command)
             CommandObject = $Command
@@ -67,21 +68,23 @@ function Get-ParameterSummaryFromCommand {
         [Command]$Command
     )
 
-    if (-not $Command.Full) {
+    # Use CleanCommand if available, otherwise fall back to Full
+    $commandToProcess = if ($Command.CleanCommand) { $Command.CleanCommand } else { $Command.Full }
+
+    if (-not $commandToProcess) {
         return "(No parameters)"
     }
 
-    # Extract just the parameters part from the full command
-    $fullCmd = $Command.Full
+    # Extract just the parameters part from the clean command
     $rootCmd = $Command.Root
 
     if ($Command.PreCommand) {
         # Remove the PreCommand part
-        $fullCmd = $fullCmd -replace [regex]::Escape($Command.PreCommand + "; "), ""
+        $commandToProcess = $commandToProcess -replace [regex]::Escape($Command.PreCommand + "; "), ""
     }
 
     # Remove the root command to get just parameters
-    $paramsPart = $fullCmd -replace [regex]::Escape($rootCmd), ""
+    $paramsPart = $commandToProcess -replace [regex]::Escape($rootCmd), ""
     $paramsPart = $paramsPart.Trim()
 
     if ([string]::IsNullOrWhiteSpace($paramsPart)) {
@@ -276,8 +279,8 @@ function Copy-HistoryCommandToClipboard {
 
     try {
         $command = $HistoryEntry.CommandObject
-        if ($command -and $command.Full) {
-            Copy-ToClipboard -String $command.Full
+        if ($command -and $command.CleanCommand) {
+            Copy-ToClipboard -String $command.CleanCommand
             Write-Status "Command copied to clipboard"
         }
         else {
