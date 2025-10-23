@@ -2138,12 +2138,14 @@ function New-DataGridBase {
     $contextMenu = New-Object System.Windows.Controls.ContextMenu
     $contextMenuStyle = $script:UI.Window.FindResource("GridContextMenuStyle")
     $contextMenu.Style = $contextMenuStyle
+    $menuItemStyle = $script:UI.Window.FindResource("GridContextMenuItemStyle")
     $iconStyle = $script:UI.Window.FindResource("ContextMenuIconStyle")
 
     if ($name -eq "*") {
         # Favorites tab - simplified menu items (drag-and-drop handles reordering)
         $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
         $runAttachedMenuItem.Header = "Run (Attached)"
+        $runAttachedMenuItem.Style = $menuItemStyle
         $runAttachedIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $runAttachedIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Play
         $runAttachedIcon.Style = $iconStyle
@@ -2156,6 +2158,7 @@ function New-DataGridBase {
 
         $runDetachedMenuItem = New-Object System.Windows.Controls.MenuItem
         $runDetachedMenuItem.Header = "Run (Detached)"
+        $runDetachedMenuItem.Style = $menuItemStyle
         $runDetachedIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $runDetachedIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::OpenInNew
         $runDetachedIcon.Style = $iconStyle
@@ -2170,6 +2173,7 @@ function New-DataGridBase {
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
         $favoriteMenuItem.Header = "Remove from Favorites"
+        $favoriteMenuItem.Style = $menuItemStyle
         $favIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::StarOff
         $favIcon.Style = $iconStyle
@@ -2181,6 +2185,7 @@ function New-DataGridBase {
 
         $duplicateMenuItem = New-Object System.Windows.Controls.MenuItem
         $duplicateMenuItem.Header = "Duplicate Command"
+        $duplicateMenuItem.Style = $menuItemStyle
         $duplicateIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $duplicateIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::ContentCopy
         $duplicateIcon.Style = $iconStyle
@@ -2191,6 +2196,7 @@ function New-DataGridBase {
         # Regular tabs - standard menu items
         $runAttachedMenuItem = New-Object System.Windows.Controls.MenuItem
         $runAttachedMenuItem.Header = "Run (Attached)"
+        $runAttachedMenuItem.Style = $menuItemStyle
         $runAttachedIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $runAttachedIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Play
         $runAttachedIcon.Style = $iconStyle
@@ -2203,6 +2209,7 @@ function New-DataGridBase {
 
         $runDetachedMenuItem = New-Object System.Windows.Controls.MenuItem
         $runDetachedMenuItem.Header = "Run (Detached)"
+        $runDetachedMenuItem.Style = $menuItemStyle
         $runDetachedIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $runDetachedIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::OpenInNew
         $runDetachedIcon.Style = $iconStyle
@@ -2217,6 +2224,7 @@ function New-DataGridBase {
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
         $favoriteMenuItem.Header = "Add to Favorites"
+        $favoriteMenuItem.Style = $menuItemStyle
         $favIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $favIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Star
         $favIcon.Style = $iconStyle
@@ -2264,6 +2272,7 @@ function New-DataGridBase {
 
         $addMenuItem = New-Object System.Windows.Controls.MenuItem
         $addMenuItem.Header = "Add Command"
+        $addMenuItem.Style = $menuItemStyle
         $addIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $addIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::AddBox
         $addIcon.Style = $iconStyle
@@ -2273,6 +2282,7 @@ function New-DataGridBase {
 
         $duplicateMenuItem = New-Object System.Windows.Controls.MenuItem
         $duplicateMenuItem.Header = "Duplicate Command"
+        $duplicateMenuItem.Style = $menuItemStyle
         $duplicateIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $duplicateIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::ContentCopy
         $duplicateIcon.Style = $iconStyle
@@ -2282,6 +2292,7 @@ function New-DataGridBase {
 
         $removeMenuItem = New-Object System.Windows.Controls.MenuItem
         $removeMenuItem.Header = "Remove Command"
+        $removeMenuItem.Style = $menuItemStyle
         $removeIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
         $removeIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::TrashCan
         $removeIcon.Style = $iconStyle
