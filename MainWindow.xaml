@@ -147,7 +147,6 @@
                         <MenuItem Name="BtnMenuRunAttached" Header="Run (_Attached)" Icon="{md:PackIcon Kind=Play}"/>
                         <MenuItem Name="BtnMenuRunDetached" Header="Run (_Detached)" Icon="{md:PackIcon Kind=OpenInNew}"/>
                         <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command" Icon="{md:PackIcon Kind=Refresh}"/>
-                        <MenuItem Name="BtnMenuRunCopyToClipboard" Header="Copy to Clipboard" Icon="{md:PackIcon Kind=ClipboardMultipleOutline}"/>
                     </MenuItem>
                 </Menu>
                 <TextBox AcceptsReturn="True" />
@@ -200,48 +199,57 @@
                             </TabControl>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="Log">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <TabControl Name="LogTabControl" Grid.Row="1" HorizontalContentAlignment="Left">
-                                <TabItem Header="Debug" Grid.Row="1" HorizontalContentAlignment="Left" Visibility="Collapsed">
-                                    <Grid ClipToBounds="True">
-                                        <TextBox Name="LogBox" BorderThickness="0" Foreground="Black"  VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
-                                    </Grid>
-                                </TabItem>
-                                <TabItem Header="Command History" Grid.Row="1" HorizontalContentAlignment="Left">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <DataGrid Name="CommandHistoryGrid" Grid.Row="0"
-                                                  AutoGenerateColumns="False"
-                                                  IsReadOnly="True"
-                                                  CanUserAddRows="False"
-                                                  CanUserDeleteRows="False"
-                                                  SelectionMode="Single"
-                                                  HeadersVisibility="Column"
-                                                  GridLinesVisibility="Horizontal"
-                                                  AlternatingRowBackground="#F5F5F5"
-                                                  RowHeight="30">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="150"/>
-                                                <DataGridTextColumn Header="Command" Binding="{Binding CommandName}" Width="200"/>
-                                                <DataGridTextColumn Header="Parameters" Binding="{Binding ParameterSummary}" Width="*"/>
-                                            </DataGrid.Columns>
-                                        </DataGrid>
-                                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,10">
-                                            <Button Name="BtnReopenHistoryCommand" Content="Reopen Command" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" Margin="5,0,5,0"/>
-                                            <Button Name="BtnClearHistory" Content="Clear History" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" Margin="5,0,5,0"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </TabItem>
-                                <TabItem Header="+" Name="LogAddTab"/>
-                            </TabControl>
+                    <TabItem Header="History">
+                        <DataGrid Name="CommandHistoryGrid"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  SelectionMode="Extended"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  AlternatingRowBackground="#F5F5F5"
+                                  RowHeight="30">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="150"/>
+                                <DataGridTextColumn Header="Command" Binding="{Binding CommandName}" Width="200"/>
+                                <DataGridTextColumn Header="Parameters" Binding="{Binding ParameterSummary}" Width="*"/>
+                            </DataGrid.Columns>
+                            <DataGrid.ContextMenu>
+                                <ContextMenu Style="{StaticResource GridContextMenuStyle}">
+                                    <MenuItem Name="MenuHistoryRerun" Header="Rerun Command" Style="{StaticResource GridContextMenuItemStyle}">
+                                        <MenuItem.Icon>
+                                            <md:PackIcon Kind="Refresh" Style="{StaticResource ContextMenuIconStyle}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Name="MenuHistoryCopyToClipboard" Header="Copy To Clipboard" Style="{StaticResource GridContextMenuItemStyle}">
+                                        <MenuItem.Icon>
+                                            <md:PackIcon Kind="ClipboardMultipleOutline" Style="{StaticResource ContextMenuIconStyle}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Name="MenuHistoryRemove" Header="Remove From History" Style="{StaticResource GridContextMenuItemStyle}">
+                                        <MenuItem.Icon>
+                                            <md:PackIcon Kind="Delete" Style="{StaticResource ContextMenuIconStyle}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Name="MenuHistoryClear" Header="Clear History" Style="{StaticResource GridContextMenuItemStyle}">
+                                        <MenuItem.Icon>
+                                            <md:PackIcon Kind="DeleteSweep" Style="{StaticResource ContextMenuIconStyle}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+                    </TabItem>
+                    <TabItem Header="Logs">
+                        <TabControl Name="LogTabControl" HorizontalContentAlignment="Left">
+                            <TabItem Header="+" Name="LogAddTab"/>
+                        </TabControl>
+                    </TabItem>
+                    <TabItem Header="Debug" Visibility="Collapsed">
+                        <Grid ClipToBounds="True">
+                            <TextBox Name="LogBox" BorderThickness="0" Foreground="Black"  VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
                         </Grid>
                     </TabItem>
                 </TabControl>

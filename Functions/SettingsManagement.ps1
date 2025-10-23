@@ -12,10 +12,13 @@ function Initialize-Settings {
     $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
 
     # Set the Debug tab visibility based on setting
-    if ($script:Settings.ShowDebugTab) {
-        $script:UI.LogTabControl.Items[0].Visibility = "Visible"
-    } else {
-        $script:UI.LogTabControl.Items[0].Visibility = "Collapsed"
+    $debugTab = $script:UI.Window.FindName("TabControlShell").Items | Where-Object { $_.Header -eq "Debug" }
+    if ($debugTab) {
+        if ($script:Settings.ShowDebugTab) {
+            $debugTab.Visibility = "Visible"
+        } else {
+            $debugTab.Visibility = "Collapsed"
+        }
     }
 }
 
@@ -83,10 +86,13 @@ function Apply-Settings {
     }
 
     # Apply Debug tab visibility change immediately
-    if ($script:Settings.ShowDebugTab) {
-        $script:UI.LogTabControl.Items[0].Visibility = "Visible"
-    } else {
-        $script:UI.LogTabControl.Items[0].Visibility = "Collapsed"
+    $debugTab = $script:UI.Window.FindName("TabControlShell").Items | Where-Object { $_.Header -eq "Debug" }
+    if ($debugTab) {
+        if ($script:Settings.ShowDebugTab) {
+            $debugTab.Visibility = "Visible"
+        } else {
+            $debugTab.Visibility = "Collapsed"
+        }
     }
 
     Save-Settings
