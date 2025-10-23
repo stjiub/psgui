@@ -43,6 +43,21 @@ function Show-ErrorMessageBox {
     [System.Windows.MessageBox]::Show($message, "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
 }
 
+# Show error message using multiple channels (log, status, and optional popup)
+function Write-ErrorMessage {
+    param (
+        [string]$message,
+        [switch]$ShowPopup
+    )
+
+    Write-Log "ERROR: $message"
+    Write-Status "Error: $message"
+
+    if ($ShowPopup) {
+        Show-ErrorMessageBox $message
+    }
+}
+
 # Show error dialog, status update, and log entry for parameter loading failures
 function Show-ParameterLoadError {
     param (

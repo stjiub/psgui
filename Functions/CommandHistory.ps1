@@ -38,6 +38,7 @@ function Add-CommandToHistory {
             ParameterSummary = (Get-ParameterSummaryFromCommand -Command $Command)
             CommandObject = $Command
             ParameterValues = $parameterValues
+            LogPath = $Command.LogPath
         }
 
         # Add to beginning of history list
@@ -51,9 +52,13 @@ function Add-CommandToHistory {
         # Update the UI
         Update-CommandHistoryGrid
 
-    } 
+        # Return the history entry so it can be associated with tabs
+        return $historyEntry
+
+    }
     catch {
         Write-Log "Error adding command to history: $_"
+        return $null
     }
 }
 
@@ -97,10 +102,45 @@ function Update-CommandHistoryGrid {
         if ($grid) {
             $grid.ItemsSource = $null
             $grid.ItemsSource = $script:State.CommandHistory
+            Update-HistoryLogHighlighting
         }
-    } 
+    }
     catch {
         Write-Log "Error updating command history grid: $_"
+    }
+}
+
+function Update-HistoryLogHighlighting {
+    try {
+        $grid = $script:UI.Window.FindName("CommandHistoryGrid")
+        if (-not $grid) { return }
+
+        # Force the grid to generate all row containers
+        $grid.UpdateLayout()
+
+        # Wait for row generation to complete
+        $grid.Dispatcher.Invoke([Action]{
+            foreach ($item in $script:State.CommandHistory) {
+                try {
+                    $row = $grid.ItemContainerGenerator.ContainerFromItem($item)
+                    if ($row -is [System.Windows.Controls.DataGridRow]) {
+                        # Check if this history entry has a log file
+                        if ($item.LogPath -and -not [string]::IsNullOrWhiteSpace($item.LogPath)) {
+                            $row.Tag = "HasLog"
+                        }
+                        else {
+                            $row.Tag = $null
+                        }
+                    }
+                }
+                catch {
+                    # Silently continue if row container is not ready
+                }
+            }
+        }, [System.Windows.Threading.DispatcherPriority]::Background)
+    }
+    catch {
+        Write-Log "Error updating history log highlighting: $_"
     }
 }
 
@@ -250,12 +290,45 @@ function Copy-HistoryCommandToClipboard {
     }
 }
 
+function Open-HistoryCommandLog {
+    param(
+        [Parameter(Mandatory=$true)]
+        $HistoryEntry
+    )
+
+    try {
+        if ($HistoryEntry.LogPath -and -not [string]::IsNullOrWhiteSpace($HistoryEntry.LogPath)) {
+            if (Test-Path $HistoryEntry.LogPath) {
+                New-LogMonitorTab -FilePath $HistoryEntry.LogPath -TabControl $script:UI.LogTabControl
+
+                # Switch to the Logs tab
+                $logsTab = $script:UI.TabControlShell.Items | Where-Object { $_.Header -eq "Logs" }
+                if ($logsTab) {
+                    $script:UI.TabControlShell.SelectedItem = $logsTab
+                }
+
+                Write-Status "Opened log file"
+            }
+            else {
+                Write-ErrorMessage "Log file not found at: $($HistoryEntry.LogPath)"
+            }
+        }
+        else {
+            Write-ErrorMessage "No log file associated with this command"
+        }
+    }
+    catch {
+        Write-ErrorMessage "Failed to open log file: $_"
+    }
+}
+
 function Initialize-CommandHistoryUI {
     try {
         # Get UI elements
         $grid = $script:UI.Window.FindName("CommandHistoryGrid")
         $menuRerun = $script:UI.Window.FindName("MenuHistoryRerun")
         $menuCopy = $script:UI.Window.FindName("MenuHistoryCopyToClipboard")
+        $menuOpenLog = $script:UI.Window.FindName("MenuHistoryOpenLog")
         $menuRemove = $script:UI.Window.FindName("MenuHistoryRemove")
         $menuClear = $script:UI.Window.FindName("MenuHistoryClear")
 
@@ -286,6 +359,17 @@ function Initialize-CommandHistoryUI {
                 $selectedItem = $script:UI.Window.FindName("CommandHistoryGrid").SelectedItem
                 if ($selectedItem) {
                     Copy-HistoryCommandToClipboard -HistoryEntry $selectedItem
+                } else {
+                    Write-Status "Please select a command from history"
+                }
+            })
+        }
+
+        if ($menuOpenLog) {
+            $menuOpenLog.Add_Click({
+                $selectedItem = $script:UI.Window.FindName("CommandHistoryGrid").SelectedItem
+                if ($selectedItem) {
+                    Open-HistoryCommandLog -HistoryEntry $selectedItem
                 } else {
                     Write-Status "Please select a command from history"
                 }
