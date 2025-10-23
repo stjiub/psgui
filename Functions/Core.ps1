@@ -143,11 +143,7 @@ function Register-EventHandlers {
         Invoke-MainRunClick -TabControl $script:UI.TabControl 
     })
 
-    # Command dialog button events
-    $script:UI.BtnCommandClose.Add_Click({ Hide-CommandDialog })
-    $script:UI.BtnCommandRun.Add_Click({ Invoke-CommandRunClick -Command $script:State.CurrentCommand -Grid $script:UI.CommandGrid })
-    $script:UI.BtnCommandCopyToClipboard.Add_Click({ Invoke-CommandCopyToClipboard -CurrentCommand $script:State.CurrentCommand -Grid $script:UI.CommandGrid })
-    $script:UI.BtnCommandHelp.Add_Click({ Get-Help -Name $script:State.CurrentCommand.Root -ShowWindow })
+    # Command dialog button events - Now handled per-window in New-CommandWindow
 
     # Settings dialog button events
     $script:UI.BtnBrowseLogs.Add_Click({ Invoke-BrowseLogs })
@@ -223,6 +219,18 @@ function Invoke-WindowClosing {
 
     $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
     Save-Favorites -Favorites $favorites
+
+    # Close all open CommandWindows
+    foreach ($window in $script:State.OpenCommandWindows) {
+        try {
+            if ($window -and -not $window.IsClosed) {
+                $window.Close()
+            }
+        }
+        catch {
+            Write-Log "Error closing CommandWindow: $_"
+        }
+    }
 
     foreach ($tab in $script:UI.PSTabControl.Items) {
         if ($tab -ne $script:UI.PSAddTab) {

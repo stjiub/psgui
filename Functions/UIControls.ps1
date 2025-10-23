@@ -17,10 +17,85 @@ function New-Window {
             [void]$window.Add($varName, $varValue)
         }
         return $window
-    } 
+    }
     catch {
         Show-ErrorMessageBox("Error building Xaml data or loading window data.`n$_")
         exit
+    }
+}
+
+# Create a new CommandWindow instance with its own state
+function New-CommandWindow {
+    param (
+        [Command]$command
+    )
+
+    try {
+        # Load the CommandWindow XAML
+        $commandWindow = New-Window -FilePath $script:ApplicationPaths.CommandWindowXamlFile
+
+        # Set the owner to the main window for proper modal behavior
+        $commandWindow.Window.Owner = $script:UI.Window
+        $commandWindow.Window.Icon = $script:ApplicationPaths.IconFile
+        $commandWindow.Window.Title = $command.Root
+
+        # Store the command object in the window's Tag for later access
+        $commandWindow.Window.Tag = @{
+            Command = $command
+        }
+
+        # Register event handlers for this specific window
+
+        $commandWindow.BtnCommandRun.Add_Click({
+            param($sender, $e)
+            $window = $sender.Parent
+            while ($window -and $window -isnot [System.Windows.Window]) {
+                $window = $window.Parent
+            }
+            if ($window) {
+                Invoke-CommandRunClick -CommandWindow $window
+            }
+        })
+
+        $commandWindow.BtnCommandCopyToClipboard.Add_Click({
+            param($sender, $e)
+            $window = $sender.Parent
+            while ($window -and $window -isnot [System.Windows.Window]) {
+                $window = $window.Parent
+            }
+            if ($window) {
+                Invoke-CommandCopyToClipboard -CommandWindow $window
+            }
+        })
+
+        $commandWindow.BtnCommandHelp.Add_Click({
+            param($sender, $e)
+            $window = $sender.Parent
+            while ($window -and $window -isnot [System.Windows.Window]) {
+                $window = $window.Parent
+            }
+            if ($window) {
+                $cmd = $window.Tag.Command
+                if ($cmd) {
+                    Get-Help -Name $cmd.Root -ShowWindow
+                }
+            }
+        })
+
+        # Handle window closing to remove from tracking
+        $commandWindow.Window.Add_Closed({
+            param($sender, $e)
+            $script:State.OpenCommandWindows.Remove($sender)
+        })
+
+        # Add to tracking collection
+        $script:State.OpenCommandWindows.Add($commandWindow.Window)
+
+        return $commandWindow
+    }
+    catch {
+        Show-ErrorMessageBox("Error creating CommandWindow: $_")
+        return $null
     }
 }
 

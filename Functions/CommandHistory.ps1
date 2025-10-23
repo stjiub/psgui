@@ -127,37 +127,37 @@ function Reopen-CommandFromHistory {
             return
         }
 
-        # Clear the command grid before rebuilding
-        Clear-Grid $script:UI.CommandGrid
+        # Create a new CommandWindow
+        $commandWindow = New-CommandWindow -Command $command
 
-        # Rebuild the command grid with the parameters
-        if ($command.Parameters) {
-            Build-CommandGrid -Grid $script:UI.CommandGrid -Parameters $command.Parameters
+        if ($commandWindow) {
+            # Rebuild the command grid with the parameters
+            if ($command.Parameters) {
+                Build-CommandGrid -CommandWindow $commandWindow -Parameters $command.Parameters
 
-            # Pre-fill the parameter values from the history
-            $paramValues = $HistoryEntry.ParameterValues
-            if ($paramValues) {
-                foreach ($key in $paramValues.Keys) {
-                    $control = $script:UI.CommandGrid.Children | Where-Object { $_.Name -eq $key }
-                    if ($control) {
-                        if ($control -is [System.Windows.Controls.CheckBox]) {
-                            $control.IsChecked = $paramValues[$key]
-                        }
-                        elseif ($control -is [System.Windows.Controls.ComboBox]) {
-                            $control.SelectedItem = $paramValues[$key]
-                        }
-                        elseif ($control -is [System.Windows.Controls.TextBox]) {
-                            $control.Text = $paramValues[$key]
+                # Pre-fill the parameter values from the history
+                $paramValues = $HistoryEntry.ParameterValues
+                if ($paramValues) {
+                    foreach ($key in $paramValues.Keys) {
+                        $control = $commandWindow.CommandGrid.Children | Where-Object { $_.Name -eq $key }
+                        if ($control) {
+                            if ($control -is [System.Windows.Controls.CheckBox]) {
+                                $control.IsChecked = $paramValues[$key]
+                            }
+                            elseif ($control -is [System.Windows.Controls.ComboBox]) {
+                                $control.SelectedItem = $paramValues[$key]
+                            }
+                            elseif ($control -is [System.Windows.Controls.TextBox]) {
+                                $control.Text = $paramValues[$key]
+                            }
                         }
                     }
                 }
             }
-        }
 
-        # Set as current command and show dialog
-        $script:State.CurrentCommand = $command
-        $script:UI.BoxCommandName.Text = $command.Root
-        Show-CommandDialog
+            # Show the window
+            $commandWindow.Window.Show()
+        }
 
         Write-Status "Command reopened from history"
 

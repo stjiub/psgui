@@ -37,6 +37,7 @@ $script:State = @{
     RecycleBin = [System.Collections.Generic.Queue[object]]::new()
     RecycleBinMaxSize = 10
     CommandHistory = [System.Collections.Generic.List[object]]::new()
+    OpenCommandWindows = [System.Collections.Generic.List[object]]::new()
     DragDrop = @{
         DraggedItem = $null
         LastHighlightedRow = $null
@@ -54,6 +55,7 @@ else {
 
 $script:ApplicationPaths = @{
     MainWindowXamlFile = Join-Path $script:Path "MainWindow.xaml"
+    CommandWindowXamlFile = Join-Path $script:Path "CommandWindow.xaml"
     MaterialDesignThemes = Join-Path $script:Path "Assembly\MaterialDesignThemes.Wpf.dll"
     MaterialDesignColors = Join-Path $script:Path "Assembly\MaterialDesignColors.dll"
     DefaultDataFile = Join-Path $script:Path "data.json"

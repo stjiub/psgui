@@ -24,7 +24,7 @@ class FavoriteRowData : RowData {
     }
 }
 
-# Define the Command object. This is used by the CommandDialog to construct the grid and run the command
+# Define the Command object. This is used by the CommandWindow to construct the grid and run the command
 class Command {
     [string]$Root
     [string]$Full
