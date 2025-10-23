@@ -1828,6 +1828,7 @@ function Load-DataFile {
                     $rowData.Command = $item.Command
                     $rowData.SkipParameterSelect = $item.SkipParameterSelect
                     $rowData.PreCommand = $item.PreCommand
+                    $rowData.Log = $item.Log
                     $rowDataCollection.Add($rowData)
                 }
             }
@@ -1867,6 +1868,7 @@ function Save-DataFile {
                 Command = $_.Command
                 SkipParameterSelect = $_.SkipParameterSelect
                 PreCommand = $_.PreCommand
+                Log = $_.Log
             }
         }
 
@@ -2224,6 +2226,11 @@ function Initialize-FavoritesDragDrop {
     $grid.Add_PreviewMouseLeftButtonDown({
         param($sender, $e)
 
+        # Disable drag-and-drop when in edit mode
+        if (-not $script:State.TabsReadOnly) {
+            return
+        }
+
         $row = Get-DataGridRowFromPoint -Grid $sender -Point ($e.GetPosition($sender))
         if ($row -and $row.Item) {
             $script:State.DragDrop.DraggedItem = $row.Item
@@ -2233,6 +2240,11 @@ function Initialize-FavoritesDragDrop {
     # Handle mouse move to initiate drag operation
     $grid.Add_MouseMove({
         param($sender, $e)
+
+        # Disable drag-and-drop when in edit mode
+        if (-not $script:State.TabsReadOnly) {
+            return
+        }
 
         if ($e.LeftButton -eq [System.Windows.Input.MouseButtonState]::Pressed -and
             $script:State.DragDrop.DraggedItem -ne $null) {
@@ -2245,6 +2257,13 @@ function Initialize-FavoritesDragDrop {
     # Handle drag over to show drop feedback
     $grid.Add_DragOver({
         param($sender, $e)
+
+        # Disable drag-and-drop when in edit mode
+        if (-not $script:State.TabsReadOnly) {
+            $e.Effects = [System.Windows.DragDropEffects]::None
+            $e.Handled = $true
+            return
+        }
 
         $position = $e.GetPosition($sender)
         $row = Get-DataGridRowFromPoint -Grid $sender -Point $position
@@ -2287,6 +2306,12 @@ function Initialize-FavoritesDragDrop {
     # Handle drop to reorder items
     $grid.Add_Drop({
         param($sender, $e)
+
+        # Disable drag-and-drop when in edit mode
+        if (-not $script:State.TabsReadOnly) {
+            $e.Handled = $true
+            return
+        }
 
         Clear-DropHighlight
 
@@ -2808,7 +2833,10 @@ function New-GridColumn {
     if ($propertyName -eq "SkipParameterSelect" -or $propertyName -eq "Log") {
         $column = New-Object System.Windows.Controls.DataGridCheckBoxColumn
         $column.Header = $propertyName
-        $column.Binding = New-Object System.Windows.Data.Binding $propertyName
+        $binding = New-Object System.Windows.Data.Binding $propertyName
+        $binding.Mode = [System.Windows.Data.BindingMode]::TwoWay
+        $binding.UpdateSourceTrigger = [System.Windows.Data.UpdateSourceTrigger]::PropertyChanged
+        $column.Binding = $binding
     }
     else {
         $column = New-Object System.Windows.Controls.DataGridTextColumn
