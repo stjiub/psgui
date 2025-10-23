@@ -1,4 +1,4 @@
-# Handle the Main Run Button click event to run the selected command/launch the CommandDialog
+# Handle the Main Run Button click event to run the selected command/launch the CommandWindow
 function Invoke-MainRunClick {
     param (
         [System.Windows.Controls.TabControl]$tabControl
@@ -25,20 +25,20 @@ function Invoke-MainRunClick {
             Run-Command $command $script:State.RunCommandAttached
         }
         else {
-            Start-CommandDialog -Command $command
+            Start-CommandWindow -Command $command
         }
     }
 }
 
-function Toggle-ShellGrid {    
+function Toggle-ShellGrid {
     if ($script:UI.Shell.Visibility -eq "Visible") {
         # Store current height before collapsing
         $script:State.SubGridExpandedHeight = $script:UI.Window.FindName("ShellRow").Height.Value
-        
+
         # Collapse the Sub grid
         $script:UI.Window.FindName("ShellRow").Height = New-Object System.Windows.GridLength(0)
         $script:UI.Shell.Visibility = "Collapsed"
-    } 
+    }
     else {
         # Restore previous height and visibility
         $script:UI.Window.FindName("ShellRow").Height = New-Object System.Windows.GridLength($script:State.SubGridExpandedHeight)
@@ -48,8 +48,8 @@ function Toggle-ShellGrid {
 
 
 
-# Process the CommandDialog dialog grid to show command parameter list
-function Start-CommandDialog([Command]$command) {
+# Process the CommandWindow dialog grid to show command parameter list
+function Start-CommandWindow([Command]$command) {
 
     # If we are rerunning the command then the parameters are already saved
     if (-not $command.Parameters) {
@@ -114,7 +114,6 @@ function Start-CommandDialog([Command]$command) {
         $asyncResult = $powershell.BeginInvoke()
 
         # Capture variables needed in timer callback
-        $uiRef = $script:UI
         $commandRef = $command
 
         # Create timer to poll for completion
@@ -125,7 +124,6 @@ function Start-CommandDialog([Command]$command) {
             PowerShell = $powershell
             Runspace = $runspace
             Command = $commandRef
-            UI = $uiRef
         }
 
         $timer.Add_Tick({
@@ -142,23 +140,17 @@ function Start-CommandDialog([Command]$command) {
 
                     if ($result.Success) {
                         # Update UI on dispatcher thread
-                        $data.UI.Window.Dispatcher.Invoke([action]{
-                            Clear-Grid $data.UI.CommandGrid
+                        $script:UI.Window.Dispatcher.Invoke([action]{
                             $data.Command.Parameters = $result.Parameters
-                            Build-CommandGrid -Grid $data.UI.CommandGrid -Parameters $data.Command.Parameters
-
-                            # Assign the command as the current command
-                            $script:State.CurrentCommand = $data.Command
-                            $data.UI.BoxCommandName.Text = $data.Command.Root
 
                             # Hide loading and show dialog
                             Hide-LoadingIndicator
-                            Show-CommandDialog
+                            Show-CommandWindow -Command $data.Command
                         }, "Normal")
                     }
                     else {
                         # Handle error
-                        $data.UI.Window.Dispatcher.Invoke([action]{
+                        $script:UI.Window.Dispatcher.Invoke([action]{
                             Hide-LoadingIndicator
                             Show-ParameterLoadError -CommandName $data.Command.Root -ErrorMessage $result.Error
                         }, "Normal")
@@ -166,7 +158,7 @@ function Start-CommandDialog([Command]$command) {
                 }
                 catch {
                     $errorMsg = $_.Exception.Message
-                    $data.UI.Window.Dispatcher.Invoke([action]{
+                    $script:UI.Window.Dispatcher.Invoke([action]{
                         Hide-LoadingIndicator
                         Show-ParameterLoadError -CommandName $data.Command.Root -ErrorMessage $errorMsg
                     }, "Normal")
@@ -184,22 +176,34 @@ function Start-CommandDialog([Command]$command) {
     }
     else {
         # Parameters already loaded, show dialog immediately
-        $script:State.CurrentCommand = $command
-        $script:UI.BoxCommandName.Text = $command.Root
-        Show-CommandDialog
+        Show-CommandWindow -Command $command
     }
 }
 
-# Display the hidden CommandDialog grid
-function Show-CommandDialog {
-    $script:UI.Overlay.Visibility = "Visible"
-    $script:UI.CommandDialog.Visibility = "Visible"
+# Display a new CommandWindow
+function Show-CommandWindow {
+    param(
+        [Command]$Command
+    )
+
+    # Create a new CommandWindow instance
+    $commandWindow = New-CommandWindow -Command $Command
+
+    if ($commandWindow) {
+        # Build the command grid with parameters
+        if ($Command.Parameters) {
+            Build-CommandGrid -CommandWindow $commandWindow -Parameters $Command.Parameters
+        }
+
+        # Show the window (non-modal so multiple can be open)
+        $commandWindow.Window.Show()
+    }
 }
 
-# Hide the CommandDialog grid and clear for reuse
-function Hide-CommandDialog() {
-    $script:UI.CommandDialog.Visibility = "Hidden"
-    $script:UI.Overlay.Visibility = "Collapsed"
+# Hide/Close a specific CommandWindow (kept for compatibility, but windows self-close)
+function Hide-CommandWindow() {
+    # This function is deprecated - windows now close themselves
+    # Kept for backward compatibility
 }
 
 # Show loading indicator with optional custom message
@@ -225,8 +229,14 @@ function Hide-LoadingIndicator {
     }, "Send")
 }
 
-# Construct the CommandDialog grid to show the correct content for each parameter
-function Build-CommandGrid([System.Windows.Controls.Grid]$grid, [System.Object[]]$parameters) {
+# Construct the CommandWindow grid to show the correct content for each parameter
+function Build-CommandGrid {
+    param(
+        $CommandWindow,
+        [System.Object[]]$Parameters
+    )
+
+    $grid = $CommandWindow.CommandGrid
     for ($i = 0; $i -lt $parameters.Count; $i++) {
         $param = $parameters[$i]
         $paramName = $param.Name.VariablePath
@@ -288,7 +298,13 @@ function Clear-Grid([System.Windows.Controls.Grid]$grid) {
     $grid.RowDefinitions.Clear()
 }
 
-function Compile-Command([Command]$command, [System.Windows.Controls.Grid]$grid) {
+function Compile-Command {
+    param(
+        [Command]$Command,
+        $CommandWindow
+    )
+
+    $grid = $CommandWindow.CommandGrid
     # Clear if it existed from rerunning previous command
     if ($command.PreCommand) {
         $command.Full = $command.PreCommand + "; "
@@ -303,7 +319,7 @@ function Compile-Command([Command]$command, [System.Windows.Controls.Grid]$grid)
         $isSwitch = $false
         $paramName = $param.Name.VariablePath
         $selection = $grid.Children | Where-Object { $_.Name -eq $paramName }
-        
+
         if (Test-AttributeType -Parameter $param -TypeName "ValidateSet") {
             if ($selection.SelectedItem) {
                 $args[$paramName] = $selection.SelectedItem.ToString()
@@ -336,27 +352,39 @@ function Compile-Command([Command]$command, [System.Windows.Controls.Grid]$grid)
 # Handle the Command Run Button click event to compile the inputted values for each parameter into a command string to be executed
 function Invoke-CommandRunClick {
     param (
-        [Command]$command,
-        [System.Windows.Controls.Grid]$grid
+        [System.Windows.Window]$CommandWindow
     )
 
-    Compile-Command -Command $command -Grid $grid
+    # Get command and grid from the window
+    $command = $CommandWindow.Tag.Command
+    $commandWindowHash = @{
+        CommandGrid = $CommandWindow.FindName("CommandGrid")
+    }
+
+    Compile-Command -Command $command -CommandWindow $commandWindowHash
 
     # Add to command history
-    Add-CommandToHistory -Command $command -Grid $grid
-        
-    Hide-CommandDialog
+    Add-CommandToHistory -Command $command -Grid $commandWindowHash.CommandGrid
+
+    # Close the window
+    $CommandWindow.Close()
+
     Run-Command $command $script:State.RunCommandAttached
 }
 
 function Invoke-CommandCopyToClipboard {
     param (
-        [command]$currentCommand,
-        [System.Windows.Controls.Grid]$grid
+        [System.Windows.Window]$CommandWindow
     )
 
+    # Get command and grid from the window
+    $currentCommand = $CommandWindow.Tag.Command
+    $commandWindowHash = @{
+        CommandGrid = $CommandWindow.FindName("CommandGrid")
+    }
+
     if ($currentCommand) {
-        Compile-Command -Command $currentCommand -Grid $grid 
+        Compile-Command -Command $currentCommand -CommandWindow $commandWindowHash
         Copy-ToClipboard -String $currentCommand.Full
     }
 }
@@ -446,7 +474,7 @@ function Test-AttributeType {
     return $parameter.Attributes | Where-Object { $_.TypeName.FullName -eq $typeName }
 }
 
-# Retrieve the list of values from a parameter's ValidateSet 
+# Retrieve the list of values from a parameter's ValidateSet
 function Get-ValidateSetValues {
     param (
         [System.Management.Automation.Language.ParameterAst]$parameter
