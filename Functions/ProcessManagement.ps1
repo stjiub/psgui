@@ -119,6 +119,42 @@ function New-PSTabContextMenu {
     })
     [void]$contextMenu.Items.Add($menuCloseTab)
 
+    # Close All Tabs menu item
+    $menuCloseAllTabs = New-Object System.Windows.Controls.MenuItem
+    $menuCloseAllTabs.Header = "Close All Tabs"
+    $menuCloseAllTabs.FontSize = 12
+
+    # Create icon for Close All Tabs
+    $iconCloseAll = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconCloseAll.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::CloseBoxMultiple
+    $iconCloseAll.Width = 16
+    $iconCloseAll.Height = 16
+    $iconCloseAll.Margin = New-Object System.Windows.Thickness(0)
+    $menuCloseAllTabs.Icon = $iconCloseAll
+
+    $menuCloseAllTabs.Add_Click({
+        param($menuSender, $menuArgs)
+        # Get all tabs except the "+" add tab
+        $tabsToClose = @($script:UI.PSTabControl.Items | Where-Object { $_ -ne $script:UI.PSAddTab })
+
+        foreach ($tab in $tabsToClose) {
+            if ($tab.Tag -and $tab.Tag["Process"]) {
+                try {
+                    $script:UI.PSTabControl.Items.Remove($tab)
+                    $tab.Tag["Process"].Kill()
+                }
+                catch {
+                    Write-ErrorMessage "Failed to close PowerShell tab: $_"
+                }
+            }
+        }
+
+        if ($tabsToClose.Count -gt 0) {
+            Write-Status "Closed $($tabsToClose.Count) PowerShell tab(s)"
+        }
+    })
+    [void]$contextMenu.Items.Add($menuCloseAllTabs)
+
     # Detach Tab menu item
     $menuDetachTab = New-Object System.Windows.Controls.MenuItem
     $menuDetachTab.Header = "Detach Tab"
