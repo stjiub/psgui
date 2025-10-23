@@ -34,6 +34,7 @@ class Command {
     [System.Object[]]$Parameters
     [bool]$SkipParameterSelect
     [bool]$Log
+    [string]$LogPath
 }
 function Add-CommandToHistory {
     param(
@@ -75,6 +76,7 @@ function Add-CommandToHistory {
             ParameterSummary = (Get-ParameterSummaryFromCommand -Command $Command)
             CommandObject = $Command
             ParameterValues = $parameterValues
+            LogPath = $Command.LogPath
         }
 
         # Add to beginning of history list
@@ -88,9 +90,13 @@ function Add-CommandToHistory {
         # Update the UI
         Update-CommandHistoryGrid
 
-    } 
+        # Return the history entry so it can be associated with tabs
+        return $historyEntry
+
+    }
     catch {
         Write-Log "Error adding command to history: $_"
+        return $null
     }
 }
 
@@ -134,10 +140,45 @@ function Update-CommandHistoryGrid {
         if ($grid) {
             $grid.ItemsSource = $null
             $grid.ItemsSource = $script:State.CommandHistory
+            Update-HistoryLogHighlighting
         }
-    } 
+    }
     catch {
         Write-Log "Error updating command history grid: $_"
+    }
+}
+
+function Update-HistoryLogHighlighting {
+    try {
+        $grid = $script:UI.Window.FindName("CommandHistoryGrid")
+        if (-not $grid) { return }
+
+        # Force the grid to generate all row containers
+        $grid.UpdateLayout()
+
+        # Wait for row generation to complete
+        $grid.Dispatcher.Invoke([Action]{
+            foreach ($item in $script:State.CommandHistory) {
+                try {
+                    $row = $grid.ItemContainerGenerator.ContainerFromItem($item)
+                    if ($row -is [System.Windows.Controls.DataGridRow]) {
+                        # Check if this history entry has a log file
+                        if ($item.LogPath -and -not [string]::IsNullOrWhiteSpace($item.LogPath)) {
+                            $row.Tag = "HasLog"
+                        }
+                        else {
+                            $row.Tag = $null
+                        }
+                    }
+                }
+                catch {
+                    # Silently continue if row container is not ready
+                }
+            }
+        }, [System.Windows.Threading.DispatcherPriority]::Background)
+    }
+    catch {
+        Write-Log "Error updating history log highlighting: $_"
     }
 }
 
@@ -287,12 +328,45 @@ function Copy-HistoryCommandToClipboard {
     }
 }
 
+function Open-HistoryCommandLog {
+    param(
+        [Parameter(Mandatory=$true)]
+        $HistoryEntry
+    )
+
+    try {
+        if ($HistoryEntry.LogPath -and -not [string]::IsNullOrWhiteSpace($HistoryEntry.LogPath)) {
+            if (Test-Path $HistoryEntry.LogPath) {
+                New-LogMonitorTab -FilePath $HistoryEntry.LogPath -TabControl $script:UI.LogTabControl
+
+                # Switch to the Logs tab
+                $logsTab = $script:UI.TabControlShell.Items | Where-Object { $_.Header -eq "Logs" }
+                if ($logsTab) {
+                    $script:UI.TabControlShell.SelectedItem = $logsTab
+                }
+
+                Write-Status "Opened log file"
+            }
+            else {
+                Write-ErrorMessage "Log file not found at: $($HistoryEntry.LogPath)"
+            }
+        }
+        else {
+            Write-ErrorMessage "No log file associated with this command"
+        }
+    }
+    catch {
+        Write-ErrorMessage "Failed to open log file: $_"
+    }
+}
+
 function Initialize-CommandHistoryUI {
     try {
         # Get UI elements
         $grid = $script:UI.Window.FindName("CommandHistoryGrid")
         $menuRerun = $script:UI.Window.FindName("MenuHistoryRerun")
         $menuCopy = $script:UI.Window.FindName("MenuHistoryCopyToClipboard")
+        $menuOpenLog = $script:UI.Window.FindName("MenuHistoryOpenLog")
         $menuRemove = $script:UI.Window.FindName("MenuHistoryRemove")
         $menuClear = $script:UI.Window.FindName("MenuHistoryClear")
 
@@ -323,6 +397,17 @@ function Initialize-CommandHistoryUI {
                 $selectedItem = $script:UI.Window.FindName("CommandHistoryGrid").SelectedItem
                 if ($selectedItem) {
                     Copy-HistoryCommandToClipboard -HistoryEntry $selectedItem
+                } else {
+                    Write-Status "Please select a command from history"
+                }
+            })
+        }
+
+        if ($menuOpenLog) {
+            $menuOpenLog.Add_Click({
+                $selectedItem = $script:UI.Window.FindName("CommandHistoryGrid").SelectedItem
+                if ($selectedItem) {
+                    Open-HistoryCommandLog -HistoryEntry $selectedItem
                 } else {
                     Write-Status "Please select a command from history"
                 }
@@ -777,8 +862,8 @@ function Invoke-MainRunClick {
             # Add log command if logging is enabled
             if ($command.Log) {
                 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-                $logPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
-                $command.Full = "Start-Transcript -Path `"$logPath`""
+                $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+                $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
                 $command.Full += "; "
             }
 
@@ -795,9 +880,9 @@ function Invoke-MainRunClick {
             }
 
             # Add to command history (no grid since parameters were skipped)
-            Add-CommandToHistory -Command $command
+            $historyEntry = Add-CommandToHistory -Command $command
 
-            Run-Command $command $script:State.RunCommandAttached
+            Run-Command -Command $command -RunAttached $script:State.RunCommandAttached -HistoryEntry $historyEntry
         }
         else {
             Start-CommandWindow -Command $command
@@ -1087,8 +1172,8 @@ function Compile-Command {
     # Add log command if logging is enabled
     if ($command.Log) {
         $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        $logPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
-        $command.Full = "Start-Transcript -Path `"$logPath`""
+        $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+        $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
         $command.Full += "; "
     }
 
@@ -1154,12 +1239,12 @@ function Invoke-CommandRunClick {
     Compile-Command -Command $command -CommandWindow $commandWindowHash
 
     # Add to command history
-    Add-CommandToHistory -Command $command -Grid $commandWindowHash.CommandGrid
+    $historyEntry = Add-CommandToHistory -Command $command -Grid $commandWindowHash.CommandGrid
 
     # Close the window
     $CommandWindow.Close()
 
-    Run-Command $command $script:State.RunCommandAttached
+    Run-Command -Command $command -RunAttached $script:State.RunCommandAttached -HistoryEntry $historyEntry
 }
 
 function Invoke-CommandCopyToClipboard {
@@ -1183,7 +1268,8 @@ function Invoke-CommandCopyToClipboard {
 function Run-Command {
     param (
         [Command]$command,
-        [bool]$runAttached
+        [bool]$runAttached,
+        [PSCustomObject]$historyEntry = $null
     )
 
     Write-Log "Running: $($command.Root)"
@@ -1230,7 +1316,7 @@ function Run-Command {
 
         # Synchronously create the process tab (the 2-second wait is already in New-ProcessTab)
         # Note: New-ProcessTab automatically selects the newly created tab
-        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root -HistoryEntry $historyEntry
 
         # Hide loading indicator after tab is created
         Hide-LoadingIndicator
@@ -1483,9 +1569,61 @@ function Register-EventHandlers {
     })
 
     # Process Tab events
-    $script:UI.BtnPSDetachTab.Add_Click({ Detach-CurrentTab })
-    $script:UI.BtnPSAttachTab.Add_Click({ Show-AttachWindow })
-    $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({ New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs })
+    # Add context menu to the "+" tab
+    $addTabContextMenu = New-Object System.Windows.Controls.ContextMenu
+    $addTabContextMenu.FontSize = 12
+
+    # New PS Session menu item
+    $menuNewSession = New-Object System.Windows.Controls.MenuItem
+    $menuNewSession.Header = "New PS Session"
+    $menuNewSession.FontSize = 12
+
+    # Create icon for New PS Session
+    $iconNew = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconNew.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Plus
+    $iconNew.Width = 16
+    $iconNew.Height = 16
+    $iconNew.Margin = New-Object System.Windows.Thickness(0)
+    $menuNewSession.Icon = $iconNew
+
+    $menuNewSession.Add_Click({
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs
+    })
+    $addTabContextMenu.Items.Add($menuNewSession)
+
+    # Attach PS Session menu item
+    $menuAttachSession = New-Object System.Windows.Controls.MenuItem
+    $menuAttachSession.Header = "Attach PS Session"
+    $menuAttachSession.FontSize = 12
+
+    # Create icon for Attach PS Session
+    $iconAttach = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconAttach.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Import
+    $iconAttach.Width = 16
+    $iconAttach.Height = 16
+    $iconAttach.Margin = New-Object System.Windows.Thickness(0)
+    $menuAttachSession.Icon = $iconAttach
+
+    $menuAttachSession.Add_Click({
+        Show-AttachWindow
+    })
+    $addTabContextMenu.Items.Add($menuAttachSession)
+
+    $script:UI.PSAddTab.ContextMenu = $addTabContextMenu
+
+    # Right-click on PSAddTab shows context menu
+    $script:UI.PSAddTab.Add_PreviewMouseRightButtonDown({
+        param($sender, $e)
+        $sender.ContextMenu.IsOpen = $true
+        $e.Handled = $true
+    })
+
+    # Left-click on PSAddTab also shows context menu (instead of immediately creating tab)
+    $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({
+        param($sender, $e)
+        $sender.ContextMenu.IsOpen = $true
+        $e.Handled = $true
+    })
     $script:UI.PSTabControl.Add_SelectionChanged({
         param($sender, $eventArgs)
         $selectedTab = $script:UI.PSTabControl.SelectedItem
@@ -2858,10 +2996,154 @@ function Open-LogFile {
     $dialog.InitialDirectory = $script:Settings.DefaultLogsPath
     $dialog.Filter = "Log files (*.log)|*.log|Text files (*.txt)|*.txt|All files (*.*)|*.*"
     $dialog.FilterIndex = 1
-    
+
     if ($dialog.ShowDialog()) {
         New-LogMonitorTab -FilePath $dialog.FileName -TabControl $script:UI.LogTabControl
     }
+}
+
+# Create a styled context menu for PowerShell tabs
+function New-PSTabContextMenu {
+    param (
+        [System.Windows.Controls.TabItem]$Tab
+    )
+
+    $contextMenu = New-Object System.Windows.Controls.ContextMenu
+
+    # Apply the same style as History context menu
+    $contextMenu.FontSize = 12
+
+    # Close Tab menu item
+    $menuCloseTab = New-Object System.Windows.Controls.MenuItem
+    $menuCloseTab.Header = "Close Tab"
+    $menuCloseTab.FontSize = 12
+
+    # Create icon for Close Tab
+    $iconClose = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconClose.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Close
+    $iconClose.Width = 16
+    $iconClose.Height = 16
+    $iconClose.Margin = New-Object System.Windows.Thickness(0)
+    $menuCloseTab.Icon = $iconClose
+
+    $menuCloseTab.Add_Click({
+        param($menuSender, $menuArgs)
+        $tab = $menuSender.Parent.PlacementTarget
+        if ($tab -and $tab.Tag -and $tab.Tag["Process"]) {
+            try {
+                $script:UI.PSTabControl.Items.Remove($tab)
+                $tab.Tag["Process"].Kill()
+                Write-Status "PowerShell tab closed"
+            }
+            catch {
+                Write-ErrorMessage "Failed to close PowerShell tab: $_"
+            }
+        }
+    })
+    [void]$contextMenu.Items.Add($menuCloseTab)
+
+    # Detach Tab menu item
+    $menuDetachTab = New-Object System.Windows.Controls.MenuItem
+    $menuDetachTab.Header = "Detach Tab"
+    $menuDetachTab.FontSize = 12
+
+    # Create icon for Detach Tab
+    $iconDetach = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconDetach.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Export
+    $iconDetach.Width = 16
+    $iconDetach.Height = 16
+    $iconDetach.Margin = New-Object System.Windows.Thickness(0)
+    $menuDetachTab.Icon = $iconDetach
+
+    $menuDetachTab.Add_Click({
+        param($menuSender, $menuArgs)
+        $tab = $menuSender.Parent.PlacementTarget
+        if ($tab -and $tab.Tag) {
+            $script:UI.PSTabControl.SelectedItem = $tab
+            Detach-CurrentTab
+            Write-Status "PowerShell tab detached"
+        }
+    })
+    [void]$contextMenu.Items.Add($menuDetachTab)
+
+    # Open Log menu item
+    $menuOpenLog = New-Object System.Windows.Controls.MenuItem
+    $menuOpenLog.Header = "Open Log"
+    $menuOpenLog.FontSize = 12
+
+    # Create icon for Open Log
+    $iconLog = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconLog.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::FileDocumentOutline
+    $iconLog.Width = 16
+    $iconLog.Height = 16
+    $iconLog.Margin = New-Object System.Windows.Thickness(0)
+    $menuOpenLog.Icon = $iconLog
+
+    $menuOpenLog.Add_Click({
+        param($menuSender, $menuArgs)
+        $tab = $menuSender.Parent.PlacementTarget
+        if ($tab -and $tab.Tag -and $tab.Tag["HistoryEntry"]) {
+            $historyEntry = $tab.Tag["HistoryEntry"]
+            if ($historyEntry.LogPath -and (Test-Path $historyEntry.LogPath)) {
+                New-LogMonitorTab -FilePath $historyEntry.LogPath -TabControl $script:UI.LogTabControl
+
+                # Switch to the Logs tab
+                $logsTab = $script:UI.TabControlShell.Items | Where-Object { $_.Header -eq "Logs" }
+                if ($logsTab) {
+                    $script:UI.TabControlShell.SelectedItem = $logsTab
+                }
+
+                Write-Status "Opened log file"
+            }
+            else {
+                Write-ErrorMessage "Log file not found or command was not logged"
+            }
+        }
+        else {
+            Write-ErrorMessage "No log associated with this tab"
+        }
+    })
+    [void]$contextMenu.Items.Add($menuOpenLog)
+
+    # Go to History menu item
+    $menuGoToHistory = New-Object System.Windows.Controls.MenuItem
+    $menuGoToHistory.Header = "Go to History"
+    $menuGoToHistory.FontSize = 12
+
+    # Create icon for Go to History
+    $iconHistory = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconHistory.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::History
+    $iconHistory.Width = 16
+    $iconHistory.Height = 16
+    $iconHistory.Margin = New-Object System.Windows.Thickness(0)
+    $menuGoToHistory.Icon = $iconHistory
+
+    $menuGoToHistory.Add_Click({
+        param($menuSender, $menuArgs)
+        $tab = $menuSender.Parent.PlacementTarget
+        if ($tab -and $tab.Tag -and $tab.Tag["HistoryEntry"]) {
+            # Switch to History tab
+            $historyTab = $script:UI.TabControlShell.Items | Where-Object { $_.Header -eq "History" }
+            if ($historyTab) {
+                $script:UI.TabControlShell.SelectedItem = $historyTab
+
+                # Select the history entry in the grid
+                $historyGrid = $script:UI.Window.FindName("CommandHistoryGrid")
+                if ($historyGrid) {
+                    $historyEntry = $tab.Tag["HistoryEntry"]
+                    $historyGrid.SelectedItem = $historyEntry
+                    $historyGrid.ScrollIntoView($historyEntry)
+                    Write-Status "Jumped to command history"
+                }
+            }
+        }
+        else {
+            Write-ErrorMessage "No history entry associated with this tab"
+        }
+    })
+    [void]$contextMenu.Items.Add($menuGoToHistory)
+
+    return $contextMenu
 }
 
 # Create a new embedded process under a Tab Control
@@ -2870,11 +3152,12 @@ function New-ProcessTab {
         $tabControl,
         $process,
         $processArgs,
-        $tabName = "PS_$($tabControl.Items.Count)"
+        $tabName = "PS_$($tabControl.Items.Count)",
+        [PSCustomObject]$historyEntry = $null
     )
 
     $proc = Start-Process $process -WindowStyle Hidden -PassThru -ArgumentList $processArgs
-    
+
     Start-Sleep -Seconds 2
 
     # Find the window handle of the PowerShell process using process ID
@@ -2888,6 +3171,7 @@ function New-ProcessTab {
     $tabData = @{}
     $tabData["Handle"] = $psHandle
     $tabData["Process"] = $proc
+    $tabData["HistoryEntry"] = $historyEntry
     $tab.Tag = $tabData
 
     # Create a WindowsFormsHost and a Panel to host the PowerShell window
@@ -2924,14 +3208,10 @@ function New-ProcessTab {
         }
     })
 
-    # Handle tab closure to terminate the PowerShell process
-    $tab.Add_PreviewMouseRightButtonDown({
-        param($sender, $eventArgs)
-        if ($eventArgs.ChangedButton -eq 'Right') {
-            $script:UI.PSTabControl.Items.Remove($sender)
-            $sender.Tag["Process"].Kill()
-        }
-    })
+    # Add context menu to the tab header
+    $tab.ContextMenu = New-PSTabContextMenu -Tab $tab
+
+    # Handle middle-click to detach tab
     $tab.Add_PreviewMouseDown({
         param($sender, $e)
         if ($e.MiddleButton -eq 'Pressed') {
@@ -3053,12 +3333,15 @@ function Attach-DetachedWindow {
         }
     })
 
-    # Handle tab closure
-    $tab.Add_PreviewMouseRightButtonDown({
-        param($sender, $eventArgs)
-        if ($eventArgs.ChangedButton -eq 'Right') {
-            $script:UI.PSTabControl.Items.Remove($sender)
+    # Add context menu to the tab header
+    $tab.ContextMenu = New-PSTabContextMenu -Tab $tab
+
+    # Handle middle-click to detach tab
+    $tab.Add_PreviewMouseDown({
+        param($sender, $e)
+        if ($e.MiddleButton -eq 'Pressed') {
             Detach-CurrentTab
+            $e.Handled = $true
         }
     })
 }
@@ -3520,6 +3803,21 @@ function Show-ErrorMessageBox {
 
     Write-Error $message
     [System.Windows.MessageBox]::Show($message, "Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+}
+
+# Show error message using multiple channels (log, status, and optional popup)
+function Write-ErrorMessage {
+    param (
+        [string]$message,
+        [switch]$ShowPopup
+    )
+
+    Write-Log "ERROR: $message"
+    Write-Status "Error: $message"
+
+    if ($ShowPopup) {
+        Show-ErrorMessageBox $message
+    }
 }
 
 # Show error dialog, status update, and log entry for parameter loading failures

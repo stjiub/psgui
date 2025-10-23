@@ -22,8 +22,8 @@ function Invoke-MainRunClick {
             # Add log command if logging is enabled
             if ($command.Log) {
                 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-                $logPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
-                $command.Full = "Start-Transcript -Path `"$logPath`""
+                $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+                $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
                 $command.Full += "; "
             }
 
@@ -40,9 +40,9 @@ function Invoke-MainRunClick {
             }
 
             # Add to command history (no grid since parameters were skipped)
-            Add-CommandToHistory -Command $command
+            $historyEntry = Add-CommandToHistory -Command $command
 
-            Run-Command $command $script:State.RunCommandAttached
+            Run-Command -Command $command -RunAttached $script:State.RunCommandAttached -HistoryEntry $historyEntry
         }
         else {
             Start-CommandWindow -Command $command
@@ -332,8 +332,8 @@ function Compile-Command {
     # Add log command if logging is enabled
     if ($command.Log) {
         $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        $logPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
-        $command.Full = "Start-Transcript -Path `"$logPath`""
+        $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+        $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
         $command.Full += "; "
     }
 
@@ -399,12 +399,12 @@ function Invoke-CommandRunClick {
     Compile-Command -Command $command -CommandWindow $commandWindowHash
 
     # Add to command history
-    Add-CommandToHistory -Command $command -Grid $commandWindowHash.CommandGrid
+    $historyEntry = Add-CommandToHistory -Command $command -Grid $commandWindowHash.CommandGrid
 
     # Close the window
     $CommandWindow.Close()
 
-    Run-Command $command $script:State.RunCommandAttached
+    Run-Command -Command $command -RunAttached $script:State.RunCommandAttached -HistoryEntry $historyEntry
 }
 
 function Invoke-CommandCopyToClipboard {
@@ -428,7 +428,8 @@ function Invoke-CommandCopyToClipboard {
 function Run-Command {
     param (
         [Command]$command,
-        [bool]$runAttached
+        [bool]$runAttached,
+        [PSCustomObject]$historyEntry = $null
     )
 
     Write-Log "Running: $($command.Root)"
@@ -475,7 +476,7 @@ function Run-Command {
 
         # Synchronously create the process tab (the 2-second wait is already in New-ProcessTab)
         # Note: New-ProcessTab automatically selects the newly created tab
-        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root -HistoryEntry $historyEntry
 
         # Hide loading indicator after tab is created
         Hide-LoadingIndicator

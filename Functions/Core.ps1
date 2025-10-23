@@ -184,9 +184,61 @@ function Register-EventHandlers {
     })
 
     # Process Tab events
-    $script:UI.BtnPSDetachTab.Add_Click({ Detach-CurrentTab })
-    $script:UI.BtnPSAttachTab.Add_Click({ Show-AttachWindow })
-    $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({ New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs })
+    # Add context menu to the "+" tab
+    $addTabContextMenu = New-Object System.Windows.Controls.ContextMenu
+    $addTabContextMenu.FontSize = 12
+
+    # New PS Session menu item
+    $menuNewSession = New-Object System.Windows.Controls.MenuItem
+    $menuNewSession.Header = "New PS Session"
+    $menuNewSession.FontSize = 12
+
+    # Create icon for New PS Session
+    $iconNew = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconNew.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Plus
+    $iconNew.Width = 16
+    $iconNew.Height = 16
+    $iconNew.Margin = New-Object System.Windows.Thickness(0)
+    $menuNewSession.Icon = $iconNew
+
+    $menuNewSession.Add_Click({
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs
+    })
+    $addTabContextMenu.Items.Add($menuNewSession)
+
+    # Attach PS Session menu item
+    $menuAttachSession = New-Object System.Windows.Controls.MenuItem
+    $menuAttachSession.Header = "Attach PS Session"
+    $menuAttachSession.FontSize = 12
+
+    # Create icon for Attach PS Session
+    $iconAttach = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconAttach.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Import
+    $iconAttach.Width = 16
+    $iconAttach.Height = 16
+    $iconAttach.Margin = New-Object System.Windows.Thickness(0)
+    $menuAttachSession.Icon = $iconAttach
+
+    $menuAttachSession.Add_Click({
+        Show-AttachWindow
+    })
+    $addTabContextMenu.Items.Add($menuAttachSession)
+
+    $script:UI.PSAddTab.ContextMenu = $addTabContextMenu
+
+    # Right-click on PSAddTab shows context menu
+    $script:UI.PSAddTab.Add_PreviewMouseRightButtonDown({
+        param($sender, $e)
+        $sender.ContextMenu.IsOpen = $true
+        $e.Handled = $true
+    })
+
+    # Left-click on PSAddTab also shows context menu (instead of immediately creating tab)
+    $script:UI.PSAddTab.Add_PreviewMouseLeftButtonDown({
+        param($sender, $e)
+        $sender.ContextMenu.IsOpen = $true
+        $e.Handled = $true
+    })
     $script:UI.PSTabControl.Add_SelectionChanged({
         param($sender, $eventArgs)
         $selectedTab = $script:UI.PSTabControl.SelectedItem

@@ -34,4 +34,5 @@ class Command {
     [System.Object[]]$Parameters
     [bool]$SkipParameterSelect
     [bool]$Log
+    [string]$LogPath
 }
