@@ -178,6 +178,7 @@ function Register-EventHandlers {
     $script:UI.BtnBrowseDataFile.Add_Click({ Invoke-BrowseDataFile })
     $script:UI.BtnBrowseSettings.Add_Click({ Invoke-BrowseSettings })
     $script:UI.BtnBrowseFavorites.Add_Click({ Invoke-BrowseFavorites })
+    $script:UI.BtnBrowseHistory.Add_Click({ Invoke-BrowseHistory })
     $script:UI.BtnApplySettings.Add_Click({ Apply-Settings })
     $script:UI.BtnCloseSettings.Add_Click({ Hide-SettingsDialog })
 
@@ -264,6 +265,7 @@ function Register-EventHandlers {
 
     # Command History events
     Initialize-CommandHistoryUI
+    Load-CommandHistory
 
     $script:UI.Window.Add_Loaded({
         $script:UI.Window.Icon = $script:ApplicationPaths.IconFile

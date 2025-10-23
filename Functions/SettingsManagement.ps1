@@ -70,10 +70,12 @@ function Create-DefaultSettings {
         DefaultLogsPath = $script:Settings.DefaultLogsPath
         SettingsPath = $script:Settings.SettingsPath
         FavoritesPath = $script:Settings.FavoritesPath
+        DefaultHistoryPath = $script:Settings.DefaultHistoryPath
         ShowDebugTab = $script:Settings.ShowDebugTab
         DefaultDataFile = $script:Settings.DefaultDataFile
         CommandHistoryLimit = $script:Settings.CommandHistoryLimit
         StatusTimeout = $script:Settings.StatusTimeout
+        SaveHistory = $script:Settings.SaveHistory
     }
     return $defaultSettings
 }
@@ -94,6 +96,8 @@ function Show-SettingsDialog {
     $script:UI.TxtStatusTimeout.Text = $script:Settings.StatusTimeout
     $script:UI.TxtSettingsPath.Text = $script:Settings.SettingsPath
     $script:UI.TxtFavoritesPath.Text = $script:Settings.FavoritesPath
+    $script:UI.TxtDefaultHistoryPath.Text = $script:Settings.DefaultHistoryPath
+    $script:UI.ChkSaveHistory.IsChecked = $script:Settings.SaveHistory
 }
 
 
@@ -111,6 +115,8 @@ function Apply-Settings {
     $script:Settings.DefaultDataFile = $script:UI.TxtDefaultDataFile.Text
     $script:Settings.SettingsPath = $script:UI.TxtSettingsPath.Text
     $script:Settings.FavoritesPath = $script:UI.TxtFavoritesPath.Text
+    $script:Settings.DefaultHistoryPath = $script:UI.TxtDefaultHistoryPath.Text
+    $script:Settings.SaveHistory = $script:UI.ChkSaveHistory.IsChecked
     $script:Settings.ShowDebugTab = $script:UI.ChkShowDebugTab.IsChecked
 
     # Validate and set CommandHistoryLimit
@@ -176,10 +182,12 @@ function Load-Settings {
     $script:Settings.DefaultLogsPath = Get-SettingValue $settings "DefaultLogsPath" $defaultSettings.DefaultLogsPath
     $script:Settings.SettingsPath = Get-SettingValue $settings "SettingsPath" $defaultSettings.SettingsPath
     $script:Settings.FavoritesPath = Get-SettingValue $settings "FavoritesPath" $defaultSettings.FavoritesPath
+    $script:Settings.DefaultHistoryPath = Get-SettingValue $settings "DefaultHistoryPath" $defaultSettings.DefaultHistoryPath
     $script:Settings.ShowDebugTab = Get-SettingValue $settings "ShowDebugTab" $defaultSettings.ShowDebugTab
     $script:Settings.DefaultDataFile = Get-SettingValue $settings "DefaultDataFile" $defaultSettings.DefaultDataFile
     $script:Settings.CommandHistoryLimit = Get-SettingValue $settings "CommandHistoryLimit" $defaultSettings.CommandHistoryLimit
     $script:Settings.StatusTimeout = Get-SettingValue $settings "StatusTimeout" $defaultSettings.StatusTimeout
+    $script:Settings.SaveHistory = Get-SettingValue $settings "SaveHistory" $defaultSettings.SaveHistory
 }
 
 # Save settings to file
@@ -198,10 +206,12 @@ function Save-Settings {
             DefaultLogsPath = $script:Settings.DefaultLogsPath
             SettingsPath = $script:Settings.SettingsPath
             FavoritesPath = $script:Settings.FavoritesPath
+            DefaultHistoryPath = $script:Settings.DefaultHistoryPath
             ShowDebugTab = $script:Settings.ShowDebugTab
             DefaultDataFile = $script:Settings.DefaultDataFile
             CommandHistoryLimit = $script:Settings.CommandHistoryLimit
             StatusTimeout = $script:Settings.StatusTimeout
+            SaveHistory = $script:Settings.SaveHistory
         }
 
         $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
@@ -250,6 +260,16 @@ function Invoke-BrowseFavorites {
     $dialog.DefaultExt = ".json"
     if ($dialog.ShowDialog()) {
         $script:UI.TxtFavoritesPath.Text = $dialog.FileName
+    }
+}
+
+function Invoke-BrowseHistory {
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
+    $dialog.FileName = $script:UI.TxtDefaultHistoryPath.Text
+    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dialog.DefaultExt = ".json"
+    if ($dialog.ShowDialog()) {
+        $script:UI.TxtDefaultHistoryPath.Text = $dialog.FileName
     }
 }
 
