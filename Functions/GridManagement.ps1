@@ -357,7 +357,10 @@ function New-GridColumn {
     if ($propertyName -eq "SkipParameterSelect" -or $propertyName -eq "Log") {
         $column = New-Object System.Windows.Controls.DataGridCheckBoxColumn
         $column.Header = $propertyName
-        $column.Binding = New-Object System.Windows.Data.Binding $propertyName
+        $binding = New-Object System.Windows.Data.Binding $propertyName
+        $binding.Mode = [System.Windows.Data.BindingMode]::TwoWay
+        $binding.UpdateSourceTrigger = [System.Windows.Data.UpdateSourceTrigger]::PropertyChanged
+        $column.Binding = $binding
     }
     else {
         $column = New-Object System.Windows.Controls.DataGridTextColumn

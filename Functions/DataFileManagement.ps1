@@ -69,6 +69,7 @@ function Load-DataFile {
                     $rowData.Command = $item.Command
                     $rowData.SkipParameterSelect = $item.SkipParameterSelect
                     $rowData.PreCommand = $item.PreCommand
+                    $rowData.Log = $item.Log
                     $rowDataCollection.Add($rowData)
                 }
             }
@@ -108,6 +109,7 @@ function Save-DataFile {
                 Command = $_.Command
                 SkipParameterSelect = $_.SkipParameterSelect
                 PreCommand = $_.PreCommand
+                Log = $_.Log
             }
         }
 
