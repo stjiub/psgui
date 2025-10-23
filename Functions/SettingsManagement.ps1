@@ -1,3 +1,29 @@
+# Load default settings from defaultsettings.json
+function Load-DefaultSettings {
+    try {
+        if (Test-Path $script:ApplicationPaths.DefaultSettingsFile) {
+            $defaultSettings = Get-Content $script:ApplicationPaths.DefaultSettingsFile | ConvertFrom-Json
+
+            # Expand environment variables in paths
+            $expandedSettings = @{}
+            foreach ($key in $defaultSettings.PSObject.Properties.Name) {
+                $value = $defaultSettings.$key
+                if ($value -is [string] -and $value -match '%\w+%') {
+                    $expandedSettings[$key] = [Environment]::ExpandEnvironmentVariables($value)
+                } else {
+                    $expandedSettings[$key] = $value
+                }
+            }
+
+            return $expandedSettings
+        }
+    }
+    catch {
+        Write-Log "Failed to load default settings: $_"
+    }
+    return $null
+}
+
 # Set app settings from loaded settings
 function Initialize-Settings {
     Load-Settings
@@ -20,6 +46,7 @@ function Initialize-Settings {
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
     $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
     $script:UI.TxtCommandHistoryLimit.Text = $script:Settings.CommandHistoryLimit
+    $script:UI.TxtStatusTimeout.Text = $script:Settings.StatusTimeout
     $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
 
     # Set the Debug tab visibility based on setting
@@ -46,6 +73,7 @@ function Create-DefaultSettings {
         ShowDebugTab = $script:Settings.ShowDebugTab
         DefaultDataFile = $script:Settings.DefaultDataFile
         CommandHistoryLimit = $script:Settings.CommandHistoryLimit
+        StatusTimeout = $script:Settings.StatusTimeout
     }
     return $defaultSettings
 }
@@ -63,6 +91,7 @@ function Show-SettingsDialog {
     $script:UI.TxtDefaultLogsPath.Text = $script:Settings.DefaultLogsPath
     $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
     $script:UI.TxtCommandHistoryLimit.Text = $script:Settings.CommandHistoryLimit
+    $script:UI.TxtStatusTimeout.Text = $script:Settings.StatusTimeout
     $script:UI.TxtSettingsPath.Text = $script:Settings.SettingsPath
     $script:UI.TxtFavoritesPath.Text = $script:Settings.FavoritesPath
 }
@@ -96,6 +125,18 @@ function Apply-Settings {
         $script:UI.TxtCommandHistoryLimit.Text = "50"
     }
 
+    # Validate and set StatusTimeout
+    $statusTimeout = 6  # Default value
+    if ([int]::TryParse($script:UI.TxtStatusTimeout.Text, [ref]$statusTimeout)) {
+        # Ensure it's within reasonable bounds
+        if ($statusTimeout -lt 1) { $statusTimeout = 1 }
+        if ($statusTimeout -gt 60) { $statusTimeout = 60 }
+        $script:Settings.StatusTimeout = $statusTimeout
+    } else {
+        $script:Settings.StatusTimeout = 6
+        $script:UI.TxtStatusTimeout.Text = "6"
+    }
+
     # Apply Debug tab visibility change immediately
     $debugTab = $script:UI.Window.FindName("TabControlShell").Items | Where-Object { $_.Header -eq "Debug" }
     if ($debugTab) {
@@ -110,30 +151,35 @@ function Apply-Settings {
     Hide-SettingsDialog
 }
 
-# Load settings from file
+# Load settings from file with fallback to default settings
 function Load-Settings {
+    # Load default settings first
+    $defaultSettings = Load-DefaultSettings
+
     Ensure-SettingsFileExists
     $settings = Get-Content $script:Settings.SettingsPath | ConvertFrom-Json
 
-    # Apply loaded settings to script variables
-    $script:Settings.DefaultShell = $settings.DefaultShell
-    $script:Settings.DefaultShellArgs = $settings.DefaultShellArgs
-    $script:Settings.DefaultRunCommandAttached = $settings.DefaultRunCommandAttached
-    $script:Settings.OpenShellAtStart = $settings.OpenShellAtStart
-    $script:Settings.DefaultLogsPath = $settings.DefaultLogsPath
-    $script:Settings.SettingsPath = $settings.SettingsPath
-    $script:Settings.FavoritesPath = $settings.FavoritesPath
+    # Helper function to get setting value with fallback to default
+    function Get-SettingValue {
+        param($settingsObj, $propertyName, $defaultValue)
+        if (Get-Member -InputObject $settingsObj -Name $propertyName -MemberType Properties) {
+            return $settingsObj.$propertyName
+        }
+        return $defaultValue
+    }
 
-    # Handle the case where the setting might not exist in older config files
-    if (Get-Member -InputObject $settings -Name "ShowDebugTab" -MemberType Properties) {
-        $script:Settings.ShowDebugTab = $settings.ShowDebugTab
-    }
-    if (Get-Member -InputObject $settings -Name "DefaultDataFile" -MemberType Properties) {
-        $script:Settings.DefaultDataFile = $settings.DefaultDataFile
-    }
-    if (Get-Member -InputObject $settings -Name "CommandHistoryLimit" -MemberType Properties) {
-        $script:Settings.CommandHistoryLimit = $settings.CommandHistoryLimit
-    }
+    # Apply loaded settings to script variables with fallback to defaults
+    $script:Settings.DefaultShell = Get-SettingValue $settings "DefaultShell" $defaultSettings.DefaultShell
+    $script:Settings.DefaultShellArgs = Get-SettingValue $settings "DefaultShellArgs" $defaultSettings.DefaultShellArgs
+    $script:Settings.DefaultRunCommandAttached = Get-SettingValue $settings "DefaultRunCommandAttached" $defaultSettings.DefaultRunCommandAttached
+    $script:Settings.OpenShellAtStart = Get-SettingValue $settings "OpenShellAtStart" $defaultSettings.OpenShellAtStart
+    $script:Settings.DefaultLogsPath = Get-SettingValue $settings "DefaultLogsPath" $defaultSettings.DefaultLogsPath
+    $script:Settings.SettingsPath = Get-SettingValue $settings "SettingsPath" $defaultSettings.SettingsPath
+    $script:Settings.FavoritesPath = Get-SettingValue $settings "FavoritesPath" $defaultSettings.FavoritesPath
+    $script:Settings.ShowDebugTab = Get-SettingValue $settings "ShowDebugTab" $defaultSettings.ShowDebugTab
+    $script:Settings.DefaultDataFile = Get-SettingValue $settings "DefaultDataFile" $defaultSettings.DefaultDataFile
+    $script:Settings.CommandHistoryLimit = Get-SettingValue $settings "CommandHistoryLimit" $defaultSettings.CommandHistoryLimit
+    $script:Settings.StatusTimeout = Get-SettingValue $settings "StatusTimeout" $defaultSettings.StatusTimeout
 }
 
 # Save settings to file
@@ -155,6 +201,7 @@ function Save-Settings {
             ShowDebugTab = $script:Settings.ShowDebugTab
             DefaultDataFile = $script:Settings.DefaultDataFile
             CommandHistoryLimit = $script:Settings.CommandHistoryLimit
+            StatusTimeout = $script:Settings.StatusTimeout
         }
 
         $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
