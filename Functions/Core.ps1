@@ -154,6 +154,9 @@ function Register-EventHandlers {
         $script:State.RunCommandAttached = $true
         Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true
     })
+    $script:UI.BtnMenuRunInject.Add_Click({
+        Invoke-MainInjectClick -TabControl $script:UI.TabControl
+    })
     $script:UI.BtnMenuRunRerunLast.Add_Click({
         if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
             $lastHistoryEntry = $script:State.CommandHistory[0]
@@ -296,6 +299,7 @@ function Update-MainRunButtonText {
         $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunInject.Visibility = [System.Windows.Visibility]::Collapsed
         return
     }
 
@@ -305,6 +309,7 @@ function Update-MainRunButtonText {
         $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunInject.Visibility = [System.Windows.Visibility]::Collapsed
         return
     }
 
@@ -318,18 +323,20 @@ function Update-MainRunButtonText {
         else {
             $script:UI.BtnMainRun.Content = "Run (Detached)"
         }
-        # Hide Open menu item, show Run items
+        # Hide Open menu item, show Run and Inject items
         $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Collapsed
         $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunInject.Visibility = [System.Windows.Visibility]::Visible
     }
     else {
         # Show "Open" when SkipParameterSelect is false
         $script:UI.BtnMainRun.Content = "Open"
-        # Show Open menu item, hide Run items
+        # Show Open menu item, hide Run and Inject items
         $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Collapsed
         $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Collapsed
+        $script:UI.BtnMenuRunInject.Visibility = [System.Windows.Visibility]::Collapsed
     }
 }
 
