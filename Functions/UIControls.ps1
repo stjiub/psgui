@@ -68,6 +68,17 @@ function New-CommandWindow {
             }
         })
 
+        $commandWindow.BtnCommandInject.Add_Click({
+            param($sender, $e)
+            $window = $sender.Parent
+            while ($window -and $window -isnot [System.Windows.Window]) {
+                $window = $window.Parent
+            }
+            if ($window) {
+                Invoke-CommandWindowInjectClick -CommandWindow $window
+            }
+        })
+
         $commandWindow.BtnCommandCopyToClipboard.Add_Click({
             param($sender, $e)
             $window = $sender.Parent

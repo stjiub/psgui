@@ -228,6 +228,12 @@
                                     <md:PackIcon Kind="OpenInNew" Style="{StaticResource ContextMenuIconStyle}"/>
                                 </MenuItem.Icon>
                             </MenuItem>
+                            <MenuItem Name="BtnMenuRunInject" Header="_Inject">
+                                <MenuItem.Icon>
+                                    <md:PackIcon Kind="CodeTags" Style="{StaticResource ContextMenuIconStyle}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator />
                             <MenuItem Name="BtnMenuRunRerunLast" Header="Rerun Last Command">
                                 <MenuItem.Icon>
                                     <md:PackIcon Kind="Refresh" Style="{StaticResource ContextMenuIconStyle}"/>
@@ -259,7 +265,7 @@
                                 VerticalContentAlignment="Center"
                                 BorderThickness="0"
                                 Background="Transparent"
-                                md:HintAssist.Hint="Search commands..."/>
+                                md:HintAssist.Hint="Filter commands..."/>
                     </StackPanel>
                 </Border>
 

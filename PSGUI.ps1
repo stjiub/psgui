@@ -597,6 +597,181 @@ function Load-CommandHistory {
         Write-Log "Stack trace: $($_.ScriptStackTrace)"
     }
 }
+# Command Injection Functions for sending commands to active PowerShell tabs
+
+# Check if there is an active PowerShell tab with an attached session
+function Test-ActivePowerShellTab {
+    if (-not $script:UI.PSTabControl) {
+        return $false
+    }
+
+    $selectedTab = $script:UI.PSTabControl.SelectedItem
+
+    # Check if we have a valid tab selected (not the "+" add tab)
+    if (-not $selectedTab -or $selectedTab -eq $script:UI.PSAddTab) {
+        return $false
+    }
+
+    # Check if the tab has a valid process
+    if (-not $selectedTab.Tag -or -not $selectedTab.Tag["Process"] -or -not $selectedTab.Tag["Handle"]) {
+        return $false
+    }
+
+    # Check if the process is still running
+    $process = $selectedTab.Tag["Process"]
+    if ($process.HasExited) {
+        return $false
+    }
+
+    return $true
+}
+
+# Inject a command into the active PowerShell tab using SendKeys
+function Invoke-CommandInjection {
+    param (
+        [string]$CommandString
+    )
+
+    if (-not (Test-ActivePowerShellTab)) {
+        Write-ErrorMessage "No active PowerShell tab available for command injection"
+        return
+    }
+
+    try {
+        # Load System.Windows.Forms assembly if not already loaded
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+
+        # Get the active PowerShell tab
+        $selectedTab = $script:UI.PSTabControl.SelectedItem
+        $psHandle = $selectedTab.Tag["Handle"]
+
+        Write-Log "PowerShell window handle: $psHandle"
+
+        # Bring window to foreground and set focus
+        [Win32]::ShowWindow($psHandle, 5)  # SW_SHOW
+        [Win32]::SetForegroundWindow($psHandle)
+        [Win32]::SetFocus($psHandle)
+
+        # Give it a moment to focus
+        Start-Sleep -Milliseconds 500
+
+        # Verify focus
+        $focusedHandle = [Win32]::GetForegroundWindow()
+        Write-Log "Current foreground window: $focusedHandle"
+
+        # Send the command string followed by Enter
+        # For SendKeys, we need to escape special characters that have meaning in SendKeys syntax
+        # Characters that need escaping: + ^ % ~ ( ) { } [ ]
+        $sb = New-Object System.Text.StringBuilder
+        foreach ($char in $CommandString.ToCharArray()) {
+            switch ($char) {
+                '+' { [void]$sb.Append('{+}') }
+                '^' { [void]$sb.Append('{^}') }
+                '%' { [void]$sb.Append('{%}') }
+                '~' { [void]$sb.Append('{~}') }
+                '(' { [void]$sb.Append('{(}') }
+                ')' { [void]$sb.Append('{)}') }
+                '{' { [void]$sb.Append('{{}') }
+                '}' { [void]$sb.Append('{}}') }
+                '[' { [void]$sb.Append('{[}') }
+                ']' { [void]$sb.Append('{]}') }
+                default { [void]$sb.Append($char) }
+            }
+        }
+        $escapedCommand = $sb.ToString()
+
+        Write-Log "Original command: $CommandString"
+        Write-Log "Escaped command: $escapedCommand"
+
+        [System.Windows.Forms.SendKeys]::SendWait($escapedCommand)
+        [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+
+        Write-Status "Command injected into PowerShell tab: $($selectedTab.Header)"
+        Write-Log "Injected command: $CommandString"
+    }
+    catch {
+        Write-ErrorMessage "Failed to inject command: $_"
+        Write-Log "Command injection error: $_"
+    }
+}
+
+# Inject a command from the main grid
+function Invoke-MainInjectClick {
+    param (
+        [System.Windows.Controls.TabControl]$tabControl
+    )
+
+    if (-not (Test-ActivePowerShellTab)) {
+        Write-ErrorMessage "No active PowerShell tab available. Please create or select a PowerShell tab first."
+        return
+    }
+
+    $grid = $tabControl.SelectedItem.Content
+    $selection = $grid.SelectedItems
+    $command = New-Object Command
+    $command.Full = ""
+    $command.Root = $selection.Command
+    $command.PreCommand = $selection.PreCommand
+    $command.SkipParameterSelect = $selection.SkipParameterSelect
+    $command.Log = $selection.Log
+
+    Write-Log "Preparing command for injection - Root: $($command.Root), SkipParameterSelect: $($command.SkipParameterSelect)"
+
+    if ($command.Root) {
+        if ($selection.SkipParameterSelect) {
+            # Build the command string
+            $command.Full = ""
+            $command.CleanCommand = ""
+
+            # Note: We don't add transcript logging for injected commands
+            # since they're being run in an existing shell
+
+            # Add PreCommand if it exists
+            if ($command.PreCommand) {
+                $command.Full += $command.PreCommand + "; "
+                $command.CleanCommand += $command.PreCommand + "; "
+            }
+
+            $command.Full += $command.Root
+            $command.CleanCommand += $command.Root
+
+            # Inject the command
+            Invoke-CommandInjection -CommandString $command.CleanCommand
+        }
+        else {
+            # For commands with parameters, we need to open the CommandWindow
+            # and let the user fill in parameters before injecting
+            Write-ErrorMessage "Cannot inject commands with parameters. Use 'Inject' button in the Command Window instead."
+        }
+    }
+}
+
+# Inject a command from the CommandWindow
+function Invoke-CommandWindowInjectClick {
+    param (
+        [System.Windows.Window]$CommandWindow
+    )
+
+    if (-not (Test-ActivePowerShellTab)) {
+        Write-ErrorMessage "No active PowerShell tab available. Please create or select a PowerShell tab first."
+        return
+    }
+
+    # Get command and grid from the window
+    $command = $CommandWindow.Tag.Command
+    $commandWindowHash = @{
+        CommandGrid = $CommandWindow.FindName("CommandGrid")
+    }
+
+    # Compile the command with parameters
+    Compile-Command -Command $command -CommandWindow $commandWindowHash
+
+    # Close the window
+    $CommandWindow.Close()
+
+    # Inject the command (use CleanCommand to avoid transcript commands)
+    Invoke-CommandInjection -CommandString $command.CleanCommand
+}
 # Handle the Main Window Add Button click event to add a new RowData object to the collection
 function Add-CommandRow {
     param (
@@ -1832,6 +2007,9 @@ function Register-EventHandlers {
         $script:State.RunCommandAttached = $true
         Invoke-MainRunClick -TabControl $script:UI.TabControl -Attached $true
     })
+    $script:UI.BtnMenuRunInject.Add_Click({
+        Invoke-MainInjectClick -TabControl $script:UI.TabControl
+    })
     $script:UI.BtnMenuRunRerunLast.Add_Click({
         if ($script:State.CommandHistory -and $script:State.CommandHistory.Count -gt 0) {
             $lastHistoryEntry = $script:State.CommandHistory[0]
@@ -1974,6 +2152,7 @@ function Update-MainRunButtonText {
         $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunInject.Visibility = [System.Windows.Visibility]::Collapsed
         return
     }
 
@@ -1983,6 +2162,7 @@ function Update-MainRunButtonText {
         $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunInject.Visibility = [System.Windows.Visibility]::Collapsed
         return
     }
 
@@ -1996,18 +2176,20 @@ function Update-MainRunButtonText {
         else {
             $script:UI.BtnMainRun.Content = "Run (Detached)"
         }
-        # Hide Open menu item, show Run items
+        # Hide Open menu item, show Run and Inject items
         $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Collapsed
         $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Visible
+        $script:UI.BtnMenuRunInject.Visibility = [System.Windows.Visibility]::Visible
     }
     else {
         # Show "Open" when SkipParameterSelect is false
         $script:UI.BtnMainRun.Content = "Open"
-        # Show Open menu item, hide Run items
+        # Show Open menu item, hide Run and Inject items
         $script:UI.BtnMenuRunOpen.Visibility = [System.Windows.Visibility]::Visible
         $script:UI.BtnMenuRunAttached.Visibility = [System.Windows.Visibility]::Collapsed
         $script:UI.BtnMenuRunDetached.Visibility = [System.Windows.Visibility]::Collapsed
+        $script:UI.BtnMenuRunInject.Visibility = [System.Windows.Visibility]::Collapsed
     }
 }
 
@@ -2859,7 +3041,19 @@ function New-DataGridBase {
         })
         [void]$contextMenu.Items.Add($runDetachedMenuItem)
 
-        # Add event handler to update run/open visibility when context menu opens
+        $injectMenuItem = New-Object System.Windows.Controls.MenuItem
+        $injectMenuItem.Header = "Inject"
+        $injectMenuItem.Style = $menuItemStyle
+        $injectIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $injectIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::CodeTags
+        $injectIcon.Style = $iconStyle
+        $injectMenuItem.Icon = $injectIcon
+        $injectMenuItem.Add_Click({
+            Invoke-MainInjectClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($injectMenuItem)
+
+        # Add event handler to update run/open/inject visibility when context menu opens
         $contextMenu.Add_Opened({
             param($sender, $e)
             $currentGrid = $script:UI.TabControl.SelectedItem.Content
@@ -2869,17 +3063,20 @@ function New-DataGridBase {
                 $openItem = $sender.Tag.OpenMenuItem
                 $runAttachedItem = $sender.Tag.RunAttachedMenuItem
                 $runDetachedItem = $sender.Tag.RunDetachedMenuItem
+                $injectItem = $sender.Tag.InjectMenuItem
 
                 if ($selectedItem.SkipParameterSelect) {
-                    # Show Run (Attached) and Run (Detached), hide Open
+                    # Show Run (Attached), Run (Detached), and Inject; hide Open
                     $openItem.Visibility = [System.Windows.Visibility]::Collapsed
                     $runAttachedItem.Visibility = [System.Windows.Visibility]::Visible
                     $runDetachedItem.Visibility = [System.Windows.Visibility]::Visible
+                    $injectItem.Visibility = [System.Windows.Visibility]::Visible
                 } else {
-                    # Show Open, hide Run (Attached) and Run (Detached)
+                    # Show Open, hide Run (Attached), Run (Detached), and Inject
                     $openItem.Visibility = [System.Windows.Visibility]::Visible
                     $runAttachedItem.Visibility = [System.Windows.Visibility]::Collapsed
                     $runDetachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $injectItem.Visibility = [System.Windows.Visibility]::Collapsed
                 }
             }
         })
@@ -2889,6 +3086,7 @@ function New-DataGridBase {
             OpenMenuItem = $openMenuItem
             RunAttachedMenuItem = $runAttachedMenuItem
             RunDetachedMenuItem = $runDetachedMenuItem
+            InjectMenuItem = $injectMenuItem
         }
 
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
@@ -2954,6 +3152,18 @@ function New-DataGridBase {
         })
         [void]$contextMenu.Items.Add($runDetachedMenuItem)
 
+        $injectMenuItem = New-Object System.Windows.Controls.MenuItem
+        $injectMenuItem.Header = "Inject"
+        $injectMenuItem.Style = $menuItemStyle
+        $injectIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $injectIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::CodeTags
+        $injectIcon.Style = $iconStyle
+        $injectMenuItem.Icon = $injectIcon
+        $injectMenuItem.Add_Click({
+            Invoke-MainInjectClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($injectMenuItem)
+
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
@@ -2965,16 +3175,17 @@ function New-DataGridBase {
         $favoriteMenuItem.Icon = $favIcon
         $favoriteMenuItem.Add_Click({ Toggle-CommandFavorite })
 
-        # Store reference to favorite menu item and run/open items so we can update them
+        # Store reference to favorite menu item and run/open/inject items so we can update them
         $contextMenu.Tag = @{
             FavoriteMenuItem = $favoriteMenuItem
             IconStyle = $iconStyle
             OpenMenuItem = $openMenuItem
             RunAttachedMenuItem = $runAttachedMenuItem
             RunDetachedMenuItem = $runDetachedMenuItem
+            InjectMenuItem = $injectMenuItem
         }
 
-        # Add event handler to update the favorite menu item text/icon and run/open visibility when context menu opens
+        # Add event handler to update the favorite menu item text/icon and run/open/inject visibility when context menu opens
         $contextMenu.Add_Opened({
             param($sender, $e)
             $currentGrid = $script:UI.TabControl.SelectedItem.Content
@@ -3001,21 +3212,24 @@ function New-DataGridBase {
 
                 $favMenuItem.Icon = $newFavIcon
 
-                # Update Run/Open menu item visibility based on SkipParameterSelect
+                # Update Run/Open/Inject menu item visibility based on SkipParameterSelect
                 $openItem = $sender.Tag.OpenMenuItem
                 $runAttachedItem = $sender.Tag.RunAttachedMenuItem
                 $runDetachedItem = $sender.Tag.RunDetachedMenuItem
+                $injectItem = $sender.Tag.InjectMenuItem
 
                 if ($selectedItem.SkipParameterSelect) {
-                    # Show Run (Attached) and Run (Detached), hide Open
+                    # Show Run (Attached), Run (Detached), and Inject; hide Open
                     $openItem.Visibility = [System.Windows.Visibility]::Collapsed
                     $runAttachedItem.Visibility = [System.Windows.Visibility]::Visible
                     $runDetachedItem.Visibility = [System.Windows.Visibility]::Visible
+                    $injectItem.Visibility = [System.Windows.Visibility]::Visible
                 } else {
-                    # Show Open, hide Run (Attached) and Run (Detached)
+                    # Show Open, hide Run (Attached), Run (Detached), and Inject
                     $openItem.Visibility = [System.Windows.Visibility]::Visible
                     $runAttachedItem.Visibility = [System.Windows.Visibility]::Collapsed
                     $runDetachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $injectItem.Visibility = [System.Windows.Visibility]::Collapsed
                 }
             }
         })
@@ -4247,6 +4461,17 @@ function New-CommandWindow {
             }
             if ($window) {
                 Invoke-CommandRunClick -CommandWindow $window -RunAttached $false
+            }
+        })
+
+        $commandWindow.BtnCommandInject.Add_Click({
+            param($sender, $e)
+            $window = $sender.Parent
+            while ($window -and $window -isnot [System.Windows.Window]) {
+                $window = $window.Parent
+            }
+            if ($window) {
+                Invoke-CommandWindowInjectClick -CommandWindow $window
             }
         })
 

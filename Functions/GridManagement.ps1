@@ -78,7 +78,19 @@ function New-DataGridBase {
         })
         [void]$contextMenu.Items.Add($runDetachedMenuItem)
 
-        # Add event handler to update run/open visibility when context menu opens
+        $injectMenuItem = New-Object System.Windows.Controls.MenuItem
+        $injectMenuItem.Header = "Inject"
+        $injectMenuItem.Style = $menuItemStyle
+        $injectIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $injectIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::CodeTags
+        $injectIcon.Style = $iconStyle
+        $injectMenuItem.Icon = $injectIcon
+        $injectMenuItem.Add_Click({
+            Invoke-MainInjectClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($injectMenuItem)
+
+        # Add event handler to update run/open/inject visibility when context menu opens
         $contextMenu.Add_Opened({
             param($sender, $e)
             $currentGrid = $script:UI.TabControl.SelectedItem.Content
@@ -88,17 +100,20 @@ function New-DataGridBase {
                 $openItem = $sender.Tag.OpenMenuItem
                 $runAttachedItem = $sender.Tag.RunAttachedMenuItem
                 $runDetachedItem = $sender.Tag.RunDetachedMenuItem
+                $injectItem = $sender.Tag.InjectMenuItem
 
                 if ($selectedItem.SkipParameterSelect) {
-                    # Show Run (Attached) and Run (Detached), hide Open
+                    # Show Run (Attached), Run (Detached), and Inject; hide Open
                     $openItem.Visibility = [System.Windows.Visibility]::Collapsed
                     $runAttachedItem.Visibility = [System.Windows.Visibility]::Visible
                     $runDetachedItem.Visibility = [System.Windows.Visibility]::Visible
+                    $injectItem.Visibility = [System.Windows.Visibility]::Visible
                 } else {
-                    # Show Open, hide Run (Attached) and Run (Detached)
+                    # Show Open, hide Run (Attached), Run (Detached), and Inject
                     $openItem.Visibility = [System.Windows.Visibility]::Visible
                     $runAttachedItem.Visibility = [System.Windows.Visibility]::Collapsed
                     $runDetachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $injectItem.Visibility = [System.Windows.Visibility]::Collapsed
                 }
             }
         })
@@ -108,6 +123,7 @@ function New-DataGridBase {
             OpenMenuItem = $openMenuItem
             RunAttachedMenuItem = $runAttachedMenuItem
             RunDetachedMenuItem = $runDetachedMenuItem
+            InjectMenuItem = $injectMenuItem
         }
 
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
@@ -173,6 +189,18 @@ function New-DataGridBase {
         })
         [void]$contextMenu.Items.Add($runDetachedMenuItem)
 
+        $injectMenuItem = New-Object System.Windows.Controls.MenuItem
+        $injectMenuItem.Header = "Inject"
+        $injectMenuItem.Style = $menuItemStyle
+        $injectIcon = New-Object MaterialDesignThemes.Wpf.PackIcon
+        $injectIcon.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::CodeTags
+        $injectIcon.Style = $iconStyle
+        $injectMenuItem.Icon = $injectIcon
+        $injectMenuItem.Add_Click({
+            Invoke-MainInjectClick -TabControl $script:UI.TabControl
+        })
+        [void]$contextMenu.Items.Add($injectMenuItem)
+
         [void]$contextMenu.Items.Add((New-Object System.Windows.Controls.Separator))
 
         $favoriteMenuItem = New-Object System.Windows.Controls.MenuItem
@@ -184,16 +212,17 @@ function New-DataGridBase {
         $favoriteMenuItem.Icon = $favIcon
         $favoriteMenuItem.Add_Click({ Toggle-CommandFavorite })
 
-        # Store reference to favorite menu item and run/open items so we can update them
+        # Store reference to favorite menu item and run/open/inject items so we can update them
         $contextMenu.Tag = @{
             FavoriteMenuItem = $favoriteMenuItem
             IconStyle = $iconStyle
             OpenMenuItem = $openMenuItem
             RunAttachedMenuItem = $runAttachedMenuItem
             RunDetachedMenuItem = $runDetachedMenuItem
+            InjectMenuItem = $injectMenuItem
         }
 
-        # Add event handler to update the favorite menu item text/icon and run/open visibility when context menu opens
+        # Add event handler to update the favorite menu item text/icon and run/open/inject visibility when context menu opens
         $contextMenu.Add_Opened({
             param($sender, $e)
             $currentGrid = $script:UI.TabControl.SelectedItem.Content
@@ -220,21 +249,24 @@ function New-DataGridBase {
 
                 $favMenuItem.Icon = $newFavIcon
 
-                # Update Run/Open menu item visibility based on SkipParameterSelect
+                # Update Run/Open/Inject menu item visibility based on SkipParameterSelect
                 $openItem = $sender.Tag.OpenMenuItem
                 $runAttachedItem = $sender.Tag.RunAttachedMenuItem
                 $runDetachedItem = $sender.Tag.RunDetachedMenuItem
+                $injectItem = $sender.Tag.InjectMenuItem
 
                 if ($selectedItem.SkipParameterSelect) {
-                    # Show Run (Attached) and Run (Detached), hide Open
+                    # Show Run (Attached), Run (Detached), and Inject; hide Open
                     $openItem.Visibility = [System.Windows.Visibility]::Collapsed
                     $runAttachedItem.Visibility = [System.Windows.Visibility]::Visible
                     $runDetachedItem.Visibility = [System.Windows.Visibility]::Visible
+                    $injectItem.Visibility = [System.Windows.Visibility]::Visible
                 } else {
-                    # Show Open, hide Run (Attached) and Run (Detached)
+                    # Show Open, hide Run (Attached), Run (Detached), and Inject
                     $openItem.Visibility = [System.Windows.Visibility]::Visible
                     $runAttachedItem.Visibility = [System.Windows.Visibility]::Collapsed
                     $runDetachedItem.Visibility = [System.Windows.Visibility]::Collapsed
+                    $injectItem.Visibility = [System.Windows.Visibility]::Collapsed
                 }
             }
         })

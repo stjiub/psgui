@@ -89,13 +89,22 @@
         <Grid Grid.Row="3">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,10">
                 <Button Name="BtnCommandRunAttached" Content="Run (Attached)" IsDefault="True" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" Margin="0,0,10,0"/>
-                <Button Name="BtnCommandRunDetached" Content="Run (Detached)" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30"/>
-            </StackPanel>
-            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,5,0">
+                <Button Name="BtnCommandRunDetached" Content="Run (Detached)" Style="{StaticResource MaterialDesignRaisedButton}" TextElement.Foreground="White" Width="150" Height="30" Margin="0,0,10,0"/>
+                <Button Name="BtnCommandInject" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform ScaleX="1.3" ScaleY="1.3"/>
+                    </Button.LayoutTransform>
+                    <md:PackIcon Kind="CodeTags" Foreground="#2096F4"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Inject into Active PowerShell Tab</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
+                </Button>
                 <Button Name="BtnCommandCopyToClipboard" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
-                <Button.LayoutTransform>
-                    <ScaleTransform ScaleX="1.3" ScaleY="1.3"/>
-                </Button.LayoutTransform>
+                    <Button.LayoutTransform>
+                        <ScaleTransform ScaleX="1.3" ScaleY="1.3"/>
+                    </Button.LayoutTransform>
                     <md:PackIcon Kind="ClipboardMultipleOutline" Foreground="#2096F4"/>
                     <Button.ToolTip>
                         <ToolTip>
@@ -103,11 +112,16 @@
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>
-                <Button Name="BtnCommandHelp" VerticalAlignment="Center" HorizontalAlignment="Center" Style="{StaticResource ActionButton}" >
-                <Button.LayoutTransform>
-                    <ScaleTransform ScaleX="1.3" ScaleY="1.3"/>
-                </Button.LayoutTransform>
+                <Button Name="BtnCommandHelp" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                    <Button.LayoutTransform>
+                        <ScaleTransform ScaleX="1.3" ScaleY="1.3"/>
+                    </Button.LayoutTransform>
                     <md:PackIcon Kind="Help" Foreground="#2096F4"/>
+                    <Button.ToolTip>
+                        <ToolTip>
+                            <TextBlock>Open Command Help</TextBlock>
+                        </ToolTip>
+                    </Button.ToolTip>
                 </Button>
             </StackPanel>
         </Grid>
