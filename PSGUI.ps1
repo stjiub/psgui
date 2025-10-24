@@ -1865,6 +1865,16 @@ function Register-EventHandlers {
         param($sender, $e)
         Handle-TabSelection -SelectedTab $sender.SelectedItem
         Update-MainRunButtonText
+        # Re-apply the filter when tab changes
+        if ($script:UI.TxtSearchFilter) {
+            Invoke-GridFilter -SearchText $script:UI.TxtSearchFilter.Text
+        }
+    })
+
+    # Search filter text box event
+    $script:UI.TxtSearchFilter.Add_TextChanged({
+        param($sender, $e)
+        Invoke-GridFilter -SearchText $sender.Text
     })
 
     # Process Tab events
@@ -3376,6 +3386,54 @@ function Sort-GridByColumn {
     $grid.Items.SortDescriptions.Clear()
     $sort = New-Object System.ComponentModel.SortDescription($columnName, [System.ComponentModel.ListSortDirection]::Ascending)
     $grid.Items.SortDescriptions.Add($sort)
+    $grid.Items.Refresh()
+}
+
+# Filter the current tab's grid based on search text
+function Invoke-GridFilter {
+    param (
+        [string]$searchText
+    )
+
+    $selectedTab = $script:UI.TabControl.SelectedItem
+    if (-not $selectedTab) {
+        return
+    }
+
+    $grid = $selectedTab.Content
+    if (-not $grid) {
+        return
+    }
+
+    # Get the default view and clear any existing filter
+    $view = [System.Windows.Data.CollectionViewSource]::GetDefaultView($grid.ItemsSource)
+
+    if ([string]::IsNullOrWhiteSpace($searchText)) {
+        # If search is empty, clear the filter
+        $view.Filter = $null
+    }
+    else {
+        # Create a wildcard pattern (case-insensitive)
+        $pattern = "*$searchText*"
+
+        # Set the filter predicate - need to use GetNewClosure() to capture the pattern variable
+        $view.Filter = {
+            param($item)
+
+            # Check if Name matches
+            if ($item.Name -and ($item.Name -like $pattern)) {
+                return $true
+            }
+
+            # Check if Command matches
+            if ($item.Command -and ($item.Command -like $pattern)) {
+                return $true
+            }
+
+            return $false
+        }.GetNewClosure()
+    }
+
     $grid.Items.Refresh()
 }
 function New-LogMonitorTab {

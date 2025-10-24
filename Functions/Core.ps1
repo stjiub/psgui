@@ -187,6 +187,16 @@ function Register-EventHandlers {
         param($sender, $e)
         Handle-TabSelection -SelectedTab $sender.SelectedItem
         Update-MainRunButtonText
+        # Re-apply the filter when tab changes
+        if ($script:UI.TxtSearchFilter) {
+            Invoke-GridFilter -SearchText $script:UI.TxtSearchFilter.Text
+        }
+    })
+
+    # Search filter text box event
+    $script:UI.TxtSearchFilter.Add_TextChanged({
+        param($sender, $e)
+        Invoke-GridFilter -SearchText $sender.Text
     })
 
     # Process Tab events
