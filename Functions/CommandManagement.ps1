@@ -6,7 +6,7 @@ function Add-CommandRow {
     )
 
     $newRow = New-Object RowData
-    $newRow.Id = ++$script:State.HighestId
+    $newRow.Id = Get-UniqueCommandId
     $tab = $tabs["All"]
     $grid = $tab.Content
     $grid.ItemsSource.Add($newRow)
@@ -49,7 +49,7 @@ function Duplicate-CommandRow {
 
     # Create a new row with a new ID
     $newRow = New-Object RowData
-    $newRow.Id = ++$script:State.HighestId
+    $newRow.Id = Get-UniqueCommandId
 
     # Copy all properties except Id
     $newRow.Name = $selectedItem.Name

@@ -1,4 +1,6 @@
 # Determine the current highest Id that exists in the collection
+# NOTE: This function is deprecated and kept for backward compatibility only
+# New code should use Get-UniqueCommandId instead
 function Get-HighestId {
     param (
         [System.Object[]]$json
@@ -14,6 +16,11 @@ function Get-HighestId {
     } else {
         return 0
     }
+}
+
+# Generate a unique command ID using GUID
+function Get-UniqueCommandId {
+    return [System.Guid]::NewGuid().ToString()
 }
 
 # Generate a unique command list ID using GUID

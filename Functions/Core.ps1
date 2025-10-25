@@ -22,7 +22,6 @@ function Start-MainWindow {
     if (-not $json) {
         $json = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
     }
-    $script:State.HighestId = Get-HighestId -Json $json
     $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
 
     # Create tabs and grids

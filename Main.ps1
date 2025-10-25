@@ -13,7 +13,6 @@ $script:Settings = @{}
 $script:State = @{
     CurrentDataFile = $null
     CurrentCommand = $null
-    HighestId = 0
     FavoritesHighestOrder = 0
     TabsReadOnly = $true
     RunCommandAttached = $script:Settings.DefaultRunCommandAttached

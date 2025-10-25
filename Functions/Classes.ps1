@@ -1,6 +1,6 @@
 # Define the RowData object. This is the object that is used on all the Main window tabitem grids
 class RowData {
-    [int]$Id
+    [string]$Id
     [string]$Name
     [string]$Description
     [string]$Category
