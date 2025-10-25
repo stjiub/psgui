@@ -62,7 +62,15 @@ function Load-DataFile {
             if ($commandsArray) {
                 foreach ($item in $commandsArray) {
                     $rowData = [RowData]::new()
-                    $rowData.Id = $item.Id
+
+                    # Migrate old integer IDs to GUIDs
+                    if ($item.Id -is [int] -or $item.Id -match '^\d+$') {
+                        $rowData.Id = Get-UniqueCommandId
+                        Write-Log "Migrated integer ID $($item.Id) to GUID: $($rowData.Id)"
+                    } else {
+                        $rowData.Id = $item.Id
+                    }
+
                     $rowData.Name = $item.Name
                     $rowData.Description = $item.Description
                     $rowData.Category = $item.Category
@@ -206,7 +214,6 @@ function Load-NewDataFile {
 
     try {
         $json = Load-DataFile $filePath
-        $script:State.HighestId = Get-HighestId -Json $json
 
         # Clear existing tabs except Favorites
         $tabsToRemove = @()
@@ -273,16 +280,12 @@ function Import-DataFile {
         foreach ($item in $importedJson) {
             if (-not $item) { continue }
 
-            # Check if item with same ID already exists
+            # Check if item with same ID already exists (should be rare with GUIDs)
             $existingItem = $allData | Where-Object { $_.Id -eq $item.Id }
             if ($existingItem) {
-                # Update the highest ID to avoid conflicts
-                $item.Id = ++$script:State.HighestId
-            } else {
-                # Update highest ID if this ID is higher
-                if ($item.Id -gt $script:State.HighestId) {
-                    $script:State.HighestId = $item.Id
-                }
+                # Generate a new unique ID to avoid conflicts
+                $item.Id = Get-UniqueCommandId
+                Write-Log "ID conflict detected during import, generated new ID: $($item.Id)"
             }
 
             # Add to All tab

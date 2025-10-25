@@ -1,6 +1,6 @@
 # Define the RowData object. This is the object that is used on all the Main window tabitem grids
 class RowData {
-    [int]$Id
+    [string]$Id
     [string]$Name
     [string]$Description
     [string]$Category
@@ -780,7 +780,7 @@ function Add-CommandRow {
     )
 
     $newRow = New-Object RowData
-    $newRow.Id = ++$script:State.HighestId
+    $newRow.Id = Get-UniqueCommandId
     $tab = $tabs["All"]
     $grid = $tab.Content
     $grid.ItemsSource.Add($newRow)
@@ -823,7 +823,7 @@ function Duplicate-CommandRow {
 
     # Create a new row with a new ID
     $newRow = New-Object RowData
-    $newRow.Id = ++$script:State.HighestId
+    $newRow.Id = Get-UniqueCommandId
 
     # Copy all properties except Id
     $newRow.Name = $selectedItem.Name
@@ -1875,7 +1875,6 @@ function Start-MainWindow {
     if (-not $json) {
         $json = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
     }
-    $script:State.HighestId = Get-HighestId -Json $json
     $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json)
 
     # Create tabs and grids
@@ -2308,7 +2307,15 @@ function Load-DataFile {
             if ($commandsArray) {
                 foreach ($item in $commandsArray) {
                     $rowData = [RowData]::new()
-                    $rowData.Id = $item.Id
+
+                    # Migrate old integer IDs to GUIDs
+                    if ($item.Id -is [int] -or $item.Id -match '^\d+$') {
+                        $rowData.Id = Get-UniqueCommandId
+                        Write-Log "Migrated integer ID $($item.Id) to GUID: $($rowData.Id)"
+                    } else {
+                        $rowData.Id = $item.Id
+                    }
+
                     $rowData.Name = $item.Name
                     $rowData.Description = $item.Description
                     $rowData.Category = $item.Category
@@ -2452,7 +2459,6 @@ function Load-NewDataFile {
 
     try {
         $json = Load-DataFile $filePath
-        $script:State.HighestId = Get-HighestId -Json $json
 
         # Clear existing tabs except Favorites
         $tabsToRemove = @()
@@ -2519,16 +2525,12 @@ function Import-DataFile {
         foreach ($item in $importedJson) {
             if (-not $item) { continue }
 
-            # Check if item with same ID already exists
+            # Check if item with same ID already exists (should be rare with GUIDs)
             $existingItem = $allData | Where-Object { $_.Id -eq $item.Id }
             if ($existingItem) {
-                # Update the highest ID to avoid conflicts
-                $item.Id = ++$script:State.HighestId
-            } else {
-                # Update highest ID if this ID is higher
-                if ($item.Id -gt $script:State.HighestId) {
-                    $script:State.HighestId = $item.Id
-                }
+                # Generate a new unique ID to avoid conflicts
+                $item.Id = Get-UniqueCommandId
+                Write-Log "ID conflict detected during import, generated new ID: $($item.Id)"
             }
 
             # Add to All tab
@@ -4626,6 +4628,8 @@ function New-Button {
     return $button
 }
 # Determine the current highest Id that exists in the collection
+# NOTE: This function is deprecated and kept for backward compatibility only
+# New code should use Get-UniqueCommandId instead
 function Get-HighestId {
     param (
         [System.Object[]]$json
@@ -4641,6 +4645,11 @@ function Get-HighestId {
     } else {
         return 0
     }
+}
+
+# Generate a unique command ID using GUID
+function Get-UniqueCommandId {
+    return [System.Guid]::NewGuid().ToString()
 }
 
 # Generate a unique command list ID using GUID
@@ -4803,7 +4812,6 @@ $script:Settings = @{}
 $script:State = @{
     CurrentDataFile = $null
     CurrentCommand = $null
-    HighestId = 0
     FavoritesHighestOrder = 0
     TabsReadOnly = $true
     RunCommandAttached = $script:Settings.DefaultRunCommandAttached
