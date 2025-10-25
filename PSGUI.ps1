@@ -4233,12 +4233,16 @@ function Hide-SettingsDialog {
 }
 
 function Apply-Settings {
+    # Store the old default data file path to check if it changed
+    $oldDefaultDataFile = $script:Settings.DefaultDataFile
+    $newDefaultDataFile = $script:UI.TxtDefaultDataFile.Text
+
     $script:Settings.DefaultShell = $script:UI.TxtDefaultShell.Text
     $script:Settings.DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
     $script:Settings.DefaultRunCommandAttached = $script:UI.ChkRunCommandAttached.IsChecked
     $script:Settings.OpenShellAtStart = $script:UI.ChkOpenShellAtStart.IsChecked
     $script:Settings.DefaultLogsPath = $script:UI.TxtDefaultLogsPath.Text
-    $script:Settings.DefaultDataFile = $script:UI.TxtDefaultDataFile.Text
+    $script:Settings.DefaultDataFile = $newDefaultDataFile
     $script:Settings.SettingsPath = $script:UI.TxtSettingsPath.Text
     $script:Settings.FavoritesPath = $script:UI.TxtFavoritesPath.Text
     $script:Settings.DefaultHistoryPath = $script:UI.TxtDefaultHistoryPath.Text
@@ -4281,6 +4285,28 @@ function Apply-Settings {
 
     Save-Settings
     Hide-SettingsDialog
+
+    # Check if default data file changed and is different from currently opened file
+    if ($oldDefaultDataFile -ne $newDefaultDataFile -and $script:State.CurrentDataFile -ne $newDefaultDataFile) {
+        # Ask user if they want to open the new default data file
+        $result = [System.Windows.MessageBox]::Show(
+            "The default data file has been changed to:`n$newDefaultDataFile`n`nWould you like to open this file now?",
+            "Open New Default Data File?",
+            [System.Windows.MessageBoxButton]::YesNo,
+            [System.Windows.MessageBoxImage]::Question
+        )
+
+        if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
+            # Check for unsaved changes before opening
+            if (Confirm-SaveBeforeAction "opening the new default data file") {
+                $script:State.CurrentDataFile = $newDefaultDataFile
+                Initialize-DataFile $newDefaultDataFile
+                Load-NewDataFile -FilePath $newDefaultDataFile
+                Update-WindowTitle
+                Write-Status "Opened new default data file: $newDefaultDataFile"
+            }
+        }
+    }
 }
 
 # Load settings from file with fallback to default settings
