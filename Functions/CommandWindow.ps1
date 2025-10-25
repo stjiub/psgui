@@ -613,13 +613,15 @@ function Run-Command {
 
         # Synchronously create the process tab (the 2-second wait is already in New-ProcessTab)
         # Note: New-ProcessTab automatically selects the newly created tab
-        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `"" -TabName $command.Root -HistoryEntry $historyEntry
+        $psArgs = Get-PowerShellArguments -Command $escapedCommand -NoExit
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $psArgs -TabName $command.Root -HistoryEntry $historyEntry
 
         # Hide loading indicator after tab is created
         Hide-LoadingIndicator
     }
     else {
-        Start-Process -FilePath powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoExit `" & { $escapedCommand } `""
+        $psArgs = Get-PowerShellArguments -Command $escapedCommand -NoExit
+        Start-Process -FilePath powershell.exe -ArgumentList $psArgs
     }
 }
 

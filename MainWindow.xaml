@@ -465,6 +465,8 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <Label Grid.Row="0" Grid.Column="0" Content="Default Shell:"/>
@@ -560,6 +562,23 @@
 
                                 <Label Grid.Row="12" Grid.Column="0" Content="Show Debug Tab:"/>
                                 <CheckBox Grid.Row="12" Grid.Column="1" Name="ChkShowDebugTab" Margin="5" VerticalAlignment="Center"/>
+
+                                <Label Grid.Row="13" Grid.Column="0" Content="Use PowerShell Profile:"/>
+                                <CheckBox Grid.Row="13" Grid.Column="1" Name="ChkUseProfile" Margin="5" VerticalAlignment="Center"/>
+
+                                <Label Grid.Row="14" Grid.Column="0" Content="PowerShell Profile Path:"/>
+                                <TextBox Grid.Row="14" Grid.Column="1" Name="TxtProfilePath" Margin="5"/>
+                                <Button Grid.Row="14" Grid.Column="2" Name="BtnBrowseProfilePath" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                                    <Button.LayoutTransform>
+                                        <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
+                                    </Button.LayoutTransform>
+                                    <md:PackIcon Kind="FileFind" Foreground="Black"/>
+                                    <Button.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock>Change Path</TextBlock>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                </Button>
                             </Grid>
                         </ScrollViewer>
 

@@ -181,6 +181,7 @@ function Register-EventHandlers {
     $script:UI.BtnBrowseSettings.Add_Click({ Invoke-BrowseSettings })
     $script:UI.BtnBrowseFavorites.Add_Click({ Invoke-BrowseFavorites })
     $script:UI.BtnBrowseHistory.Add_Click({ Invoke-BrowseHistory })
+    $script:UI.BtnBrowseProfilePath.Add_Click({ Invoke-BrowseProfilePath })
     $script:UI.BtnApplySettings.Add_Click({ Apply-Settings })
     $script:UI.BtnCloseSettings.Add_Click({ Hide-SettingsDialog })
 
