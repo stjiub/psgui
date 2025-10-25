@@ -168,3 +168,48 @@ function Confirm-SaveBeforeAction {
     }
     return $true
 }
+
+# Build PowerShell arguments with profile support
+function Get-PowerShellArguments {
+    param (
+        [string]$Command,
+        [switch]$NoExit
+    )
+
+    # Build the base command with profile support
+    $finalCommand = ""
+
+    # Add profile loading if enabled
+    if ($script:Settings.UseProfile -and $script:Settings.ProfilePath) {
+        # Expand environment variables in the profile path
+        $expandedProfilePath = [Environment]::ExpandEnvironmentVariables($script:Settings.ProfilePath)
+
+        # Only add the profile if the file exists
+        if (Test-Path $expandedProfilePath) {
+            # Escape single quotes in the profile path for PowerShell
+            $escapedProfilePath = $expandedProfilePath -replace "'", "''"
+            # Source the profile first, then run the command
+            $finalCommand = ". '$escapedProfilePath'; "
+        }
+    }
+
+    # Append the user command
+    if ($Command) {
+        $finalCommand += $Command
+    }
+
+    # Build argument list
+    $argList = "-ExecutionPolicy Bypass"
+
+    # Add -NoExit if specified
+    if ($NoExit) {
+        $argList += " -NoExit"
+    }
+
+    # Add the command
+    if ($finalCommand) {
+        $argList += " `" & { $finalCommand } `""
+    }
+
+    return $argList
+}

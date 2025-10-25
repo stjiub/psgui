@@ -2034,6 +2034,7 @@ function Register-EventHandlers {
     $script:UI.BtnBrowseSettings.Add_Click({ Invoke-BrowseSettings })
     $script:UI.BtnBrowseFavorites.Add_Click({ Invoke-BrowseFavorites })
     $script:UI.BtnBrowseHistory.Add_Click({ Invoke-BrowseHistory })
+    $script:UI.BtnBrowseProfilePath.Add_Click({ Invoke-BrowseProfilePath })
     $script:UI.BtnApplySettings.Add_Click({ Apply-Settings })
     $script:UI.BtnCloseSettings.Add_Click({ Hide-SettingsDialog })
 
@@ -4174,6 +4175,8 @@ function Initialize-Settings {
     $script:UI.TxtCommandHistoryLimit.Text = $script:Settings.CommandHistoryLimit
     $script:UI.TxtStatusTimeout.Text = $script:Settings.StatusTimeout
     $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
+    $script:UI.ChkUseProfile.IsChecked = $script:Settings.UseProfile
+    $script:UI.TxtProfilePath.Text = $script:Settings.ProfilePath
 
     # Set the Debug tab visibility based on setting
     $debugTab = $script:UI.Window.FindName("TabControlShell").Items | Where-Object { $_.Header -eq "Debug" }
@@ -4202,6 +4205,8 @@ function Create-DefaultSettings {
         CommandHistoryLimit = $script:Settings.CommandHistoryLimit
         StatusTimeout = $script:Settings.StatusTimeout
         SaveHistory = $script:Settings.SaveHistory
+        UseProfile = $script:Settings.UseProfile
+        ProfilePath = $script:Settings.ProfilePath
     }
     return $defaultSettings
 }
@@ -4224,6 +4229,8 @@ function Show-SettingsDialog {
     $script:UI.TxtFavoritesPath.Text = $script:Settings.FavoritesPath
     $script:UI.TxtDefaultHistoryPath.Text = $script:Settings.DefaultHistoryPath
     $script:UI.ChkSaveHistory.IsChecked = $script:Settings.SaveHistory
+    $script:UI.ChkUseProfile.IsChecked = $script:Settings.UseProfile
+    $script:UI.TxtProfilePath.Text = $script:Settings.ProfilePath
 }
 
 
@@ -4248,6 +4255,8 @@ function Apply-Settings {
     $script:Settings.DefaultHistoryPath = $script:UI.TxtDefaultHistoryPath.Text
     $script:Settings.SaveHistory = $script:UI.ChkSaveHistory.IsChecked
     $script:Settings.ShowDebugTab = $script:UI.ChkShowDebugTab.IsChecked
+    $script:Settings.UseProfile = $script:UI.ChkUseProfile.IsChecked
+    $script:Settings.ProfilePath = $script:UI.TxtProfilePath.Text
 
     # Validate and set CommandHistoryLimit
     $historyLimit = 50  # Default value
@@ -4340,6 +4349,8 @@ function Load-Settings {
     $script:Settings.CommandHistoryLimit = Get-SettingValue $settings "CommandHistoryLimit" $defaultSettings.CommandHistoryLimit
     $script:Settings.StatusTimeout = Get-SettingValue $settings "StatusTimeout" $defaultSettings.StatusTimeout
     $script:Settings.SaveHistory = Get-SettingValue $settings "SaveHistory" $defaultSettings.SaveHistory
+    $script:Settings.UseProfile = Get-SettingValue $settings "UseProfile" $defaultSettings.UseProfile
+    $script:Settings.ProfilePath = Get-SettingValue $settings "ProfilePath" $defaultSettings.ProfilePath
 }
 
 # Save settings to file
@@ -4364,6 +4375,8 @@ function Save-Settings {
             CommandHistoryLimit = $script:Settings.CommandHistoryLimit
             StatusTimeout = $script:Settings.StatusTimeout
             SaveHistory = $script:Settings.SaveHistory
+            UseProfile = $script:Settings.UseProfile
+            ProfilePath = $script:Settings.ProfilePath
         }
 
         $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
@@ -4432,6 +4445,16 @@ function Invoke-BrowseDataFile {
     $dialog.DefaultExt = ".json"
     if ($dialog.ShowDialog()) {
         $script:UI.TxtDefaultDataFile.Text = $dialog.FileName
+    }
+}
+
+function Invoke-BrowseProfilePath {
+    $dialog = New-Object Microsoft.Win32.OpenFileDialog
+    $dialog.FileName = $script:UI.TxtProfilePath.Text
+    $dialog.Filter = "PowerShell Profile (*.ps1)|*.ps1|All files (*.*)|*.*"
+    $dialog.DefaultExt = ".ps1"
+    if ($dialog.ShowDialog()) {
+        $script:UI.TxtProfilePath.Text = $dialog.FileName
     }
 }
 # Create a new WPF window from an XML file and load all WPF elements and return them under one variable
@@ -4834,6 +4857,44 @@ function Confirm-SaveBeforeAction {
         }
     }
     return $true
+}
+
+# Build PowerShell arguments with profile support
+function Get-PowerShellArguments {
+    param (
+        [string]$Command,
+        [switch]$NoExit
+    )
+
+    # Start building the argument list
+    $argList = @("-ExecutionPolicy", "Bypass")
+
+    # Add profile parameter based on settings
+    if ($script:Settings.UseProfile -and $script:Settings.ProfilePath) {
+        # Expand environment variables in the profile path
+        $expandedProfilePath = [Environment]::ExpandEnvironmentVariables($script:Settings.ProfilePath)
+
+        # Only add the profile if the file exists
+        if (Test-Path $expandedProfilePath) {
+            $argList += @("-File", $expandedProfilePath)
+        }
+    } else {
+        # If not using profile, add -NoProfile
+        $argList += "-NoProfile"
+    }
+
+    # Add -NoExit if specified
+    if ($NoExit) {
+        $argList += "-NoExit"
+    }
+
+    # Add the command to execute
+    if ($Command) {
+        $argList += @("-Command", $Command)
+    }
+
+    # Join arguments into a single string
+    return $argList -join " "
 }
 # App Version
 $script:Version = "1.4.0"
