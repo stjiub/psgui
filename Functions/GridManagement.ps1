@@ -415,15 +415,27 @@ function Add-GridColumns {
         [bool]$isFavorites
     )
 
-    $properties = $propertyType.GetProperties()
-    foreach ($prop in $properties) {
-        # Skip the Order property for non-Favorites tabs
-        if (-not $isFavorites -and $prop.Name -eq "Order") {
-            continue
+    # Define the desired column order
+    # For regular tabs: Name, Description, Category, PreCommand, Command, SkipParameterSelect, Log, Id
+    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, SkipParameterSelect, Log, Id
+    $columnOrder = if ($isFavorites) {
+        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "SkipParameterSelect", "Log", "Id")
+    } else {
+        @("Name", "Description", "Category", "PreCommand", "Command", "SkipParameterSelect", "Log", "Id")
+    }
+
+    # Add columns in the specified order
+    foreach ($propName in $columnOrder) {
+        $prop = $propertyType.GetProperty($propName)
+        if ($prop) {
+            # Skip the Order property for non-Favorites tabs
+            if (-not $isFavorites -and $propName -eq "Order") {
+                continue
+            }
+
+            $column = New-GridColumn -PropertyName $propName -IsFavorites $isFavorites
+            $grid.Columns.Add($column)
         }
-        
-        $column = New-GridColumn -PropertyName $prop.Name -IsFavorites $isFavorites
-        $grid.Columns.Add($column)
     }
 }
 
