@@ -176,12 +176,12 @@ function Register-EventHandlers {
     # Command dialog button events - Now handled per-window in New-CommandWindow
 
     # Settings dialog button events
-    $script:UI.BtnBrowseLogs.Add_Click({ Invoke-BrowseLogs })
-    $script:UI.BtnBrowseDataFile.Add_Click({ Invoke-BrowseDataFile })
-    $script:UI.BtnBrowseSettings.Add_Click({ Invoke-BrowseSettings })
-    $script:UI.BtnBrowseFavorites.Add_Click({ Invoke-BrowseFavorites })
-    $script:UI.BtnBrowseHistory.Add_Click({ Invoke-BrowseHistory })
-    $script:UI.BtnBrowseProfilePath.Add_Click({ Invoke-BrowseProfilePath })
+    $script:UI.BtnBrowseLogs.Add_Click({ Invoke-BrowsePath -TextBox $script:UI.TxtDefaultLogsPath -IsFolder })
+    $script:UI.BtnBrowseDataFile.Add_Click({ Invoke-BrowsePath -TextBox $script:UI.TxtDefaultDataFile -Filter "JSON files (*.json)|*.json|All files (*.*)|*.*" -DefaultExt ".json" })
+    $script:UI.BtnBrowseSettings.Add_Click({ Invoke-BrowsePath -TextBox $script:UI.TxtSettingsPath -Filter "JSON files (*.json)|*.json|All files (*.*)|*.*" -DefaultExt ".json" })
+    $script:UI.BtnBrowseFavorites.Add_Click({ Invoke-BrowsePath -TextBox $script:UI.TxtFavoritesPath -Filter "JSON files (*.json)|*.json|All files (*.*)|*.*" -DefaultExt ".json" })
+    $script:UI.BtnBrowseHistory.Add_Click({ Invoke-BrowsePath -TextBox $script:UI.TxtDefaultHistoryPath -Filter "JSON files (*.json)|*.json|All files (*.*)|*.*" -DefaultExt ".json" })
+    $script:UI.BtnBrowseProfilePath.Add_Click({ Invoke-BrowsePath -TextBox $script:UI.TxtProfilePath -Filter "PowerShell Profile (*.ps1)|*.ps1|All files (*.*)|*.*" -DefaultExt ".ps1" })
     $script:UI.BtnApplySettings.Add_Click({ Apply-Settings })
     $script:UI.BtnCloseSettings.Add_Click({ Hide-SettingsDialog })
 
