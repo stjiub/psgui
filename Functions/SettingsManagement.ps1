@@ -86,6 +86,15 @@ function Create-DefaultSettings {
 
 # Show dialog window for settings
 function Show-SettingsDialog {
+    # Save the current shell visibility state and hide it to prevent embedded windows from appearing over the dialog
+    if ($script:UI.Shell -and $script:UI.Shell.Visibility -eq "Visible") {
+        $script:State.ShellVisibleBeforeDialog = $true
+        # Use the existing Toggle-ShellGrid function to properly hide the shell
+        Toggle-ShellGrid
+    } else {
+        $script:State.ShellVisibleBeforeDialog = $false
+    }
+
     $script:UI.Overlay.Visibility = "Visible"
     $script:UI.SettingsDialog.Visibility = "Visible"
 
@@ -110,6 +119,12 @@ function Show-SettingsDialog {
 function Hide-SettingsDialog {
     $script:UI.SettingsDialog.Visibility = "Hidden"
     $script:UI.Overlay.Visibility = "Collapsed"
+
+    # Restore the shell to its previous state
+    if ($script:State.ShellVisibleBeforeDialog -and $script:UI.Shell.Visibility -eq "Collapsed") {
+        # Use the existing Toggle-ShellGrid function to properly restore the shell
+        Toggle-ShellGrid
+    }
 }
 
 function Apply-Settings {
