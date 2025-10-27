@@ -611,13 +611,13 @@ function Run-Command {
             $script:UI.TabControlShell.SelectedItem = $shellTab
         }
 
-        # Synchronously create the process tab (the 2-second wait is already in New-ProcessTab)
+        # Asynchronously create the process tab - the loading indicator will stay animated
         # Note: New-ProcessTab automatically selects the newly created tab
         $psArgs = Get-PowerShellArguments -Command $escapedCommand -NoExit
-        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $psArgs -TabName $command.Root -HistoryEntry $historyEntry
-
-        # Hide loading indicator after tab is created
-        Hide-LoadingIndicator
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $psArgs -TabName $command.Root -HistoryEntry $historyEntry -OnComplete {
+            # Hide loading indicator after tab is created
+            Hide-LoadingIndicator
+        }
     }
     else {
         $psArgs = Get-PowerShellArguments -Command $escapedCommand -NoExit

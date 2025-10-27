@@ -259,79 +259,126 @@ function New-PSTabContextMenu {
     return $contextMenu
 }
 
-# Create a new embedded process under a Tab Control
+# Create a new embedded process under a Tab Control (async version)
 function New-ProcessTab {
     param (
         $tabControl,
         $process,
         $processArgs,
         $tabName = "PS_$($tabControl.Items.Count)",
-        [PSCustomObject]$historyEntry = $null
+        [PSCustomObject]$historyEntry = $null,
+        [scriptblock]$OnComplete = $null
     )
 
+    # Start the process
     $proc = Start-Process $process -WindowStyle Hidden -PassThru -ArgumentList $processArgs
 
-    Start-Sleep -Seconds 2
-
-    # Find the window handle of the PowerShell process using process ID
-    $psHandle = [Win32]::FindWindowByProcessId($proc.Id)
-    if ($psHandle -eq [IntPtr]::Zero) {
-        Write-Log "Failed to retrieve the PowerShell window handle for process ID: $($proc.Id)."
-        return
+    # Create timer to poll for window handle
+    $timer = New-Object System.Windows.Threading.DispatcherTimer
+    $timer.Interval = [TimeSpan]::FromMilliseconds(100)
+    $timer.Tag = @{
+        Process = $proc
+        TabControl = $tabControl
+        TabName = $tabName
+        HistoryEntry = $historyEntry
+        OnComplete = $OnComplete
+        StartTime = Get-Date
+        Timeout = 10  # 10 second timeout
     }
 
-    $tab = New-Tab -Name $tabName
-    $tabData = @{}
-    $tabData["Handle"] = $psHandle
-    $tabData["Process"] = $proc
-    $tabData["HistoryEntry"] = $historyEntry
-    $tab.Tag = $tabData
-
-    # Create a WindowsFormsHost and a Panel to host the PowerShell window
-    $windowsFormsHost = New-Object System.Windows.Forms.Integration.WindowsFormsHost
-    $panel = New-Object System.Windows.Forms.Panel
-    $panel.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $panel.BackColor = [System.Drawing.Color]::Black
-    $windowsFormsHost.Child = $panel
-    $tab.Content = $windowsFormsHost
-
-    # Add the TabItem to the TabControl before the "New Tab" tab
-    $tabControl.Items.Insert($tabControl.Items.Count - 1, $tab)
-    $tabControl.Dispatcher.Invoke([action]{$tabControl.SelectedItem = $tab})
-    #$tabControl.SelectedItem = $tab
-
-    # Remove window frame (title bar, borders) by modifying window style
-    $currentStyle = [Win32]::GetWindowLong($psHandle, $script:GWL_STYLE)
-    [Win32]::SetWindowLong($psHandle, $script:GWL_STYLE, $currentStyle -band -0x00C00000)  # Remove WS_CAPTION and WS_THICKFRAME
-
-    # Re-parent the PowerShell window to the panel
-    [Win32]::SetParent($psHandle, $panel.Handle)
-    [Win32]::ShowWindow($psHandle, 5)  # 5 = SW_SHOW
-    [Win32]::MoveWindow($psHandle, 0, 0, $panel.Width, $panel.Height, $true)
-    
-    # Handle resizing
-    $panel.Add_SizeChanged({
-        param($sender, $eventArgs)
-        $handle = $script:UI.PSTabControl.SelectedItem.Tag["Handle"]
-        if ($handle -ne [IntPtr]::Zero) {
-            [Win32]::MoveWindow($handle, 0, 0, $sender.Width, $sender.Height, $true)
-        }
-        else {
-            Write-Log "Invalid window handle in SizeChanged event."
-        }
-    })
-
-    # Add context menu to the tab header
-    $tab.ContextMenu = New-PSTabContextMenu -Tab $tab
-
-    # Handle middle-click to detach tab
-    $tab.Add_PreviewMouseDown({
+    $timer.Add_Tick({
         param($sender, $e)
-        if ($e.MiddleButton -eq 'Pressed') {
-            Detach-CurrentTab
-            $e.Handled = $true
+
+        $data = $sender.Tag
+        $elapsed = ((Get-Date) - $data.StartTime).TotalSeconds
+
+        # Try to find the window handle
+        $psHandle = [Win32]::FindWindowByProcessId($data.Process.Id)
+
+        if ($psHandle -ne [IntPtr]::Zero) {
+            # Success! Stop timer and create tab
+            $sender.Stop()
+
+            try {
+                $tab = New-Tab -Name $data.TabName
+                $tabData = @{}
+                $tabData["Handle"] = $psHandle
+                $tabData["Process"] = $data.Process
+                $tabData["HistoryEntry"] = $data.HistoryEntry
+                $tab.Tag = $tabData
+
+                # Create a WindowsFormsHost and a Panel to host the PowerShell window
+                $windowsFormsHost = New-Object System.Windows.Forms.Integration.WindowsFormsHost
+                $panel = New-Object System.Windows.Forms.Panel
+                $panel.Dock = [System.Windows.Forms.DockStyle]::Fill
+                $panel.BackColor = [System.Drawing.Color]::Black
+                $windowsFormsHost.Child = $panel
+                $tab.Content = $windowsFormsHost
+
+                # Add the TabItem to the TabControl before the "New Tab" tab
+                $data.TabControl.Items.Insert($data.TabControl.Items.Count - 1, $tab)
+                $data.TabControl.SelectedItem = $tab
+
+                # Remove window frame (title bar, borders) by modifying window style
+                $currentStyle = [Win32]::GetWindowLong($psHandle, $script:GWL_STYLE)
+                [Win32]::SetWindowLong($psHandle, $script:GWL_STYLE, $currentStyle -band -0x00C00000)  # Remove WS_CAPTION and WS_THICKFRAME
+
+                # Re-parent the PowerShell window to the panel
+                [Win32]::SetParent($psHandle, $panel.Handle)
+                [Win32]::ShowWindow($psHandle, 5)  # 5 = SW_SHOW
+                [Win32]::MoveWindow($psHandle, 0, 0, $panel.Width, $panel.Height, $true)
+
+                # Handle resizing
+                $panel.Add_SizeChanged({
+                    param($resizeSender, $resizeEventArgs)
+                    $resizeHandle = $script:UI.PSTabControl.SelectedItem.Tag["Handle"]
+                    if ($resizeHandle -ne [IntPtr]::Zero) {
+                        [Win32]::MoveWindow($resizeHandle, 0, 0, $resizeSender.Width, $resizeSender.Height, $true)
+                    }
+                    else {
+                        Write-Log "Invalid window handle in SizeChanged event."
+                    }
+                })
+
+                # Add context menu to the tab header
+                $tab.ContextMenu = New-PSTabContextMenu -Tab $tab
+
+                # Handle middle-click to detach tab
+                $tab.Add_PreviewMouseDown({
+                    param($tabSender, $tabE)
+                    if ($tabE.MiddleButton -eq 'Pressed') {
+                        Detach-CurrentTab
+                        $tabE.Handled = $true
+                    }
+                })
+
+                Write-Log "PowerShell tab created successfully for process ID: $($data.Process.Id)"
+
+                # Call completion callback if provided
+                if ($data.OnComplete) {
+                    & $data.OnComplete
+                }
+            }
+            catch {
+                Write-Log "Error creating PowerShell tab: $_"
+                if ($data.OnComplete) {
+                    & $data.OnComplete
+                }
+            }
         }
+        elseif ($elapsed -gt $data.Timeout) {
+            # Timeout - stop trying
+            $sender.Stop()
+            Write-Log "Timeout: Failed to retrieve the PowerShell window handle for process ID: $($data.Process.Id) after $($data.Timeout) seconds."
+
+            if ($data.OnComplete) {
+                & $data.OnComplete
+            }
+        }
+        # Otherwise, keep polling
     })
+
+    $timer.Start()
 }
 
 # Detach and unparent an embedded process so it is running outside of PSGUI
