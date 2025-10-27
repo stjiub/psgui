@@ -51,7 +51,7 @@ function Start-MainWindow {
     $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
     $loadedFavorites = Load-Favorites -AllData $json
     foreach ($fav in $loadedFavorites) {
-        $favItemsSource.Add($fav)
+        [void]$favItemsSource.Add($fav)
     }
     $favTab = New-DataTab -Name "*" -ItemsSource $favItemsSource -TabControl $script:UI.TabControl
     $favTab.Content.Add_CellEditEnding({
@@ -113,7 +113,7 @@ function Start-MainWindow {
                 }
             }
         })
-        $script:UI.Tabs.Add($category, $tab)
+        [void]$script:UI.Tabs.Add($category, $tab)
     }
     Sort-TabControl -TabControl $script:UI.TabControl
 
@@ -223,7 +223,7 @@ function Register-EventHandlers {
     $menuNewSession.Add_Click({
         New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $script:Settings.DefaultShellArgs
     })
-    $addTabContextMenu.Items.Add($menuNewSession)
+    [void]$addTabContextMenu.Items.Add($menuNewSession)
 
     # Attach PS Session menu item
     $menuAttachSession = New-Object System.Windows.Controls.MenuItem
@@ -241,7 +241,7 @@ function Register-EventHandlers {
     $menuAttachSession.Add_Click({
         Show-AttachWindow
     })
-    $addTabContextMenu.Items.Add($menuAttachSession)
+    [void]$addTabContextMenu.Items.Add($menuAttachSession)
 
     $script:UI.PSAddTab.ContextMenu = $addTabContextMenu
 
