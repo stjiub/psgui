@@ -206,9 +206,12 @@ function Get-PowerShellArguments {
         $argList += " -NoExit"
     }
 
-    # Add the command
+    # Add the command with proper escaping
     if ($finalCommand) {
-        $argList += " `" & { $finalCommand } `""
+        # Escape double quotes in the command by doubling them for cmd.exe parsing
+        $escapedCommand = $finalCommand -replace '"', '""'
+        # Use -Command parameter explicitly with properly escaped quotes
+        $argList += " -Command `"& { $escapedCommand }`""
     }
 
     return $argList

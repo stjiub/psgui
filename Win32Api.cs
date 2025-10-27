@@ -18,7 +18,7 @@ public class Win32 {
             GetWindowThreadProcessId(hWnd, out windowProcessId);
             if (windowProcessId == processId) {
                 foundHandle = hWnd;
-                return false;  // Stop enumerating
+                return false;  // Stop enumerating - take first window we find
             }
             return true;  // Continue enumerating
         }, IntPtr.Zero);

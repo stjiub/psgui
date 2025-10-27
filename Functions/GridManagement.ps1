@@ -416,12 +416,12 @@ function Add-GridColumns {
     )
 
     # Define the desired column order
-    # For regular tabs: Name, Description, Category, PreCommand, Command, SkipParameterSelect, Log, Id
-    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, SkipParameterSelect, Log, Id
+    # For regular tabs: Name, Description, Category, PreCommand, Command, ShellOverride, SkipParameterSelect, Log, Id
+    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, ShellOverride, SkipParameterSelect, Log, Id
     $columnOrder = if ($isFavorites) {
-        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "SkipParameterSelect", "Log", "Id")
+        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "ShellOverride", "SkipParameterSelect", "Log", "Id")
     } else {
-        @("Name", "Description", "Category", "PreCommand", "Command", "SkipParameterSelect", "Log", "Id")
+        @("Name", "Description", "Category", "PreCommand", "Command", "ShellOverride", "SkipParameterSelect", "Log", "Id")
     }
 
     # Add columns in the specified order
@@ -508,7 +508,7 @@ function Add-ToGrid {
 function Get-GridIndexOfId {
     param (
         [System.Windows.Controls.DataGrid]$grid,
-        [int]$id
+        [string]$id
     )
 
     $itemsSource = $grid.ItemsSource
@@ -670,6 +670,24 @@ function Invoke-GridFilter {
 
     # Get the default view and clear any existing filter
     $view = [System.Windows.Data.CollectionViewSource]::GetDefaultView($grid.ItemsSource)
+
+    # Cancel any pending edits before applying filter
+    if ($view.IsEditingItem) {
+        try {
+            $view.CancelEdit()
+        }
+        catch {
+            # Ignore errors if cancel fails
+        }
+    }
+    if ($view.IsAddingNew) {
+        try {
+            $view.CancelNew()
+        }
+        catch {
+            # Ignore errors if cancel fails
+        }
+    }
 
     if ([string]::IsNullOrWhiteSpace($searchText)) {
         # If search is empty, clear the filter
