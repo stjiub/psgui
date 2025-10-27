@@ -288,60 +288,38 @@ function Ensure-SettingsFileExists {
     }
 }
 
-function Invoke-BrowseLogs {
-    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-    $dialog.SelectedPath = $script:UI.TxtDefaultLogsPath.Text
-    if ($dialog.ShowDialog() -eq 'OK') {
-        $script:UI.TxtDefaultLogsPath.Text = $dialog.SelectedPath
-    }
-}
+# Generic function to browse for a file or folder
+function Invoke-BrowsePath {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Windows.Controls.TextBox]$TextBox,
 
-function Invoke-BrowseSettings {
-    $dialog = New-Object Microsoft.Win32.OpenFileDialog
-    $dialog.FileName = $script:UI.TxtSettingsPath.Text
-    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
-    $dialog.DefaultExt = ".json"
-    if ($dialog.ShowDialog()) {
-        $script:UI.TxtSettingsPath.Text = $dialog.FileName
-    }
-}
+        [Parameter(Mandatory=$false)]
+        [string]$Filter = "All files (*.*)|*.*",
 
-function Invoke-BrowseFavorites {
-    $dialog = New-Object Microsoft.Win32.OpenFileDialog
-    $dialog.FileName = $script:UI.TxtFavoritesPath.Text
-    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
-    $dialog.DefaultExt = ".json"
-    if ($dialog.ShowDialog()) {
-        $script:UI.TxtFavoritesPath.Text = $dialog.FileName
-    }
-}
+        [Parameter(Mandatory=$false)]
+        [string]$DefaultExt = "",
 
-function Invoke-BrowseHistory {
-    $dialog = New-Object Microsoft.Win32.OpenFileDialog
-    $dialog.FileName = $script:UI.TxtDefaultHistoryPath.Text
-    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
-    $dialog.DefaultExt = ".json"
-    if ($dialog.ShowDialog()) {
-        $script:UI.TxtDefaultHistoryPath.Text = $dialog.FileName
-    }
-}
+        [Parameter(Mandatory=$false)]
+        [switch]$IsFolder
+    )
 
-function Invoke-BrowseDataFile {
-    $dialog = New-Object Microsoft.Win32.OpenFileDialog
-    $dialog.FileName = $script:UI.TxtDefaultDataFile.Text
-    $dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
-    $dialog.DefaultExt = ".json"
-    if ($dialog.ShowDialog()) {
-        $script:UI.TxtDefaultDataFile.Text = $dialog.FileName
+    if ($IsFolder) {
+        $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+        $dialog.SelectedPath = $TextBox.Text
+        if ($dialog.ShowDialog() -eq 'OK') {
+            $TextBox.Text = $dialog.SelectedPath
+        }
     }
-}
-
-function Invoke-BrowseProfilePath {
-    $dialog = New-Object Microsoft.Win32.OpenFileDialog
-    $dialog.FileName = $script:UI.TxtProfilePath.Text
-    $dialog.Filter = "PowerShell Profile (*.ps1)|*.ps1|All files (*.*)|*.*"
-    $dialog.DefaultExt = ".ps1"
-    if ($dialog.ShowDialog()) {
-        $script:UI.TxtProfilePath.Text = $dialog.FileName
+    else {
+        $dialog = New-Object Microsoft.Win32.OpenFileDialog
+        $dialog.FileName = $TextBox.Text
+        $dialog.Filter = $Filter
+        if ($DefaultExt) {
+            $dialog.DefaultExt = $DefaultExt
+        }
+        if ($dialog.ShowDialog()) {
+            $TextBox.Text = $dialog.FileName
+        }
     }
 }
