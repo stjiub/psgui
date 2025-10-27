@@ -115,6 +115,7 @@ function Invoke-MainInjectClick {
     $command.PreCommand = $selection.PreCommand
     $command.SkipParameterSelect = $selection.SkipParameterSelect
     $command.Log = $selection.Log
+    $command.ShellOverride = $selection.ShellOverride
 
     Write-Log "Preparing command for injection - Root: $($command.Root), SkipParameterSelect: $($command.SkipParameterSelect)"
 

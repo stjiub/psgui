@@ -12,6 +12,7 @@ function Invoke-MainRunClick {
     $command.PreCommand = $selection.PreCommand
     $command.SkipParameterSelect = $selection.SkipParameterSelect
     $command.Log = $selection.Log
+    $command.ShellOverride = $selection.ShellOverride
 
     Write-Log "Command created - Root: $($command.Root), Log: $($command.Log), SkipParameterSelect: $($command.SkipParameterSelect)"
 
@@ -593,6 +594,14 @@ function Run-Command {
     $escapedCommand = $command.Full -replace '"', '\"'
     Write-Log "Escaped Command: $escapedCommand"
 
+    # Determine which shell to use - ShellOverride takes precedence over DefaultShell
+    $shellToUse = if ([string]::IsNullOrWhiteSpace($command.ShellOverride)) {
+        $script:Settings.DefaultShell
+    } else {
+        $command.ShellOverride
+    }
+    Write-Log "Shell to use: $shellToUse (Override: $($command.ShellOverride), Default: $($script:Settings.DefaultShell))"
+
     if ($runAttached) {
         # Show the shell grid if it's not visible
         if ($script:UI.Shell.Visibility -ne "Visible") {
@@ -614,14 +623,15 @@ function Run-Command {
         # Asynchronously create the process tab - the loading indicator will stay animated
         # Note: New-ProcessTab automatically selects the newly created tab
         $psArgs = Get-PowerShellArguments -Command $escapedCommand -NoExit
-        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $script:Settings.DefaultShell -ProcessArgs $psArgs -TabName $command.Root -HistoryEntry $historyEntry -OnComplete {
+        Write-Log "Running attached command: Shell=$shellToUse, Args=$psArgs"
+        New-ProcessTab -TabControl $script:UI.PSTabControl -Process $shellToUse -ProcessArgs $psArgs -TabName $command.Root -HistoryEntry $historyEntry -OnComplete {
             # Hide loading indicator after tab is created
             Hide-LoadingIndicator
         }
     }
     else {
         $psArgs = Get-PowerShellArguments -Command $escapedCommand -NoExit
-        Start-Process -FilePath powershell.exe -ArgumentList $psArgs
+        Start-Process -FilePath $shellToUse -ArgumentList $psArgs
     }
 }
 

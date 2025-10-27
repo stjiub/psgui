@@ -271,7 +271,9 @@ function New-ProcessTab {
     )
 
     # Start the process
+    Write-Log "Starting process: $process with args: $processArgs"
     $proc = Start-Process $process -WindowStyle Hidden -PassThru -ArgumentList $processArgs
+    Write-Log "Process started with PID: $($proc.Id)"
 
     # Create timer to poll for window handle
     $timer = New-Object System.Windows.Threading.DispatcherTimer
@@ -297,6 +299,7 @@ function New-ProcessTab {
 
         if ($psHandle -ne [IntPtr]::Zero) {
             # Success! Stop timer and create tab
+            Write-Log "Window handle found for PID $($data.Process.Id): $psHandle after $([math]::Round($elapsed, 2)) seconds"
             $sender.Stop()
 
             try {
@@ -324,9 +327,22 @@ function New-ProcessTab {
                 [Win32]::SetWindowLong($psHandle, $script:GWL_STYLE, $currentStyle -band -0x00C00000)  # Remove WS_CAPTION and WS_THICKFRAME
 
                 # Re-parent the PowerShell window to the panel
-                [Win32]::SetParent($psHandle, $panel.Handle)
-                [Win32]::ShowWindow($psHandle, 5)  # 5 = SW_SHOW
-                [Win32]::MoveWindow($psHandle, 0, 0, $panel.Width, $panel.Height, $true)
+                $reparentResult = [Win32]::SetParent($psHandle, $panel.Handle)
+                Write-Log "SetParent result: $reparentResult, Panel handle: $($panel.Handle)"
+
+                $showResult = [Win32]::ShowWindow($psHandle, 5)  # 5 = SW_SHOW
+                Write-Log "ShowWindow result: $showResult"
+
+                $moveResult = [Win32]::MoveWindow($psHandle, 0, 0, $panel.Width, $panel.Height, $true)
+                Write-Log "MoveWindow result: $moveResult (Panel size: $($panel.Width)x$($panel.Height))"
+
+                # Check if process is still running
+                $data.Process.Refresh()
+                if ($data.Process.HasExited) {
+                    Write-Log "WARNING: Process $($data.Process.Id) has already exited! Window will disappear."
+                } else {
+                    Write-Log "Process $($data.Process.Id) is still running"
+                }
 
                 # Handle resizing
                 $panel.Add_SizeChanged({

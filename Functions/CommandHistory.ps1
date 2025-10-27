@@ -528,6 +528,7 @@ function Load-CommandHistory {
             $command.SkipParameterSelect = $serialized.CommandData.SkipParameterSelect
             $command.Log = $serialized.CommandData.Log
             $command.LogPath = $serialized.CommandData.LogPath
+            $command.ShellOverride = $serialized.CommandData.ShellOverride
 
             # Recreate history entry
             $historyEntry = [PSCustomObject]@{
