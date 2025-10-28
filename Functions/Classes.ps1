@@ -8,7 +8,7 @@ class RowData {
     [bool]$SkipParameterSelect
     [string]$PreCommand
     [string]$PostCommand
-    [bool]$Log
+    [string]$Log
     [string]$ShellOverride
 }
 
@@ -39,7 +39,7 @@ class Command {
     [string]$PostCommand
     [System.Object[]]$Parameters
     [bool]$SkipParameterSelect
-    [bool]$Log
+    [string]$Log
     [string]$LogPath
     [string]$ShellOverride
 }

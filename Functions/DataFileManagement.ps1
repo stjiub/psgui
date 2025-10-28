@@ -78,7 +78,16 @@ function Load-DataFile {
                     $rowData.SkipParameterSelect = $item.SkipParameterSelect
                     $rowData.PreCommand = $item.PreCommand
                     $rowData.PostCommand = $item.PostCommand
-                    $rowData.Log = $item.Log
+
+                    # Migrate Log from bool to string format
+                    if ($item.Log -is [bool]) {
+                        $rowData.Log = if ($item.Log) { "Transcript" } else { "" }
+                        Write-Log "Migrated Log value from bool ($($item.Log)) to string ($($rowData.Log)) for command: $($item.Name)"
+                    }
+                    else {
+                        $rowData.Log = $item.Log
+                    }
+
                     $rowData.ShellOverride = $item.ShellOverride
                     $rowDataCollection.Add($rowData)
                 }

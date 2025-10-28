@@ -23,10 +23,16 @@ function Invoke-MainRunClick {
             $command.CleanCommand = ""
 
             # Add log command if logging is enabled
-            if ($command.Log) {
+            if ($command.Log -eq "Transcript") {
                 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
                 $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
                 $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
+                $command.Full += "; "
+            }
+            elseif ($command.Log -eq "PSTask") {
+                $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+                $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+                $command.Full = "Start-PSTaskLogging -LogName `"$($command.Root)`" -LogPathOverride `"$($command.LogPath)`""
                 $command.Full += "; "
             }
 
@@ -45,9 +51,12 @@ function Invoke-MainRunClick {
                 $command.CleanCommand += "; " + $command.PostCommand
             }
 
-            # Add Stop-Transcript if logging is enabled
-            if ($command.Log) {
+            # Add stop logging command if logging is enabled
+            if ($command.Log -eq "Transcript") {
                 $command.Full += "; Stop-Transcript"
+            }
+            elseif ($command.Log -eq "PSTask") {
+                $command.Full += "; Stop-PSTaskLogging"
             }
 
             # Add to command history (no grid since parameters were skipped)
@@ -432,10 +441,16 @@ function Compile-Command {
     $command.CleanCommand = ""
 
     # Add log command if logging is enabled
-    if ($command.Log) {
+    if ($command.Log -eq "Transcript") {
         $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
         $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
         $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
+        $command.Full += "; "
+    }
+    elseif ($command.Log -eq "PSTask") {
+        $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+        $command.Full = "Start-PSTaskLogging -LogName `"$($command.Root)`" -LogPathOverride `"$($command.LogPath)`""
         $command.Full += "; "
     }
 
@@ -528,9 +543,12 @@ function Compile-Command {
         $command.CleanCommand += "; " + $command.PostCommand
     }
 
-    # Add Stop-Transcript if logging is enabled
-    if ($command.Log) {
+    # Add stop logging command if logging is enabled
+    if ($command.Log -eq "Transcript") {
         $command.Full += "; Stop-Transcript"
+    }
+    elseif ($command.Log -eq "PSTask") {
+        $command.Full += "; Stop-PSTaskLogging"
     }
 }
 
@@ -585,10 +603,10 @@ function Run-Command {
 
     Write-Log "Running: $($command.Root)"
     Write-Log "Full Command: $($command.Full)"
-    Write-Log "Log Enabled: $($command.Log)"
+    Write-Log "Log Type: $($command.Log)"
 
     # Ensure log directory exists if logging is enabled
-    if ($command.Log) {
+    if ($command.Log -eq "Transcript" -or $command.Log -eq "PSTask") {
         try {
             if (-not (Test-Path $script:Settings.DefaultLogsPath)) {
                 New-Item -ItemType Directory -Path $script:Settings.DefaultLogsPath -Force | Out-Null

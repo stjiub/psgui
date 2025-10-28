@@ -385,8 +385,8 @@ function New-GridColumn {
         [bool]$isFavorites
     )
 
-    # Create a checkbox column for SkipParameterSelect and Log
-    if ($propertyName -eq "SkipParameterSelect" -or $propertyName -eq "Log") {
+    # Create a checkbox column for SkipParameterSelect
+    if ($propertyName -eq "SkipParameterSelect") {
         $column = New-Object System.Windows.Controls.DataGridCheckBoxColumn
         $column.Header = $propertyName
         $binding = New-Object System.Windows.Data.Binding $propertyName

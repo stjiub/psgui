@@ -467,6 +467,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <Label Grid.Row="0" Grid.Column="0" Content="Default Shell:"/>
@@ -579,6 +580,9 @@
                                         </ToolTip>
                                     </Button.ToolTip>
                                 </Button>
+
+                                <Label Grid.Row="15" Grid.Column="0" Content="Enable PSTask:"/>
+                                <CheckBox Grid.Row="15" Grid.Column="1" Name="ChkEnablePSTask" Margin="5" VerticalAlignment="Center"/>
                             </Grid>
                         </ScrollViewer>
 

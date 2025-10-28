@@ -50,6 +50,7 @@ function Initialize-Settings {
     $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
     $script:UI.ChkUseProfile.IsChecked = $script:Settings.UseProfile
     $script:UI.TxtProfilePath.Text = $script:Settings.ProfilePath
+    $script:UI.ChkEnablePSTask.IsChecked = $script:Settings.EnablePSTask
 
     # Set the Debug tab visibility based on setting
     $debugTab = $script:UI.Window.FindName("TabControlShell").Items | Where-Object { $_.Header -eq "Debug" }
@@ -80,6 +81,7 @@ function Create-DefaultSettings {
         SaveHistory = $script:Settings.SaveHistory
         UseProfile = $script:Settings.UseProfile
         ProfilePath = $script:Settings.ProfilePath
+        EnablePSTask = $script:Settings.EnablePSTask
     }
     return $defaultSettings
 }
@@ -113,6 +115,7 @@ function Show-SettingsDialog {
     $script:UI.ChkSaveHistory.IsChecked = $script:Settings.SaveHistory
     $script:UI.ChkUseProfile.IsChecked = $script:Settings.UseProfile
     $script:UI.TxtProfilePath.Text = $script:Settings.ProfilePath
+    $script:UI.ChkEnablePSTask.IsChecked = $script:Settings.EnablePSTask
 }
 
 
@@ -132,6 +135,27 @@ function Apply-Settings {
     $oldDefaultDataFile = $script:Settings.DefaultDataFile
     $newDefaultDataFile = $script:UI.TxtDefaultDataFile.Text
 
+    # Check if EnablePSTask is being turned on
+    $oldEnablePSTask = $script:Settings.EnablePSTask
+    $newEnablePSTask = $script:UI.ChkEnablePSTask.IsChecked
+
+    if ($newEnablePSTask -and -not $oldEnablePSTask) {
+        # Check if PSTask module is installed
+        if (-not (Test-PSTaskModule)) {
+            $result = [System.Windows.MessageBox]::Show(
+                "PSTask module is not installed. Please install it first using:`n`nInstall-Module -Name PSTask`n`nThen restart the application. Would you like to cancel enabling PSTask?",
+                "PSTask Module Not Found",
+                [System.Windows.MessageBoxButton]::YesNo,
+                [System.Windows.MessageBoxImage]::Warning
+            )
+
+            if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
+                $script:UI.ChkEnablePSTask.IsChecked = $false
+                return
+            }
+        }
+    }
+
     $script:Settings.DefaultShell = $script:UI.TxtDefaultShell.Text
     $script:Settings.DefaultShellArgs = $script:UI.TxtDefaultShellArgs.Text
     $script:Settings.DefaultRunCommandAttached = $script:UI.ChkRunCommandAttached.IsChecked
@@ -145,6 +169,7 @@ function Apply-Settings {
     $script:Settings.ShowDebugTab = $script:UI.ChkShowDebugTab.IsChecked
     $script:Settings.UseProfile = $script:UI.ChkUseProfile.IsChecked
     $script:Settings.ProfilePath = $script:UI.TxtProfilePath.Text
+    $script:Settings.EnablePSTask = $newEnablePSTask
 
     # Validate and set CommandHistoryLimit
     $historyLimit = 50  # Default value
@@ -239,6 +264,7 @@ function Load-Settings {
     $script:Settings.SaveHistory = Get-SettingValue $settings "SaveHistory" $defaultSettings.SaveHistory
     $script:Settings.UseProfile = Get-SettingValue $settings "UseProfile" $defaultSettings.UseProfile
     $script:Settings.ProfilePath = Get-SettingValue $settings "ProfilePath" $defaultSettings.ProfilePath
+    $script:Settings.EnablePSTask = Get-SettingValue $settings "EnablePSTask" $defaultSettings.EnablePSTask
 }
 
 # Save settings to file
@@ -265,6 +291,7 @@ function Save-Settings {
             SaveHistory = $script:Settings.SaveHistory
             UseProfile = $script:Settings.UseProfile
             ProfilePath = $script:Settings.ProfilePath
+            EnablePSTask = $script:Settings.EnablePSTask
         }
 
         $settings | ConvertTo-Json | Set-Content $script:Settings.SettingsPath
@@ -321,5 +348,16 @@ function Invoke-BrowsePath {
         if ($dialog.ShowDialog()) {
             $TextBox.Text = $dialog.FileName
         }
+    }
+}
+
+# Test if PSTask module is installed
+function Test-PSTaskModule {
+    try {
+        $module = Get-Module -ListAvailable -Name PSTask
+        return $null -ne $module
+    }
+    catch {
+        return $false
     }
 }
