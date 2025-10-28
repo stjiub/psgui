@@ -113,6 +113,7 @@ function Invoke-MainInjectClick {
     $command.Full = ""
     $command.Root = $selection.Command
     $command.PreCommand = $selection.PreCommand
+    $command.PostCommand = $selection.PostCommand
     $command.SkipParameterSelect = $selection.SkipParameterSelect
     $command.Log = $selection.Log
     $command.ShellOverride = $selection.ShellOverride
@@ -136,6 +137,12 @@ function Invoke-MainInjectClick {
 
             $command.Full += $command.Root
             $command.CleanCommand += $command.Root
+
+            # Add PostCommand if it exists
+            if ($command.PostCommand) {
+                $command.Full += "; " + $command.PostCommand
+                $command.CleanCommand += "; " + $command.PostCommand
+            }
 
             # Inject the command
             Invoke-CommandInjection -CommandString $command.CleanCommand

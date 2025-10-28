@@ -58,6 +58,9 @@ function Duplicate-CommandRow {
     $newRow.Command = $selectedItem.Command
     $newRow.SkipParameterSelect = $selectedItem.SkipParameterSelect
     $newRow.PreCommand = $selectedItem.PreCommand
+    $newRow.PostCommand = $selectedItem.PostCommand
+    $newRow.Log = $selectedItem.Log
+    $newRow.ShellOverride = $selectedItem.ShellOverride
 
     # Add to All tab
     $allTab = $tabs["All"]
@@ -137,6 +140,9 @@ function Remove-CommandRow {
         $itemCopy.Command = $item.Command
         $itemCopy.SkipParameterSelect = $item.SkipParameterSelect
         $itemCopy.PreCommand = $item.PreCommand
+        $itemCopy.PostCommand = $item.PostCommand
+        $itemCopy.Log = $item.Log
+        $itemCopy.ShellOverride = $item.ShellOverride
 
         $deletedBatch.Items += $itemCopy
 

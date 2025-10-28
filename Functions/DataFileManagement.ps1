@@ -77,7 +77,9 @@ function Load-DataFile {
                     $rowData.Command = $item.Command
                     $rowData.SkipParameterSelect = $item.SkipParameterSelect
                     $rowData.PreCommand = $item.PreCommand
+                    $rowData.PostCommand = $item.PostCommand
                     $rowData.Log = $item.Log
+                    $rowData.ShellOverride = $item.ShellOverride
                     $rowDataCollection.Add($rowData)
                 }
             }
@@ -117,7 +119,9 @@ function Save-DataFile {
                 Command = $_.Command
                 SkipParameterSelect = $_.SkipParameterSelect
                 PreCommand = $_.PreCommand
+                PostCommand = $_.PostCommand
                 Log = $_.Log
+                ShellOverride = $_.ShellOverride
             }
         }
 
