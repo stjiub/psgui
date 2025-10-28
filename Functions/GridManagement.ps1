@@ -416,12 +416,12 @@ function Add-GridColumns {
     )
 
     # Define the desired column order
-    # For regular tabs: Name, Description, Category, PreCommand, Command, ShellOverride, SkipParameterSelect, Log, Id
-    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, ShellOverride, SkipParameterSelect, Log, Id
+    # For regular tabs: Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Log, Id
+    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Log, Id
     $columnOrder = if ($isFavorites) {
-        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "ShellOverride", "SkipParameterSelect", "Log", "Id")
+        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Log", "Id")
     } else {
-        @("Name", "Description", "Category", "PreCommand", "Command", "ShellOverride", "SkipParameterSelect", "Log", "Id")
+        @("Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Log", "Id")
     }
 
     # Add columns in the specified order

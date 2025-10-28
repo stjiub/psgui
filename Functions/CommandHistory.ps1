@@ -36,6 +36,7 @@ function Add-CommandToHistory {
             FullCommand = $Command.Full
             CleanCommand = $Command.CleanCommand
             PreCommand = $Command.PreCommand
+            PostCommand = $Command.PostCommand
             ParameterSummary = (Get-ParameterSummaryFromCommand -Command $Command)
             CommandObject = $Command
             ParameterValues = $parameterValues
@@ -84,6 +85,11 @@ function Get-ParameterSummaryFromCommand {
     if ($Command.PreCommand) {
         # Remove the PreCommand part
         $commandToProcess = $commandToProcess -replace [regex]::Escape($Command.PreCommand + "; "), ""
+    }
+
+    if ($Command.PostCommand) {
+        # Remove the PostCommand part
+        $commandToProcess = $commandToProcess -replace [regex]::Escape("; " + $Command.PostCommand), ""
     }
 
     # Remove the root command to get just parameters
@@ -458,6 +464,7 @@ function Save-CommandHistory {
                 FullCommand = $entry.FullCommand
                 CleanCommand = $entry.CleanCommand
                 PreCommand = $entry.PreCommand
+                PostCommand = $entry.PostCommand
                 ParameterSummary = $entry.ParameterSummary
                 LogPath = $entry.LogPath
                 # Store command properties separately since Command objects don't serialize well
@@ -466,6 +473,7 @@ function Save-CommandHistory {
                     Full = $entry.CommandObject.Full
                     CleanCommand = $entry.CommandObject.CleanCommand
                     PreCommand = $entry.CommandObject.PreCommand
+                    PostCommand = $entry.CommandObject.PostCommand
                     SkipParameterSelect = $entry.CommandObject.SkipParameterSelect
                     Log = $entry.CommandObject.Log
                     LogPath = $entry.CommandObject.LogPath
@@ -525,6 +533,7 @@ function Load-CommandHistory {
             $command.Full = $serialized.CommandData.Full
             $command.CleanCommand = $serialized.CommandData.CleanCommand
             $command.PreCommand = $serialized.CommandData.PreCommand
+            $command.PostCommand = $serialized.CommandData.PostCommand
             $command.SkipParameterSelect = $serialized.CommandData.SkipParameterSelect
             $command.Log = $serialized.CommandData.Log
             $command.LogPath = $serialized.CommandData.LogPath
@@ -537,6 +546,7 @@ function Load-CommandHistory {
                 FullCommand = $serialized.FullCommand
                 CleanCommand = $serialized.CleanCommand
                 PreCommand = $serialized.PreCommand
+                PostCommand = $serialized.PostCommand
                 ParameterSummary = $serialized.ParameterSummary
                 CommandObject = $command
                 ParameterValues = $serialized.ParameterValues
