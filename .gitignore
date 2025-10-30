@@ -1,5 +1,6 @@
 *.json
 *.exe
 *.lnk
+*.reg
 .vscode/
 PSGUI.ps1

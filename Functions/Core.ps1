@@ -129,6 +129,22 @@ function Start-MainWindow {
 
 # Register all GUI events
 function Register-EventHandlers {
+    # Window-level keyboard shortcuts
+    $script:UI.Window.Add_PreviewKeyDown({
+        param($sender, $e)
+        # Ctrl+S to save
+        if ($e.Key -eq [System.Windows.Input.Key]::S -and
+            ([System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::LeftCtrl) -or
+             [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::RightCtrl))) {
+
+            # Only save if there are unsaved changes
+            if ($script:State.HasUnsavedChanges) {
+                Save-DataFile -FilePath $script:State.CurrentDataFile -Data ($script:UI.Tabs["All"].Content.ItemsSource)
+                $e.Handled = $true
+            }
+        }
+    })
+
     # Dock Panel Menu Buttons
     $script:UI.BtnMenuAdd.Add_Click({ Add-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
     $script:UI.BtnMenuDuplicate.Add_Click({ Duplicate-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
