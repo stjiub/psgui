@@ -79,13 +79,27 @@ function Load-DataFile {
                     $rowData.PreCommand = $item.PreCommand
                     $rowData.PostCommand = $item.PostCommand
 
-                    # Migrate Log from bool to string format
-                    if ($item.Log -is [bool]) {
-                        $rowData.Log = if ($item.Log) { "Transcript" } else { "" }
-                        Write-Log "Migrated Log value from bool ($($item.Log)) to string ($($rowData.Log)) for command: $($item.Name)"
+                    # Migrate old Log property to new Transcript/PSTask checkboxes
+                    if ($null -ne $item.Log) {
+                        # Old data format - migrate from Log string to checkboxes
+                        if ($item.Log -is [string]) {
+                            $rowData.Transcript = ($item.Log -eq "Transcript")
+                            $rowData.PSTask = ($item.Log -eq "PSTask")
+                            Write-Log "Migrated Log value from string ($($item.Log)) to Transcript/PSTask checkboxes for command: $($item.Name)"
+                        }
+                        # Very old format - bool converted to Transcript
+                        elseif ($item.Log -is [bool]) {
+                            $rowData.Transcript = $item.Log
+                            $rowData.PSTask = $false
+                            Write-Log "Migrated Log value from bool ($($item.Log)) to Transcript checkbox for command: $($item.Name)"
+                        }
                     }
                     else {
-                        $rowData.Log = $item.Log
+                        # New data format - use Transcript/PSTask directly
+                        $rowData.Transcript = if ($null -ne $item.Transcript) { $item.Transcript } else { $false }
+                        $rowData.PSTask = if ($null -ne $item.PSTask) { $item.PSTask } else { $false }
+                        $rowData.PSTaskMode = $item.PSTaskMode
+                        $rowData.PSTaskVisibilityLevel = $item.PSTaskVisibilityLevel
                     }
 
                     $rowData.ShellOverride = $item.ShellOverride

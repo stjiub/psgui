@@ -59,7 +59,10 @@ function Duplicate-CommandRow {
     $newRow.SkipParameterSelect = $selectedItem.SkipParameterSelect
     $newRow.PreCommand = $selectedItem.PreCommand
     $newRow.PostCommand = $selectedItem.PostCommand
-    $newRow.Log = $selectedItem.Log
+    $newRow.Transcript = $selectedItem.Transcript
+    $newRow.PSTask = $selectedItem.PSTask
+    $newRow.PSTaskMode = $selectedItem.PSTaskMode
+    $newRow.PSTaskVisibilityLevel = $selectedItem.PSTaskVisibilityLevel
     $newRow.ShellOverride = $selectedItem.ShellOverride
 
     # Add to All tab
@@ -141,7 +144,10 @@ function Remove-CommandRow {
         $itemCopy.SkipParameterSelect = $item.SkipParameterSelect
         $itemCopy.PreCommand = $item.PreCommand
         $itemCopy.PostCommand = $item.PostCommand
-        $itemCopy.Log = $item.Log
+        $itemCopy.Transcript = $item.Transcript
+        $itemCopy.PSTask = $item.PSTask
+        $itemCopy.PSTaskMode = $item.PSTaskMode
+        $itemCopy.PSTaskVisibilityLevel = $item.PSTaskVisibilityLevel
         $itemCopy.ShellOverride = $item.ShellOverride
 
         $deletedBatch.Items += $itemCopy

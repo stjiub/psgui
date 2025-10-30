@@ -535,7 +535,21 @@ function Load-CommandHistory {
             $command.PreCommand = $serialized.CommandData.PreCommand
             $command.PostCommand = $serialized.CommandData.PostCommand
             $command.SkipParameterSelect = $serialized.CommandData.SkipParameterSelect
-            $command.Log = $serialized.CommandData.Log
+
+            # Handle migration from old Log property to new Transcript/PSTask
+            if ($null -ne $serialized.CommandData.Log) {
+                # Old format - migrate
+                $command.Transcript = ($serialized.CommandData.Log -eq "Transcript")
+                $command.PSTask = ($serialized.CommandData.Log -eq "PSTask")
+            }
+            else {
+                # New format
+                $command.Transcript = if ($null -ne $serialized.CommandData.Transcript) { $serialized.CommandData.Transcript } else { $false }
+                $command.PSTask = if ($null -ne $serialized.CommandData.PSTask) { $serialized.CommandData.PSTask } else { $false }
+                $command.PSTaskMode = $serialized.CommandData.PSTaskMode
+                $command.PSTaskVisibilityLevel = $serialized.CommandData.PSTaskVisibilityLevel
+            }
+
             $command.LogPath = $serialized.CommandData.LogPath
             $command.ShellOverride = $serialized.CommandData.ShellOverride
 

@@ -8,7 +8,10 @@ class RowData {
     [bool]$SkipParameterSelect
     [string]$PreCommand
     [string]$PostCommand
-    [string]$Log
+    [bool]$Transcript
+    [bool]$PSTask
+    [string]$PSTaskMode
+    [string]$PSTaskVisibilityLevel
     [string]$ShellOverride
 }
 
@@ -24,7 +27,10 @@ class FavoriteRowData : RowData {
         $this.SkipParameterSelect = $rowData.SkipParameterSelect
         $this.PreCommand = $rowData.PreCommand
         $this.PostCommand = $rowData.PostCommand
-        $this.Log = $rowData.Log
+        $this.Transcript = $rowData.Transcript
+        $this.PSTask = $rowData.PSTask
+        $this.PSTaskMode = $rowData.PSTaskMode
+        $this.PSTaskVisibilityLevel = $rowData.PSTaskVisibilityLevel
         $this.ShellOverride = $rowData.ShellOverride
         $this.Order = $order
     }
@@ -39,7 +45,10 @@ class Command {
     [string]$PostCommand
     [System.Object[]]$Parameters
     [bool]$SkipParameterSelect
-    [string]$Log
+    [bool]$Transcript
+    [bool]$PSTask
+    [string]$PSTaskMode
+    [string]$PSTaskVisibilityLevel
     [string]$LogPath
     [string]$ShellOverride
 }
