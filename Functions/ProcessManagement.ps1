@@ -1,3 +1,73 @@
+# Create a styled context menu for Log tabs
+function New-LogTabContextMenu {
+    param (
+        [System.Windows.Controls.TabItem]$Tab
+    )
+
+    $contextMenu = New-Object System.Windows.Controls.ContextMenu
+    $contextMenu.FontSize = 12
+
+    # Close Log menu item
+    $menuCloseLog = New-Object System.Windows.Controls.MenuItem
+    $menuCloseLog.Header = "Close Log"
+    $menuCloseLog.FontSize = 12
+
+    # Create icon for Close Log
+    $iconClose = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconClose.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::Close
+    $iconClose.Width = 16
+    $iconClose.Height = 16
+    $iconClose.Margin = New-Object System.Windows.Thickness(0)
+    $menuCloseLog.Icon = $iconClose
+
+    $menuCloseLog.Add_Click({
+        param($menuSender, $menuArgs)
+        $tab = $menuSender.Parent.PlacementTarget
+        if ($tab) {
+            try {
+                $script:UI.LogTabControl.Items.Remove($tab)
+                Write-Status "Log tab closed"
+            }
+            catch {
+                Write-ErrorMessage "Failed to close log tab: $_"
+            }
+        }
+    })
+    [void]$contextMenu.Items.Add($menuCloseLog)
+
+    # Open in File Explorer menu item
+    $menuOpenInExplorer = New-Object System.Windows.Controls.MenuItem
+    $menuOpenInExplorer.Header = "Open in File Explorer"
+    $menuOpenInExplorer.FontSize = 12
+
+    # Create icon for Open in File Explorer
+    $iconExplorer = New-Object MaterialDesignThemes.Wpf.PackIcon
+    $iconExplorer.Kind = [MaterialDesignThemes.Wpf.PackIconKind]::FolderOpen
+    $iconExplorer.Width = 16
+    $iconExplorer.Height = 16
+    $iconExplorer.Margin = New-Object System.Windows.Thickness(0)
+    $menuOpenInExplorer.Icon = $iconExplorer
+
+    $menuOpenInExplorer.Add_Click({
+        param($menuSender, $menuArgs)
+        $tab = $menuSender.Parent.PlacementTarget
+        if ($tab -and $tab.Tag -and $tab.Tag["FilePath"]) {
+            $filePath = $tab.Tag["FilePath"]
+            if (Test-Path $filePath) {
+                # Open File Explorer and select the file
+                Start-Process "explorer.exe" -ArgumentList "/select,`"$filePath`""
+                Write-Status "Opened in File Explorer"
+            }
+            else {
+                Write-ErrorMessage "Log file not found: $filePath"
+            }
+        }
+    })
+    [void]$contextMenu.Items.Add($menuOpenInExplorer)
+
+    return $contextMenu
+}
+
 function New-LogMonitorTab {
     param (
         [string]$filePath,
@@ -36,7 +106,10 @@ function New-LogMonitorTab {
         }
         
         $tab.Content = $grid
-        
+
+        # Add context menu to the tab
+        $tab.ContextMenu = New-LogTabContextMenu -Tab $tab
+
         # Add close button functionality with middle-click
         $tab.Add_PreviewMouseDown({
             param($sender, $e)
@@ -46,16 +119,6 @@ function New-LogMonitorTab {
             }
         })
 
-        # Add close functionality with right-click
-        $tab.Add_PreviewMouseRightButtonDown({
-            param($sender, $eventArgs)
-            if ($eventArgs.ChangedButton -eq 'Right') {
-                $script:UI.LogTabControl.Items.Remove($sender)
-                Write-Log "Closed log file: $($sender.Tag.FilePath)"
-                $eventArgs.Handled = $true
-            }
-        })
-        
         # Insert the new tab before the "+" tab
         $addTabIndex = $tabControl.Items.Count - 1
         $tabControl.Items.Insert($addTabIndex, $tab)
