@@ -103,6 +103,7 @@ function Load-DataFile {
                     }
 
                     $rowData.ShellOverride = $item.ShellOverride
+                    $rowData.LogParameterNames = $item.LogParameterNames
                     $rowDataCollection.Add($rowData)
                 }
             }
@@ -143,8 +144,12 @@ function Save-DataFile {
                 SkipParameterSelect = $_.SkipParameterSelect
                 PreCommand = $_.PreCommand
                 PostCommand = $_.PostCommand
-                Log = $_.Log
+                Transcript = $_.Transcript
+                PSTask = $_.PSTask
+                PSTaskMode = $_.PSTaskMode
+                PSTaskVisibilityLevel = $_.PSTaskVisibilityLevel
                 ShellOverride = $_.ShellOverride
+                LogParameterNames = $_.LogParameterNames
             }
         }
 
