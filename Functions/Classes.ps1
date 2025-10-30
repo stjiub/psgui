@@ -13,6 +13,7 @@ class RowData {
     [string]$PSTaskMode
     [string]$PSTaskVisibilityLevel
     [string]$ShellOverride
+    [string]$LogParameterNames
 }
 
 class FavoriteRowData : RowData {
@@ -32,6 +33,7 @@ class FavoriteRowData : RowData {
         $this.PSTaskMode = $rowData.PSTaskMode
         $this.PSTaskVisibilityLevel = $rowData.PSTaskVisibilityLevel
         $this.ShellOverride = $rowData.ShellOverride
+        $this.LogParameterNames = $rowData.LogParameterNames
         $this.Order = $order
     }
 }
@@ -51,4 +53,5 @@ class Command {
     [string]$PSTaskVisibilityLevel
     [string]$LogPath
     [string]$ShellOverride
+    [string]$LogParameterNames
 }

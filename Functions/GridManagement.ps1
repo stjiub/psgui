@@ -416,12 +416,12 @@ function Add-GridColumns {
     )
 
     # Define the desired column order
-    # For regular tabs: Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Transcript, PSTask, PSTaskMode, PSTaskVisibilityLevel, Id
-    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Transcript, PSTask, PSTaskMode, PSTaskVisibilityLevel, Id
+    # For regular tabs: Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Transcript, PSTask, PSTaskMode, PSTaskVisibilityLevel, LogParameterNames, Id
+    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Transcript, PSTask, PSTaskMode, PSTaskVisibilityLevel, LogParameterNames, Id
     $columnOrder = if ($isFavorites) {
-        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Transcript", "PSTask", "PSTaskMode", "PSTaskVisibilityLevel", "Id")
+        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Transcript", "PSTask", "PSTaskMode", "PSTaskVisibilityLevel", "LogParameterNames", "Id")
     } else {
-        @("Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Transcript", "PSTask", "PSTaskMode", "PSTaskVisibilityLevel", "Id")
+        @("Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Transcript", "PSTask", "PSTaskMode", "PSTaskVisibilityLevel", "LogParameterNames", "Id")
     }
 
     # Add columns in the specified order

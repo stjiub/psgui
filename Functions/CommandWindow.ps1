@@ -1,3 +1,72 @@
+# Build a log file suffix from parameter values
+function Get-LogParameterSuffix {
+    param (
+        [Command]$Command,
+        $CommandGrid = $null
+    )
+
+    # If no parameter names specified, return empty string
+    if ([string]::IsNullOrWhiteSpace($Command.LogParameterNames)) {
+        return ""
+    }
+
+    # If parameters haven't been collected yet (SkipParameterSelect), return empty string
+    if (-not $CommandGrid -or -not $Command.Parameters) {
+        return ""
+    }
+
+    # Split the comma-separated parameter names
+    $paramNamesToInclude = $Command.LogParameterNames -split ',' | ForEach-Object { $_.Trim() }
+
+    $paramValues = @()
+
+    foreach ($paramName in $paramNamesToInclude) {
+        # Find the parameter in the command's parameter list
+        # Use case-insensitive comparison as VariablePath comparison can be quirky
+        $param = $Command.Parameters | Where-Object { $_.Name.VariablePath.ToString() -ieq $paramName }
+
+        if ($param) {
+            # Get the control for this parameter
+            $control = $CommandGrid.Children | Where-Object { $_.Name -eq $paramName }
+
+            if ($control) {
+                $value = $null
+
+                # Get value based on control type
+                if ($control -is [System.Windows.Controls.CheckBox]) {
+                    if ($control.IsChecked) {
+                        $value = "True"
+                    }
+                }
+                elseif ($control -is [System.Windows.Controls.ComboBox]) {
+                    if ($control.SelectedItem) {
+                        $value = $control.SelectedItem.ToString()
+                    }
+                }
+                elseif ($control -is [System.Windows.Controls.TextBox]) {
+                    if (-not [String]::IsNullOrWhiteSpace($control.Text)) {
+                        $value = $control.Text
+                    }
+                }
+
+                if ($value) {
+                    # Sanitize the value for use in filename (remove/replace invalid characters)
+                    $sanitized = $value -replace '[\\/:*?"<>|]', '_'
+                    $paramValues += $sanitized
+                }
+            }
+        }
+    }
+
+    # Join parameter values with underscores and return with leading dash if there are any values
+    if ($paramValues.Count -gt 0) {
+        return "-" + ($paramValues -join '_')
+    }
+    else {
+        return ""
+    }
+}
+
 # Handle the Main Run Button click event to run the selected command/launch the CommandWindow
 function Invoke-MainRunClick {
     param (
@@ -17,6 +86,7 @@ function Invoke-MainRunClick {
     $command.PSTaskMode = $selection.PSTaskMode
     $command.PSTaskVisibilityLevel = $selection.PSTaskVisibilityLevel
     $command.ShellOverride = $selection.ShellOverride
+    $command.LogParameterNames = $selection.LogParameterNames
 
     Write-Log "Command created - Root: $($command.Root), Transcript: $($command.Transcript), PSTask: $($command.PSTask), SkipParameterSelect: $($command.SkipParameterSelect)"
 
@@ -455,16 +525,19 @@ function Compile-Command {
     $command.Full = ""
     $command.CleanCommand = ""
 
+    # Get parameter suffix for log file name
+    $paramSuffix = Get-LogParameterSuffix -Command $command -CommandGrid $grid
+
     # Add log command if logging is enabled
     if ($command.Transcript) {
         $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+        $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root)$paramSuffix.log"
         $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
         $command.Full += "; "
     }
     elseif ($command.PSTask) {
         $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
+        $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root)$paramSuffix.log"
 
         # Set PSTaskMode if specified
         if (-not [string]::IsNullOrWhiteSpace($command.PSTaskMode)) {
