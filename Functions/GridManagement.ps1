@@ -385,8 +385,8 @@ function New-GridColumn {
         [bool]$isFavorites
     )
 
-    # Create a checkbox column for SkipParameterSelect
-    if ($propertyName -eq "SkipParameterSelect") {
+    # Create a checkbox column for SkipParameterSelect, Transcript, and PSTask
+    if ($propertyName -eq "SkipParameterSelect" -or $propertyName -eq "Transcript" -or $propertyName -eq "PSTask") {
         $column = New-Object System.Windows.Controls.DataGridCheckBoxColumn
         $column.Header = $propertyName
         $binding = New-Object System.Windows.Data.Binding $propertyName
@@ -416,12 +416,12 @@ function Add-GridColumns {
     )
 
     # Define the desired column order
-    # For regular tabs: Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Log, Id
-    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Log, Id
+    # For regular tabs: Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Transcript, PSTask, PSTaskMode, PSTaskVisibilityLevel, Id
+    # For Favorites tab: Order, Name, Description, Category, PreCommand, Command, PostCommand, ShellOverride, SkipParameterSelect, Transcript, PSTask, PSTaskMode, PSTaskVisibilityLevel, Id
     $columnOrder = if ($isFavorites) {
-        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Log", "Id")
+        @("Order", "Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Transcript", "PSTask", "PSTaskMode", "PSTaskVisibilityLevel", "Id")
     } else {
-        @("Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Log", "Id")
+        @("Name", "Description", "Category", "PreCommand", "Command", "PostCommand", "ShellOverride", "SkipParameterSelect", "Transcript", "PSTask", "PSTaskMode", "PSTaskVisibilityLevel", "Id")
     }
 
     # Add columns in the specified order
@@ -430,6 +430,11 @@ function Add-GridColumns {
         if ($prop) {
             # Skip the Order property for non-Favorites tabs
             if (-not $isFavorites -and $propName -eq "Order") {
+                continue
+            }
+
+            # Skip PSTask-related columns if EnablePSTask is not enabled
+            if (($propName -eq "PSTask" -or $propName -eq "PSTaskMode" -or $propName -eq "PSTaskVisibilityLevel") -and -not $script:Settings.EnablePSTask) {
                 continue
             }
 

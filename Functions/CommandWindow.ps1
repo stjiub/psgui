@@ -12,10 +12,13 @@ function Invoke-MainRunClick {
     $command.PreCommand = $selection.PreCommand
     $command.PostCommand = $selection.PostCommand
     $command.SkipParameterSelect = $selection.SkipParameterSelect
-    $command.Log = $selection.Log
+    $command.Transcript = $selection.Transcript
+    $command.PSTask = $selection.PSTask
+    $command.PSTaskMode = $selection.PSTaskMode
+    $command.PSTaskVisibilityLevel = $selection.PSTaskVisibilityLevel
     $command.ShellOverride = $selection.ShellOverride
 
-    Write-Log "Command created - Root: $($command.Root), Log: $($command.Log), SkipParameterSelect: $($command.SkipParameterSelect)"
+    Write-Log "Command created - Root: $($command.Root), Transcript: $($command.Transcript), PSTask: $($command.PSTask), SkipParameterSelect: $($command.SkipParameterSelect)"
 
     if ($command.Root) {
         if ($selection.SkipParameterSelect) {
@@ -23,16 +26,28 @@ function Invoke-MainRunClick {
             $command.CleanCommand = ""
 
             # Add log command if logging is enabled
-            if ($command.Log -eq "Transcript") {
+            if ($command.Transcript) {
                 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
                 $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
                 $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
                 $command.Full += "; "
             }
-            elseif ($command.Log -eq "PSTask") {
+            elseif ($command.PSTask) {
                 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
                 $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
-                $command.Full = "Start-PSTaskLogging -LogName `"$($command.Root)`" -LogPathOverride `"$($command.LogPath)`""
+
+                # Set PSTaskMode if specified
+                if (-not [string]::IsNullOrWhiteSpace($command.PSTaskMode)) {
+                    $command.Full = "Set-PSTaskMode -Mode `"$($command.PSTaskMode)`"; "
+                }
+
+                # Set PSTaskVisibilityLevel if specified
+                if (-not [string]::IsNullOrWhiteSpace($command.PSTaskVisibilityLevel)) {
+                    $command.Full += "Set-PSTaskVisibilityLevel -Level `"$($command.PSTaskVisibilityLevel)`"; "
+                }
+
+                # Start PSTask logging
+                $command.Full += "Start-PSTaskLogging -LogName `"$($command.Root)`" -LogPathOverride `"$($command.LogPath)`""
                 $command.Full += "; "
             }
 
@@ -52,10 +67,10 @@ function Invoke-MainRunClick {
             }
 
             # Add stop logging command if logging is enabled
-            if ($command.Log -eq "Transcript") {
+            if ($command.Transcript) {
                 $command.Full += "; Stop-Transcript"
             }
-            elseif ($command.Log -eq "PSTask") {
+            elseif ($command.PSTask) {
                 $command.Full += "; Stop-PSTaskLogging"
             }
 
@@ -441,16 +456,28 @@ function Compile-Command {
     $command.CleanCommand = ""
 
     # Add log command if logging is enabled
-    if ($command.Log -eq "Transcript") {
+    if ($command.Transcript) {
         $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
         $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
         $command.Full = "Start-Transcript -Path `"$($command.LogPath)`""
         $command.Full += "; "
     }
-    elseif ($command.Log -eq "PSTask") {
+    elseif ($command.PSTask) {
         $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
         $command.LogPath = "$($script:Settings.DefaultLogsPath)\$timestamp-$($command.Root).log"
-        $command.Full = "Start-PSTaskLogging -LogName `"$($command.Root)`" -LogPathOverride `"$($command.LogPath)`""
+
+        # Set PSTaskMode if specified
+        if (-not [string]::IsNullOrWhiteSpace($command.PSTaskMode)) {
+            $command.Full = "Set-PSTaskMode -Mode `"$($command.PSTaskMode)`"; "
+        }
+
+        # Set PSTaskVisibilityLevel if specified
+        if (-not [string]::IsNullOrWhiteSpace($command.PSTaskVisibilityLevel)) {
+            $command.Full += "Set-PSTaskVisibilityLevel -Level `"$($command.PSTaskVisibilityLevel)`"; "
+        }
+
+        # Start PSTask logging
+        $command.Full += "Start-PSTaskLogging -LogName `"$($command.Root)`" -LogPathOverride `"$($command.LogPath)`""
         $command.Full += "; "
     }
 
@@ -544,10 +571,10 @@ function Compile-Command {
     }
 
     # Add stop logging command if logging is enabled
-    if ($command.Log -eq "Transcript") {
+    if ($command.Transcript) {
         $command.Full += "; Stop-Transcript"
     }
-    elseif ($command.Log -eq "PSTask") {
+    elseif ($command.PSTask) {
         $command.Full += "; Stop-PSTaskLogging"
     }
 }
@@ -603,10 +630,10 @@ function Run-Command {
 
     Write-Log "Running: $($command.Root)"
     Write-Log "Full Command: $($command.Full)"
-    Write-Log "Log Type: $($command.Log)"
+    Write-Log "Transcript: $($command.Transcript), PSTask: $($command.PSTask)"
 
     # Ensure log directory exists if logging is enabled
-    if ($command.Log -eq "Transcript" -or $command.Log -eq "PSTask") {
+    if ($command.Transcript -or $command.PSTask) {
         try {
             if (-not (Test-Path $script:Settings.DefaultLogsPath)) {
                 New-Item -ItemType Directory -Path $script:Settings.DefaultLogsPath -Force | Out-Null
