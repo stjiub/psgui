@@ -1,0 +1,19 @@
+{
+    "DefaultShell": "powershell",
+    "DefaultShellArgs": "-ExecutionPolicy Bypass -NoExit -Command \" & { [System.Console]::Title = 'PS' } \"",
+    "DefaultRunCommandAttached": true,
+    "OpenShellAtStart": false,
+    "StatusTimeout": 6,
+    "DefaultLogsPath": "%APPDATA%\\PSGUI\\logs",
+    "SettingsPath": "%APPDATA%\\PSGUI\\settings.json",
+    "FavoritesPath": "%APPDATA%\\PSGUI\\favorites.json",
+    "DefaultHistoryPath": "%APPDATA%\\PSGUI\\history.json",
+    "SnippetsPath": "%APPDATA%\\PSGUI\\snippets.json",
+    "ShowDebugTab": false,
+    "DefaultDataFile": "%APPDATA%\\PSGUI\\data.json",
+    "CommandHistoryLimit": 50,
+    "SaveHistory": true,
+    "UseProfile": false,
+    "ProfilePath": "%USERPROFILE%\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1",
+    "EnablePSTask": false
+}
