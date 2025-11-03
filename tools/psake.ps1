@@ -4,7 +4,7 @@ properties {
         $script:CurrentVersion = (Get-Item "$ProjectRoot\PSGUI.exe").Versioninfo.FileVersionRaw
     }
 
-    $RequiredFiles = @("PSGUI.exe", "MainWindow.xaml", "icon.ico", "Assembly")
+    $RequiredFiles = @("PSGUI.exe", "MainWindow.xaml", "CommandWindow.xaml", "icon.ico", "Assembly", "Win32Api.cs", "defaultsettings.json")
     $InstallLocations = @("C:\Program Files\PSGUI")
 }
 
