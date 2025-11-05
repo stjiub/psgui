@@ -4,14 +4,35 @@ properties {
         $script:CurrentVersion = (Get-Item "$ProjectRoot\PSGUI.exe").Versioninfo.FileVersionRaw
     }
 
-    $RequiredFiles = @("PSGUI.exe", "MainWindow.xaml", "CommandWindow.xaml", "icon.ico", "Assembly", "Win32Api.cs", "defaultsettings.json")
+    $RequiredFiles = @("PSGUI.exe", "icon.ico", "Assembly", "defaultsettings.json")
     $InstallLocations = @("C:\Program Files\PSGUI")
 }
 
 task default -depends Combine
 
     task Combine {
+        # Start with Functions
         Get-Content "$($ProjectRoot)\Functions\*.ps1" | Set-Content -Path "$($ProjectRoot)\PSGUI.ps1"
+
+        # Embed MainWindow.xaml as a here-string
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value "`n# Embedded MainWindow.xaml"
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value '$script:MainWindowXaml = @"'
+        Get-Content "$($ProjectRoot)\MainWindow.xaml" -Raw | Add-Content -Path "$($ProjectRoot)\PSGUI.ps1"
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value '"@'
+
+        # Embed CommandWindow.xaml as a here-string
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value "`n# Embedded CommandWindow.xaml"
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value '$script:CommandWindowXaml = @"'
+        Get-Content "$($ProjectRoot)\CommandWindow.xaml" -Raw | Add-Content -Path "$($ProjectRoot)\PSGUI.ps1"
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value '"@'
+
+        # Embed Win32API.cs as a here-string
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value "`n# Embedded Win32API.cs"
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value '$script:Win32API = @"'
+        Get-Content "$($ProjectRoot)\Win32API.cs" -Raw | Add-Content -Path "$($ProjectRoot)\PSGUI.ps1"
+        Add-Content -Path "$($ProjectRoot)\PSGUI.ps1" -Value '"@'
+
+        # Add Main.ps1
         Get-Content "$($ProjectRoot)\Main.ps1" | Add-Content -Path "$($ProjectRoot)\PSGUI.ps1"
     }
 
