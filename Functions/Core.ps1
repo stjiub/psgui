@@ -149,6 +149,41 @@ function Register-EventHandlers {
                 $e.Handled = $true
             }
         }
+
+        # If in non-edit mode and user presses a character key, focus the search filter
+        # Exclude special keys like Tab, Enter, Escape, etc.
+        if ($script:State.TabsReadOnly) {
+            $focusedElement = [System.Windows.Input.Keyboard]::FocusedElement
+
+            # Only auto-focus if not already in a text input control
+            if ($focusedElement -isnot [System.Windows.Controls.TextBox] -and
+                $focusedElement -isnot [System.Windows.Controls.ComboBox]) {
+
+                # Check if this is a printable character key (letters, numbers, symbols)
+                $isCharKey = ($e.Key -ge [System.Windows.Input.Key]::A -and $e.Key -le [System.Windows.Input.Key]::Z) -or
+                             ($e.Key -ge [System.Windows.Input.Key]::D0 -and $e.Key -le [System.Windows.Input.Key]::D9) -or
+                             ($e.Key -ge [System.Windows.Input.Key]::NumPad0 -and $e.Key -le [System.Windows.Input.Key]::NumPad9) -or
+                             $e.Key -eq [System.Windows.Input.Key]::Space -or
+                             $e.Key -eq [System.Windows.Input.Key]::OemPeriod -or
+                             $e.Key -eq [System.Windows.Input.Key]::OemComma -or
+                             $e.Key -eq [System.Windows.Input.Key]::OemMinus -or
+                             $e.Key -eq [System.Windows.Input.Key]::OemPlus -or
+                             ($e.Key -ge [System.Windows.Input.Key]::Oem1 -and $e.Key -le [System.Windows.Input.Key]::Oem102)
+
+                # Exclude if Ctrl, Alt, or Windows key is pressed (for shortcuts)
+                $hasModifier = [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::LeftCtrl) -or
+                               [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::RightCtrl) -or
+                               [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::LeftAlt) -or
+                               [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::RightAlt) -or
+                               [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::LWin) -or
+                               [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::RWin)
+
+                if ($isCharKey -and -not $hasModifier) {
+                    $script:UI.TxtSearchFilter.Focus()
+                    # Let the key event propagate to the TextBox
+                }
+            }
+        }
     })
 
     # Dock Panel Menu Buttons
