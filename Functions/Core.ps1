@@ -4,10 +4,16 @@ function Start-MainWindow {
     # the same name and assign the window and all its elements under $script:UI 
     # e.g. $script:UI.Window, $script:UI.TabControl
     try {
-        $script:UI = New-Window -File $script:ApplicationPaths.MainWindowXamlFile -ErrorAction Stop
+        # Use embedded XAML if available (when running as compiled EXE), otherwise load from file
+        if ($script:MainWindowXaml) {
+            $script:UI = New-Window -xamlContent $script:MainWindowXaml -ErrorAction Stop
+        }
+        else {
+            $script:UI = New-Window -filePath $script:ApplicationPaths.MainWindowXamlFile -ErrorAction Stop
+        }
     }
     catch {
-        Show-ErrorMessageBox "Failed to create window from $($script:ApplicationPaths.MainWindowXamlFile): $_"
+        Show-ErrorMessageBox "Failed to create main window: $_"
         exit(1)
     }
 

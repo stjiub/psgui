@@ -1,11 +1,19 @@
-# Create a new WPF window from an XML file and load all WPF elements and return them under one variable
+# Create a new WPF window from an XML file or XAML content and load all WPF elements and return them under one variable
 function New-Window {
     param (
-        [string]$filePath
+        [string]$filePath,
+        [string]$xamlContent
     )
 
     try {
-        [xml]$xaml = (Get-Content $filePath)
+        # If xamlContent is provided, use it; otherwise load from file
+        if ($xamlContent) {
+            [xml]$xaml = $xamlContent
+        }
+        else {
+            [xml]$xaml = (Get-Content $filePath)
+        }
+
         $window = New-Object System.Collections.Hashtable
         $nodeReader = [System.Xml.XmlNodeReader]::New($xaml)
         $xamlReader = [Windows.Markup.XamlReader]::Load($nodeReader)
@@ -31,8 +39,13 @@ function New-CommandWindow {
     )
 
     try {
-        # Load the CommandWindow XAML
-        $commandWindow = New-Window -FilePath $script:ApplicationPaths.CommandWindowXamlFile
+        # Load the CommandWindow XAML - use embedded if available, otherwise load from file
+        if ($script:CommandWindowXaml) {
+            $commandWindow = New-Window -xamlContent $script:CommandWindowXaml
+        }
+        else {
+            $commandWindow = New-Window -filePath $script:ApplicationPaths.CommandWindowXamlFile
+        }
 
         # Set the owner to the main window for proper modal behavior
         $commandWindow.Window.Owner = $script:UI.Window

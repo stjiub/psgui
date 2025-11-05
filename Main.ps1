@@ -79,7 +79,12 @@ Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsFormsInte
 [Void][System.Reflection.Assembly]::LoadFrom($script:ApplicationPaths.MaterialDesignThemes)
 [Void][System.Reflection.Assembly]::LoadFrom($script:ApplicationPaths.MaterialDesignColors)
 
-# Load Win32 API functions from Detached file
-Add-Type -Path $script:ApplicationPaths.Win32APIFile
+# Load Win32 API functions - use embedded if available, otherwise load from file
+if ($script:Win32API) {
+    Add-Type -TypeDefinition $script:Win32API
+}
+else {
+    Add-Type -Path $script:ApplicationPaths.Win32APIFile
+}
 
 Start-MainWindow
