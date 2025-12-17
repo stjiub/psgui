@@ -91,7 +91,6 @@ function Show-SettingsDialog {
     # Save the current shell visibility state and hide it to prevent embedded windows from appearing over the dialog
     if ($script:UI.Shell -and $script:UI.Shell.Visibility -eq "Visible") {
         $script:State.ShellVisibleBeforeDialog = $true
-        # Use the existing Toggle-ShellGrid function to properly hide the shell
         Toggle-ShellGrid
     } else {
         $script:State.ShellVisibleBeforeDialog = $false
@@ -118,18 +117,18 @@ function Show-SettingsDialog {
     $script:UI.ChkEnablePSTask.IsChecked = $script:Settings.EnablePSTask
 }
 
-
+# Hide the settings dialog grid
 function Hide-SettingsDialog {
     $script:UI.SettingsDialog.Visibility = "Hidden"
     $script:UI.Overlay.Visibility = "Collapsed"
 
     # Restore the shell to its previous state
     if ($script:State.ShellVisibleBeforeDialog -and $script:UI.Shell.Visibility -eq "Collapsed") {
-        # Use the existing Toggle-ShellGrid function to properly restore the shell
         Toggle-ShellGrid
     }
 }
 
+# Apply any settings changes to application
 function Apply-Settings {
     # Store the old default data file path to check if it changed
     $oldDefaultDataFile = $script:Settings.DefaultDataFile
@@ -172,7 +171,7 @@ function Apply-Settings {
     $script:Settings.EnablePSTask = $newEnablePSTask
 
     # Validate and set CommandHistoryLimit
-    $historyLimit = 50  # Default value
+    $historyLimit = 50
     if ([int]::TryParse($script:UI.TxtCommandHistoryLimit.Text, [ref]$historyLimit)) {
         # Ensure it's within reasonable bounds
         if ($historyLimit -lt 1) { $historyLimit = 1 }
@@ -184,7 +183,7 @@ function Apply-Settings {
     }
 
     # Validate and set StatusTimeout
-    $statusTimeout = 6  # Default value
+    $statusTimeout = 6
     if ([int]::TryParse($script:UI.TxtStatusTimeout.Text, [ref]$statusTimeout)) {
         # Ensure it's within reasonable bounds
         if ($statusTimeout -lt 1) { $statusTimeout = 1 }

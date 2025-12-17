@@ -68,6 +68,7 @@ function New-LogTabContextMenu {
     return $contextMenu
 }
 
+# Create a log monitoring tab with textbox for viewing the log file
 function New-LogMonitorTab {
     param (
         [string]$filePath,
@@ -348,7 +349,7 @@ function New-ProcessTab {
         HistoryEntry = $historyEntry
         OnComplete = $OnComplete
         StartTime = Get-Date
-        Timeout = 10  # 10 second timeout
+        Timeout = 10
     }
 
     $timer.Add_Tick({
@@ -361,7 +362,6 @@ function New-ProcessTab {
         $psHandle = [Win32]::FindWindowByProcessId($data.Process.Id)
 
         if ($psHandle -ne [IntPtr]::Zero) {
-            # Success! Stop timer and create tab
             Write-Log "Window handle found for PID $($data.Process.Id): $psHandle after $([math]::Round($elapsed, 2)) seconds"
             $sender.Stop()
 
@@ -391,13 +391,8 @@ function New-ProcessTab {
 
                 # Re-parent the PowerShell window to the panel
                 $reparentResult = [Win32]::SetParent($psHandle, $panel.Handle)
-                Write-Log "SetParent result: $reparentResult, Panel handle: $($panel.Handle)"
-
                 $showResult = [Win32]::ShowWindow($psHandle, 5)  # 5 = SW_SHOW
-                Write-Log "ShowWindow result: $showResult"
-
                 $moveResult = [Win32]::MoveWindow($psHandle, 0, 0, $panel.Width, $panel.Height, $true)
-                Write-Log "MoveWindow result: $moveResult (Panel size: $($panel.Width)x$($panel.Height))"
 
                 # Check if process is still running
                 $data.Process.Refresh()
@@ -433,7 +428,6 @@ function New-ProcessTab {
 
                 Write-Log "PowerShell tab created successfully for process ID: $($data.Process.Id)"
 
-                # Call completion callback if provided
                 if ($data.OnComplete) {
                     & $data.OnComplete
                 }
@@ -446,7 +440,6 @@ function New-ProcessTab {
             }
         }
         elseif ($elapsed -gt $data.Timeout) {
-            # Timeout - stop trying
             $sender.Stop()
             Write-Log "Timeout: Failed to retrieve the PowerShell window handle for process ID: $($data.Process.Id) after $($data.Timeout) seconds."
 
@@ -454,7 +447,6 @@ function New-ProcessTab {
                 & $data.OnComplete
             }
         }
-        # Otherwise, keep polling
     })
 
     $timer.Start()
