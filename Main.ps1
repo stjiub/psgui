@@ -1,5 +1,5 @@
 # App Version
-$script:Version = "1.4.1"
+$script:Version = "1.4.2"
 $script:AppTitle = "PSGUI - v$($script:Version)"
 
 # Constants
@@ -25,6 +25,7 @@ $script:State = @{
     RecycleBinMaxSize = 10
     CommandHistory = [System.Collections.Generic.List[object]]::new()
     OpenCommandWindows = [System.Collections.Generic.List[object]]::new()
+    Username = $env:USERNAME
     DragDrop = @{
         DraggedItem = $null
         LastHighlightedRow = $null

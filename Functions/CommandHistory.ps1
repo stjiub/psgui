@@ -32,6 +32,7 @@ function Add-CommandToHistory {
         # Create history entry
         $historyEntry = [PSCustomObject]@{
             Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            Username = $script:State.Username
             CommandName = $Command.Root
             FullCommand = $Command.Full
             CleanCommand = $Command.CleanCommand
@@ -460,6 +461,7 @@ function Save-CommandHistory {
 
             $serializedEntry = @{
                 Timestamp = $entry.Timestamp
+                Username = $entry.Username
                 CommandName = $entry.CommandName
                 FullCommand = $entry.FullCommand
                 CleanCommand = $entry.CleanCommand
@@ -556,6 +558,7 @@ function Load-CommandHistory {
             # Recreate history entry
             $historyEntry = [PSCustomObject]@{
                 Timestamp = $serialized.Timestamp
+                Username = if ($serialized.Username) { $serialized.Username } else { "Unknown" }
                 CommandName = $serialized.CommandName
                 FullCommand = $serialized.FullCommand
                 CleanCommand = $serialized.CleanCommand
