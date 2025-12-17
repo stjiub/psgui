@@ -1,11 +1,11 @@
 properties {
-    $ProjectRoot = Split-Path -Parent $PSScriptRoot
+    $ProjectRoot = $PSScriptRoot
     if (Test-Path "$ProjectRoot\PSGUI.exe") {
         $script:CurrentVersion = (Get-Item "$ProjectRoot\PSGUI.exe").Versioninfo.FileVersionRaw
     }
 
     $RequiredFiles = @("PSGUI.exe", "icon.ico", "Assembly", "defaultsettings.json")
-    $InstallLocations = @("C:\Program Files\PSGUI")
+    $DeployLocations = @("C:\Program Files\PSGUI")
 }
 
 task default -depends Combine
@@ -54,7 +54,6 @@ task default -depends Combine
         # Publish the new version back to remote git repo
         try {
             $env:Path += ";$env:ProgramFiles\Git\cmd"
-            Import-Module posh-git -ErrorAction Stop
             git checkout main
             git add --all
             git status
@@ -69,8 +68,8 @@ task default -depends Combine
         }
     }
 
-    task Publish -depends Build, Commit {
-        foreach ($location in $InstallLocations) {
+    task Deploy -depends Build, Commit {
+        foreach ($location in $DeployLocations) {
             if (-not (Test-Path $location)) {
                 New-Item -ItemType "Directory" -Path $location
                 Write-Host "Created new directory at: $location"
