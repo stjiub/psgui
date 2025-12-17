@@ -422,12 +422,10 @@ function Initialize-CommandHistoryUI {
 function Save-CommandHistory {
     try {
         if (-not $script:Settings.SaveHistory) {
-            Write-Log "SaveHistory is disabled, skipping save"
             return
         }
 
         $historyPath = $script:Settings.DefaultHistoryPath
-        Write-Log "Attempting to save command history to: $historyPath"
 
         if ([string]::IsNullOrWhiteSpace($historyPath)) {
             Write-Log "ERROR: DefaultHistoryPath is null or empty"
@@ -437,7 +435,6 @@ function Save-CommandHistory {
         # Ensure directory exists
         $historyDir = Split-Path -Parent $historyPath
         if (-not (Test-Path $historyDir)) {
-            Write-Log "Creating history directory: $historyDir"
             New-Item -ItemType Directory -Path $historyDir -Force | Out-Null
         }
 
@@ -445,7 +442,6 @@ function Save-CommandHistory {
         $serializedHistory = @()
         foreach ($entry in $script:State.CommandHistory) {
             if (-not $entry.CommandObject) {
-                Write-Log "WARNING: Skipping history entry with null CommandObject"
                 continue
             }
 
@@ -485,27 +481,110 @@ function Save-CommandHistory {
             $serializedHistory += $serializedEntry
         }
 
-        Write-Log "Serializing $($serializedHistory.Count) history entries"
+        # Check if the file was modified since we last read it (to handle concurrent saves)
+        $needsInMemoryUpdate = $false
+        if (Test-Path $historyPath) {
+            $fileInfo = Get-Item $historyPath
+            $currentModTime = $fileInfo.LastWriteTime
+
+            if ($script:State.HistoryLastModTime -and $currentModTime -gt $script:State.HistoryLastModTime) {
+                # Load the external history
+                $externalHistory = Get-Content -Path $historyPath -Raw | ConvertFrom-Json
+
+                if ($externalHistory) {
+                    # Create a hashtable of our entries keyed by timestamp
+                    $ourEntries = @{}
+                    foreach ($entry in $serializedHistory) {
+                        $ourEntries[$entry.Timestamp] = $entry
+                    }
+
+                    # Add external entries that we don't have
+                    $mergedList = @($serializedHistory)
+                    foreach ($externalEntry in $externalHistory) {
+                        if (-not $ourEntries.ContainsKey($externalEntry.Timestamp)) {
+                            $mergedList += $externalEntry
+                            $needsInMemoryUpdate = $true
+                        }
+                    }
+
+                    # Sort by timestamp (newest first) and apply limit
+                    $serializedHistory = $mergedList | Sort-Object { [DateTime]::Parse($_.Timestamp) } -Descending | Select-Object -First $script:Settings.CommandHistoryLimit
+                }
+            }
+        }
 
         # Save to JSON file
         $serializedHistory | ConvertTo-Json -Depth 10 | Set-Content -Path $historyPath -Encoding UTF8
-        Write-Log "Command history saved successfully to $historyPath"
+
+        # If we merged external entries, update the in-memory history
+        if ($needsInMemoryUpdate) {
+
+            $script:State.CommandHistory.Clear()
+
+            foreach ($serialized in $serializedHistory) {
+                # Recreate Command object
+                $command = New-Object Command
+                $command.Root = $serialized.CommandData.Root
+                $command.Full = $serialized.CommandData.Full
+                $command.CleanCommand = $serialized.CommandData.CleanCommand
+                $command.PreCommand = $serialized.CommandData.PreCommand
+                $command.PostCommand = $serialized.CommandData.PostCommand
+                $command.SkipParameterSelect = $serialized.CommandData.SkipParameterSelect
+
+                # Handle migration from old Log property to new Transcript/PSTask
+                if ($null -ne $serialized.CommandData.Log) {
+                    $command.Transcript = ($serialized.CommandData.Log -eq "Transcript")
+                    $command.PSTask = ($serialized.CommandData.Log -eq "PSTask")
+                }
+                else {
+                    $command.Transcript = if ($null -ne $serialized.CommandData.Transcript) { $serialized.CommandData.Transcript } else { $false }
+                    $command.PSTask = if ($null -ne $serialized.CommandData.PSTask) { $serialized.CommandData.PSTask } else { $false }
+                    $command.PSTaskMode = $serialized.CommandData.PSTaskMode
+                    $command.PSTaskVisibilityLevel = $serialized.CommandData.PSTaskVisibilityLevel
+                }
+
+                $command.LogPath = $serialized.CommandData.LogPath
+                $command.ShellOverride = $serialized.CommandData.ShellOverride
+
+                # Recreate history entry
+                $historyEntry = [PSCustomObject]@{
+                    Timestamp = $serialized.Timestamp
+                    Username = if ($serialized.Username) { $serialized.Username } else { "Unknown" }
+                    CommandName = $serialized.CommandName
+                    FullCommand = $serialized.FullCommand
+                    CleanCommand = $serialized.CleanCommand
+                    PreCommand = $serialized.PreCommand
+                    PostCommand = $serialized.PostCommand
+                    ParameterSummary = $serialized.ParameterSummary
+                    CommandObject = $command
+                    ParameterValues = $serialized.ParameterValues
+                    LogPath = $serialized.LogPath
+                }
+
+                $script:State.CommandHistory.Add($historyEntry)
+            }
+
+            Update-CommandHistoryGrid
+        }
+
+        # Update last modification time to prevent syncing our own changes
+        if (Test-Path $historyPath) {
+            $fileInfo = Get-Item $historyPath
+            $script:State.HistoryLastModTime = $fileInfo.LastWriteTime
+        }
     }
     catch {
         Write-Log "ERROR saving command history: $_"
-        Write-Log "Stack trace: $($_.ScriptStackTrace)"
     }
 }
 
 function Load-CommandHistory {
     try {
         if (-not $script:Settings.SaveHistory) {
-            Write-Log "SaveHistory is disabled, skipping load"
             return
         }
 
         $historyPath = $script:Settings.DefaultHistoryPath
-        Write-Log "Attempting to load command history from: $historyPath"
 
         if ([string]::IsNullOrWhiteSpace($historyPath)) {
             Write-Log "ERROR: DefaultHistoryPath is null or empty"
@@ -513,7 +592,6 @@ function Load-CommandHistory {
         }
 
         if (-not (Test-Path $historyPath)) {
-            Write-Log "No command history file found at $historyPath (this is normal on first run)"
             return
         }
 
@@ -521,7 +599,6 @@ function Load-CommandHistory {
         $serializedHistory = Get-Content -Path $historyPath -Raw | ConvertFrom-Json
 
         if (-not $serializedHistory) {
-            Write-Log "History file is empty or invalid"
             return
         }
 
@@ -579,10 +656,177 @@ function Load-CommandHistory {
         }
 
         Update-CommandHistoryGrid
-        Write-Log "Loaded $($script:State.CommandHistory.Count) command(s) from history successfully"
     }
     catch {
         Write-Log "ERROR loading command history: $_"
-        Write-Log "Stack trace: $($_.ScriptStackTrace)"
+    }
+}
+
+function Sync-CommandHistory {
+    try {
+        if (-not $script:Settings.SaveHistory) {
+            return
+        }
+
+        $historyPath = $script:Settings.DefaultHistoryPath
+
+        if ([string]::IsNullOrWhiteSpace($historyPath)) {
+            return
+        }
+
+        if (-not (Test-Path $historyPath)) {
+            return
+        }
+
+        # Get current file modification time
+        $fileInfo = Get-Item $historyPath
+        $currentModTime = $fileInfo.LastWriteTime
+
+        # Initialize last mod time if not set
+        if (-not $script:State.HistoryLastModTime) {
+            $script:State.HistoryLastModTime = $currentModTime
+            return
+        }
+
+        # Check if file has been modified externally
+        if ($currentModTime -le $script:State.HistoryLastModTime) {
+            return
+        }
+
+        # Load the external history file
+        $externalHistory = Get-Content -Path $historyPath -Raw | ConvertFrom-Json
+
+        if (-not $externalHistory) {
+            $script:State.HistoryLastModTime = $currentModTime
+            return
+        }
+
+        # Create a hashtable of current history entries keyed by timestamp
+        $currentEntries = @{}
+        foreach ($entry in $script:State.CommandHistory) {
+            $currentEntries[$entry.Timestamp] = $entry
+        }
+
+        # Merge external entries with current ones
+        $mergedList = [System.Collections.Generic.List[object]]::new()
+
+        # Add all current entries
+        foreach ($entry in $script:State.CommandHistory) {
+            $mergedList.Add($entry)
+        }
+
+        # Add new external entries that don't exist in current history
+        foreach ($serialized in $externalHistory) {
+            if (-not $currentEntries.ContainsKey($serialized.Timestamp)) {
+                # Recreate Command object
+                $command = New-Object Command
+                $command.Root = $serialized.CommandData.Root
+                $command.Full = $serialized.CommandData.Full
+                $command.CleanCommand = $serialized.CommandData.CleanCommand
+                $command.PreCommand = $serialized.CommandData.PreCommand
+                $command.PostCommand = $serialized.CommandData.PostCommand
+                $command.SkipParameterSelect = $serialized.CommandData.SkipParameterSelect
+
+                # Handle migration from old Log property to new Transcript/PSTask
+                if ($null -ne $serialized.CommandData.Log) {
+                    $command.Transcript = ($serialized.CommandData.Log -eq "Transcript")
+                    $command.PSTask = ($serialized.CommandData.Log -eq "PSTask")
+                }
+                else {
+                    $command.Transcript = if ($null -ne $serialized.CommandData.Transcript) { $serialized.CommandData.Transcript } else { $false }
+                    $command.PSTask = if ($null -ne $serialized.CommandData.PSTask) { $serialized.CommandData.PSTask } else { $false }
+                    $command.PSTaskMode = $serialized.CommandData.PSTaskMode
+                    $command.PSTaskVisibilityLevel = $serialized.CommandData.PSTaskVisibilityLevel
+                }
+
+                $command.LogPath = $serialized.CommandData.LogPath
+                $command.ShellOverride = $serialized.CommandData.ShellOverride
+
+                # Recreate history entry
+                $historyEntry = [PSCustomObject]@{
+                    Timestamp = $serialized.Timestamp
+                    Username = if ($serialized.Username) { $serialized.Username } else { "Unknown" }
+                    CommandName = $serialized.CommandName
+                    FullCommand = $serialized.FullCommand
+                    CleanCommand = $serialized.CleanCommand
+                    PreCommand = $serialized.PreCommand
+                    PostCommand = $serialized.PostCommand
+                    ParameterSummary = $serialized.ParameterSummary
+                    CommandObject = $command
+                    ParameterValues = $serialized.ParameterValues
+                    LogPath = $serialized.LogPath
+                }
+
+                $mergedList.Add($historyEntry)
+            }
+        }
+
+        # Sort by timestamp (newest first) and apply limit
+        $sortedList = $mergedList | Sort-Object { [DateTime]::Parse($_.Timestamp) } -Descending
+
+        # Update the command history
+        $script:State.CommandHistory.Clear()
+        $count = 0
+        foreach ($entry in $sortedList) {
+            if ($count -ge $script:Settings.CommandHistoryLimit) {
+                break
+            }
+            $script:State.CommandHistory.Add($entry)
+            $count++
+        }
+
+        # Update UI
+        Update-CommandHistoryGrid
+
+        # Update last modification time
+        $script:State.HistoryLastModTime = $currentModTime
+    }
+    catch {
+        Write-Log "ERROR syncing command history: $_"
+    }
+}
+
+function Start-HistorySyncTimer {
+    try {
+        # Only start if sync interval is greater than 0
+        if ($script:Settings.HistorySyncIntervalSeconds -le 0) {
+            return
+        }
+
+        if (-not $script:Settings.SaveHistory) {
+            return
+        }
+
+        # Initialize the last modification time tracker
+        $historyPath = $script:Settings.DefaultHistoryPath
+        if ((Test-Path $historyPath)) {
+            $fileInfo = Get-Item $historyPath
+            $script:State.HistoryLastModTime = $fileInfo.LastWriteTime
+        }
+
+        # Create a DispatcherTimer for periodic sync
+        $script:HistorySyncTimer = New-Object System.Windows.Threading.DispatcherTimer
+        $script:HistorySyncTimer.Interval = [TimeSpan]::FromSeconds($script:Settings.HistorySyncIntervalSeconds)
+
+        $script:HistorySyncTimer.Add_Tick({
+            Sync-CommandHistory
+        })
+
+        $script:HistorySyncTimer.Start()
+    }
+    catch {
+        Write-Log "ERROR starting history sync timer: $_"
+    }
+}
+
+function Stop-HistorySyncTimer {
+    try {
+        if ($script:HistorySyncTimer) {
+            $script:HistorySyncTimer.Stop()
+            $script:HistorySyncTimer = $null
+        }
+    }
+    catch {
+        Write-Log "ERROR stopping history sync timer: $_"
     }
 }

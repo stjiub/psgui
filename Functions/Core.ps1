@@ -336,6 +336,7 @@ function Register-EventHandlers {
     # Command History events
     Initialize-CommandHistoryUI
     Load-CommandHistory
+    Start-HistorySyncTimer
 
     $script:UI.Window.Add_Loaded({
         $script:UI.Window.Icon = $script:ApplicationPaths.IconFile
@@ -420,6 +421,9 @@ function Invoke-WindowClosing {
 
     $favorites = $script:UI.Tabs["Favorites"].Content.ItemsSource
     Save-Favorites -Favorites $favorites
+
+    # Stop history sync timer
+    Stop-HistorySyncTimer
 
     # Close all open CommandWindows
     foreach ($window in $script:State.OpenCommandWindows) {
