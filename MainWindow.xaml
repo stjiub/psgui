@@ -321,6 +321,7 @@
                                 <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="150"/>
                                 <DataGridTextColumn Header="Command" Binding="{Binding CommandName}" Width="200"/>
                                 <DataGridTextColumn Header="Parameters" Binding="{Binding ParameterSummary}" Width="*"/>
+                                <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="100"/>
                             </DataGrid.Columns>
                             <DataGrid.ContextMenu>
                                 <ContextMenu Style="{StaticResource GridContextMenuStyle}">
