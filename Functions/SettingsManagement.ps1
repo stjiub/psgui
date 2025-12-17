@@ -47,6 +47,7 @@ function Initialize-Settings {
     $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
     $script:UI.TxtCommandHistoryLimit.Text = $script:Settings.CommandHistoryLimit
     $script:UI.TxtHistorySyncInterval.Text = $script:Settings.HistorySyncIntervalSeconds
+    $script:UI.TxtDataFileSyncInterval.Text = $script:Settings.DataFileSyncIntervalSeconds
     $script:UI.TxtStatusTimeout.Text = $script:Settings.StatusTimeout
     $script:UI.ChkShowDebugTab.IsChecked = $script:Settings.ShowDebugTab
     $script:UI.ChkUseProfile.IsChecked = $script:Settings.UseProfile
@@ -79,6 +80,7 @@ function Create-DefaultSettings {
         DefaultDataFile = $script:Settings.DefaultDataFile
         CommandHistoryLimit = $script:Settings.CommandHistoryLimit
         HistorySyncIntervalSeconds = $script:Settings.HistorySyncIntervalSeconds
+        DataFileSyncIntervalSeconds = $script:Settings.DataFileSyncIntervalSeconds
         StatusTimeout = $script:Settings.StatusTimeout
         SaveHistory = $script:Settings.SaveHistory
         UseProfile = $script:Settings.UseProfile
@@ -110,6 +112,7 @@ function Show-SettingsDialog {
     $script:UI.TxtDefaultDataFile.Text = $script:Settings.DefaultDataFile
     $script:UI.TxtCommandHistoryLimit.Text = $script:Settings.CommandHistoryLimit
     $script:UI.TxtHistorySyncInterval.Text = $script:Settings.HistorySyncIntervalSeconds
+    $script:UI.TxtDataFileSyncInterval.Text = $script:Settings.DataFileSyncIntervalSeconds
     $script:UI.TxtStatusTimeout.Text = $script:Settings.StatusTimeout
     $script:UI.TxtSettingsPath.Text = $script:Settings.SettingsPath
     $script:UI.TxtFavoritesPath.Text = $script:Settings.FavoritesPath
@@ -217,6 +220,26 @@ function Apply-Settings {
         Start-HistorySyncTimer
     }
 
+    # Validate and set DataFileSyncIntervalSeconds
+    $oldDataSyncInterval = $script:Settings.DataFileSyncIntervalSeconds
+    $dataFileSyncInterval = 30
+    if ([int]::TryParse($script:UI.TxtDataFileSyncInterval.Text, [ref]$dataFileSyncInterval)) {
+        # Ensure it's within reasonable bounds (0 to disable, or 5-3600 seconds)
+        if ($dataFileSyncInterval -lt 0) { $dataFileSyncInterval = 0 }
+        if ($dataFileSyncInterval -gt 3600) { $dataFileSyncInterval = 3600 }
+        if ($dataFileSyncInterval -gt 0 -and $dataFileSyncInterval -lt 5) { $dataFileSyncInterval = 5 }
+        $script:Settings.DataFileSyncIntervalSeconds = $dataFileSyncInterval
+    } else {
+        $script:Settings.DataFileSyncIntervalSeconds = 30
+        $script:UI.TxtDataFileSyncInterval.Text = "30"
+    }
+
+    # If data sync interval changed, restart the timer
+    if ($oldDataSyncInterval -ne $script:Settings.DataFileSyncIntervalSeconds) {
+        Stop-DataFileSyncTimer
+        Start-DataFileSyncTimer
+    }
+
     # Apply Debug tab visibility change immediately
     $debugTab = $script:UI.Window.FindName("TabControlShell").Items | Where-Object { $_.Header -eq "Debug" }
     if ($debugTab) {
@@ -283,6 +306,7 @@ function Load-Settings {
     $script:Settings.DefaultDataFile = Get-SettingValue $settings "DefaultDataFile" $defaultSettings.DefaultDataFile
     $script:Settings.CommandHistoryLimit = Get-SettingValue $settings "CommandHistoryLimit" $defaultSettings.CommandHistoryLimit
     $script:Settings.HistorySyncIntervalSeconds = Get-SettingValue $settings "HistorySyncIntervalSeconds" $defaultSettings.HistorySyncIntervalSeconds
+    $script:Settings.DataFileSyncIntervalSeconds = Get-SettingValue $settings "DataFileSyncIntervalSeconds" $defaultSettings.DataFileSyncIntervalSeconds
     $script:Settings.StatusTimeout = Get-SettingValue $settings "StatusTimeout" $defaultSettings.StatusTimeout
     $script:Settings.SaveHistory = Get-SettingValue $settings "SaveHistory" $defaultSettings.SaveHistory
     $script:Settings.UseProfile = Get-SettingValue $settings "UseProfile" $defaultSettings.UseProfile
@@ -311,6 +335,7 @@ function Save-Settings {
             DefaultDataFile = $script:Settings.DefaultDataFile
             CommandHistoryLimit = $script:Settings.CommandHistoryLimit
             HistorySyncIntervalSeconds = $script:Settings.HistorySyncIntervalSeconds
+            DataFileSyncIntervalSeconds = $script:Settings.DataFileSyncIntervalSeconds
             StatusTimeout = $script:Settings.StatusTimeout
             SaveHistory = $script:Settings.SaveHistory
             UseProfile = $script:Settings.UseProfile

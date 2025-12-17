@@ -163,6 +163,12 @@ function Save-DataFile {
         Set-Content -Path $filePath -Value $json
         Set-UnsavedChanges $false
         Write-Status "Data saved"
+
+        # Update last modification time to prevent syncing our own changes
+        if (Test-Path $filePath) {
+            $fileInfo = Get-Item $filePath
+            $script:State.DataFileLastModTime = $fileInfo.LastWriteTime
+        }
     }
     catch {
         Write-Error "Failed to save data to: $filePath"
@@ -353,5 +359,184 @@ function Import-DataFile {
     }
     catch {
         Show-ErrorMessageBox "Failed to import data file: $_"
+    }
+}
+
+function Sync-DataFile {
+    try {
+        $dataFilePath = $script:State.CurrentDataFile
+
+        if ([string]::IsNullOrWhiteSpace($dataFilePath)) {
+            return
+        }
+
+        if (-not (Test-Path $dataFilePath)) {
+            return
+        }
+
+        # Get current file modification time
+        $fileInfo = Get-Item $dataFilePath
+        $currentModTime = $fileInfo.LastWriteTime
+
+        # Initialize last mod time if not set
+        if (-not $script:State.DataFileLastModTime) {
+            $script:State.DataFileLastModTime = $currentModTime
+            return
+        }
+
+        # Check if file has been modified externally
+        if ($currentModTime -le $script:State.DataFileLastModTime) {
+            return
+        }
+
+        # Skip sync if we have unsaved changes (user's changes take priority)
+        if ($script:State.HasUnsavedChanges) {
+            return
+        }
+
+        # Load the external data file
+        $externalData = Load-DataFile $dataFilePath
+
+        if (-not $externalData) {
+            $script:State.DataFileLastModTime = $currentModTime
+            return
+        }
+
+        # Get current data
+        $currentData = $script:UI.Tabs["All"].Content.ItemsSource
+
+        # Create hashtables for comparison by ID
+        $currentById = @{}
+        foreach ($item in $currentData) {
+            if ($item.Id) {
+                $currentById[$item.Id] = $item
+            }
+        }
+
+        $externalById = @{}
+        foreach ($item in $externalData) {
+            if ($item.Id) {
+                $externalById[$item.Id] = $item
+            }
+        }
+
+        # Track changes
+        $itemsAdded = 0
+        $itemsRemoved = 0
+        $itemsUpdated = 0
+
+        # Add or update items from external file (updates happen in background)
+        foreach ($externalItem in $externalData) {
+            if (-not $externalItem.Id) { continue }
+
+            $currentItem = $currentById[$externalItem.Id]
+            if ($currentItem) {
+                # Item exists - update properties if different
+                $hasChanges = $false
+                if ($currentItem.Name -ne $externalItem.Name) { $currentItem.Name = $externalItem.Name; $hasChanges = $true }
+                if ($currentItem.Description -ne $externalItem.Description) { $currentItem.Description = $externalItem.Description; $hasChanges = $true }
+                if ($currentItem.Category -ne $externalItem.Category) { $currentItem.Category = $externalItem.Category; $hasChanges = $true }
+                if ($currentItem.Command -ne $externalItem.Command) { $currentItem.Command = $externalItem.Command; $hasChanges = $true }
+                if ($currentItem.SkipParameterSelect -ne $externalItem.SkipParameterSelect) { $currentItem.SkipParameterSelect = $externalItem.SkipParameterSelect; $hasChanges = $true }
+                if ($currentItem.PreCommand -ne $externalItem.PreCommand) { $currentItem.PreCommand = $externalItem.PreCommand; $hasChanges = $true }
+                if ($currentItem.PostCommand -ne $externalItem.PostCommand) { $currentItem.PostCommand = $externalItem.PostCommand; $hasChanges = $true }
+                if ($currentItem.Transcript -ne $externalItem.Transcript) { $currentItem.Transcript = $externalItem.Transcript; $hasChanges = $true }
+                if ($currentItem.PSTask -ne $externalItem.PSTask) { $currentItem.PSTask = $externalItem.PSTask; $hasChanges = $true }
+                if ($currentItem.PSTaskMode -ne $externalItem.PSTaskMode) { $currentItem.PSTaskMode = $externalItem.PSTaskMode; $hasChanges = $true }
+                if ($currentItem.PSTaskVisibilityLevel -ne $externalItem.PSTaskVisibilityLevel) { $currentItem.PSTaskVisibilityLevel = $externalItem.PSTaskVisibilityLevel; $hasChanges = $true }
+                if ($currentItem.ShellOverride -ne $externalItem.ShellOverride) { $currentItem.ShellOverride = $externalItem.ShellOverride; $hasChanges = $true }
+                if ($currentItem.LogParameterNames -ne $externalItem.LogParameterNames) { $currentItem.LogParameterNames = $externalItem.LogParameterNames; $hasChanges = $true }
+
+                if ($hasChanges) {
+                    $itemsUpdated++
+                }
+            }
+            else {
+                # New item - add it to All tab
+                $currentData.Add($externalItem)
+                $itemsAdded++
+
+                # Also add to category tab if it exists
+                if ($externalItem.Category -and $externalItem.Category -ne "") {
+                    $categoryTab = $script:UI.Tabs[$externalItem.Category]
+                    if ($categoryTab -and $categoryTab.Content -and $categoryTab.Content.ItemsSource) {
+                        $categoryTab.Content.ItemsSource.Add($externalItem)
+                    }
+                }
+            }
+        }
+
+        # Remove items that exist locally but not in external file
+        $itemsToRemove = @()
+        foreach ($currentItem in $currentData) {
+            if ($currentItem.Id -and -not $externalById.ContainsKey($currentItem.Id)) {
+                $itemsToRemove += $currentItem
+            }
+        }
+        foreach ($item in $itemsToRemove) {
+            # Remove from All tab
+            $currentData.Remove($item)
+            $itemsRemoved++
+
+            # Also remove from category tab if it has one
+            if ($item.Category -and $item.Category -ne "") {
+                $categoryTab = $script:UI.Tabs[$item.Category]
+                if ($categoryTab -and $categoryTab.Content -and $categoryTab.Content.ItemsSource) {
+                    $categoryTab.Content.ItemsSource.Remove($item)
+                }
+            }
+        }
+
+        # Log changes (updates happen silently in background)
+        if ($itemsAdded -gt 0 -or $itemsRemoved -gt 0 -or $itemsUpdated -gt 0) {
+            Write-Log "Data file synced in background: $itemsAdded added, $itemsRemoved removed, $itemsUpdated updated"
+        }
+
+        # Update last modification time
+        $script:State.DataFileLastModTime = $currentModTime
+    }
+    catch {
+        Write-Log "ERROR syncing data file: $_"
+    }
+}
+
+function Start-DataFileSyncTimer {
+    try {
+        # Only start if sync interval is greater than 0
+        if ($script:Settings.DataFileSyncIntervalSeconds -le 0) {
+            return
+        }
+
+        # Initialize the last modification time tracker
+        $dataFilePath = $script:State.CurrentDataFile
+        if ((Test-Path $dataFilePath)) {
+            $fileInfo = Get-Item $dataFilePath
+            $script:State.DataFileLastModTime = $fileInfo.LastWriteTime
+        }
+
+        # Create a DispatcherTimer for periodic sync
+        $script:DataFileSyncTimer = New-Object System.Windows.Threading.DispatcherTimer
+        $script:DataFileSyncTimer.Interval = [TimeSpan]::FromSeconds($script:Settings.DataFileSyncIntervalSeconds)
+
+        $script:DataFileSyncTimer.Add_Tick({
+            Sync-DataFile
+        })
+
+        $script:DataFileSyncTimer.Start()
+    }
+    catch {
+        Write-Log "ERROR starting data file sync timer: $_"
+    }
+}
+
+function Stop-DataFileSyncTimer {
+    try {
+        if ($script:DataFileSyncTimer) {
+            $script:DataFileSyncTimer.Stop()
+            $script:DataFileSyncTimer = $null
+        }
+    }
+    catch {
+        Write-Log "ERROR stopping data file sync timer: $_"
     }
 }
