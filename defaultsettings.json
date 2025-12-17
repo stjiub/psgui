@@ -14,6 +14,7 @@
     "CommandHistoryLimit": 50,
     "SaveHistory": true,
     "HistorySyncIntervalSeconds": 30,
+    "DataFileSyncIntervalSeconds": 30,
     "UseProfile": false,
     "ProfilePath": "%USERPROFILE%\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1",
     "EnablePSTask": false

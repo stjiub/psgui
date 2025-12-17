@@ -470,6 +470,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <Label Grid.Row="0" Grid.Column="0" Content="Default Shell:"/>
@@ -566,15 +567,18 @@
                                 <Label Grid.Row="12" Grid.Column="0" Content="History Sync Interval (seconds):"/>
                                 <TextBox Grid.Row="12" Grid.Column="1" Name="TxtHistorySyncInterval" Margin="5"/>
 
-                                <Label Grid.Row="13" Grid.Column="0" Content="Show Debug Tab:"/>
-                                <CheckBox Grid.Row="13" Grid.Column="1" Name="ChkShowDebugTab" Margin="5" VerticalAlignment="Center"/>
+                                <Label Grid.Row="13" Grid.Column="0" Content="Data File Sync Interval (seconds):"/>
+                                <TextBox Grid.Row="13" Grid.Column="1" Name="TxtDataFileSyncInterval" Margin="5"/>
 
-                                <Label Grid.Row="14" Grid.Column="0" Content="Use PowerShell Profile:"/>
-                                <CheckBox Grid.Row="14" Grid.Column="1" Name="ChkUseProfile" Margin="5" VerticalAlignment="Center"/>
+                                <Label Grid.Row="14" Grid.Column="0" Content="Show Debug Tab:"/>
+                                <CheckBox Grid.Row="14" Grid.Column="1" Name="ChkShowDebugTab" Margin="5" VerticalAlignment="Center"/>
 
-                                <Label Grid.Row="15" Grid.Column="0" Content="PowerShell Profile Path:"/>
-                                <TextBox Grid.Row="15" Grid.Column="1" Name="TxtProfilePath" Margin="5"/>
-                                <Button Grid.Row="15" Grid.Column="2" Name="BtnBrowseProfilePath" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
+                                <Label Grid.Row="15" Grid.Column="0" Content="Use PowerShell Profile:"/>
+                                <CheckBox Grid.Row="15" Grid.Column="1" Name="ChkUseProfile" Margin="5" VerticalAlignment="Center"/>
+
+                                <Label Grid.Row="16" Grid.Column="0" Content="PowerShell Profile Path:"/>
+                                <TextBox Grid.Row="16" Grid.Column="1" Name="TxtProfilePath" Margin="5"/>
+                                <Button Grid.Row="16" Grid.Column="2" Name="BtnBrowseProfilePath" VerticalAlignment="Center" Style="{StaticResource ActionButton}">
                                     <Button.LayoutTransform>
                                         <ScaleTransform   ScaleX="1.5" ScaleY="1.5"/>
                                     </Button.LayoutTransform>
@@ -586,8 +590,8 @@
                                     </Button.ToolTip>
                                 </Button>
 
-                                <Label Grid.Row="16" Grid.Column="0" Content="Enable PSTask:"/>
-                                <CheckBox Grid.Row="16" Grid.Column="1" Name="ChkEnablePSTask" Margin="5" VerticalAlignment="Center"/>
+                                <Label Grid.Row="17" Grid.Column="0" Content="Enable PSTask:"/>
+                                <CheckBox Grid.Row="17" Grid.Column="1" Name="ChkEnablePSTask" Margin="5" VerticalAlignment="Center"/>
                             </Grid>
                         </ScrollViewer>
 
