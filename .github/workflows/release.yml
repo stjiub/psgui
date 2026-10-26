@@ -55,10 +55,27 @@ jobs:
           Compress-Archive -Path package/* -DestinationPath $zip
           (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  $zip" | Set-Content "$zip.sha256"
 
+      - name: Extract release notes from CHANGELOG
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $lines = Get-Content CHANGELOG.md
+          $header = "^## $([regex]::Escape($version))(\s|$)"
+          $start = 0..($lines.Count - 1) | Where-Object { $lines[$_] -match $header } | Select-Object -First 1
+          if ($null -eq $start) { throw "No '## $version' section in CHANGELOG.md" }
+
+          $body = foreach ($line in $lines[($start + 1)..($lines.Count - 1)]) {
+              if ($line -match '^## ') { break }
+              $line
+          }
+          $text = ($body -join "`n").Trim()
+          if (-not $text) { throw "The '## $version' section in CHANGELOG.md is empty" }
+          Set-Content -Path release-notes.md -Value $text
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: release-notes.md
           files: |
             PSGUI-${{ env.VERSION }}.zip
             PSGUI-${{ env.VERSION }}.zip.sha256
