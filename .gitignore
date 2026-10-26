@@ -1,6 +1,14 @@
-data.json
+# Build and test output
+dist/
+TestResults/
+coverage.xml
 *.exe
+
+# Local data and shortcuts
+data.json
 *.lnk
 *.reg
+
+# Editor
 .vscode/
-PSGUI.ps1
+.idea/
