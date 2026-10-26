@@ -40,9 +40,11 @@ function Load-DataFile {
 
             # Handle both old format (array) and new format (object with CommandListId)
             $commandsArray = $null
-            if ($contentJson -is [Array]) {
+            # A one-element legacy array is unrolled to a single object, so detect the format by its properties
+            $isCurrentFormat = $contentJson.PSObject.Properties['Commands'] -or $contentJson.PSObject.Properties['CommandListId']
+            if (-not $isCurrentFormat) {
                 # Old format - array of commands
-                $commandsArray = $contentJson
+                $commandsArray = @($contentJson)
                 # Generate and store a new CommandListId for old files
                 $script:State.CurrentCommandListId = Get-CommandListId
                 Write-Log "Loaded legacy data file format, generated new CommandListId"
