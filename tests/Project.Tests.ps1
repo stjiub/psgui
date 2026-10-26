@@ -64,3 +64,27 @@ Describe 'UI wiring' {
         $missing | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Demo' {
+    BeforeAll {
+        Import-Module (Join-Path $root 'docs/demo/PSGUIDemo/PSGUIDemo.psm1') -Force
+        $script:demoCommands = (Get-Content (Join-Path $root 'docs/demo/demo-data.json') -Raw | ConvertFrom-Json).Commands
+    }
+
+    It 'has sample commands' {
+        $demoCommands.Count | Should -BeGreaterThan 0
+    }
+
+    It 'only uses functions, since the parameter form cannot read other command types' {
+        foreach ($c in $demoCommands) {
+            (Get-Command $c.Command).CommandType | Should -Be 'Function' -Because $c.Command
+        }
+    }
+
+    It 'gives every command parameters to show in the form' {
+        foreach ($c in $demoCommands) {
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput((Get-Command $c.Command).ScriptBlock.ToString(), [ref]$null, [ref]$null)
+            $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.ParameterAst] }, $true).Count | Should -BeGreaterThan 0 -Because $c.Command
+        }
+    }
+}
