@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches app version
+        shell: pwsh
+        run: |
+          $match = Select-String -Path src/Main.ps1 -Pattern '^\$script:Version\s*=\s*"([^"]+)"'
+          $version = $match.Matches[0].Groups[1].Value
+          if ("v$version" -ne '${{ github.ref_name }}') {
+            throw "Tag ${{ github.ref_name }} does not match src/Main.ps1 version $version"
+          }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module Pester -MinimumVersion 5.5 -Force -SkipPublisherCheck -Scope CurrentUser
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          Install-Module ps2exe -Force -Scope CurrentUser
+
+      - name: Test
+        shell: pwsh
+        run: ./build.ps1 -Task Test
+
+      - name: Build
+        shell: pwsh
+        run: ./build.ps1 -Task Build
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $zip = "PSGUI-$env:VERSION.zip"
+          New-Item -ItemType Directory -Path package | Out-Null
+          Copy-Item dist/PSGUI.exe, dist/icon.ico, dist/defaultsettings.json, LICENSE, THIRD-PARTY.md -Destination package
+          Copy-Item dist/Assembly -Destination package/Assembly -Recurse
+          Compress-Archive -Path package/* -DestinationPath $zip
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  $zip" | Set-Content "$zip.sha256"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            PSGUI-${{ env.VERSION }}.zip
+            PSGUI-${{ env.VERSION }}.zip.sha256
