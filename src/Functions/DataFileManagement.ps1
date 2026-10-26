@@ -134,7 +134,7 @@ function Save-DataFile {
 
     try {
         # Filter out unpopulated rows and convert to plain objects for JSON serialization
-        $populatedRows = $data | Where-Object { $_.Name -ne $null } | ForEach-Object {
+        $populatedRows = $data | Where-Object { $null -ne $_.Name } | ForEach-Object {
             @{
                 Id = $_.Id
                 Name = $_.Name

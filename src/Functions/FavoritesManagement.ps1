@@ -166,7 +166,7 @@ function Initialize-FavoritesDragDrop {
         }
 
         if ($e.LeftButton -eq [System.Windows.Input.MouseButtonState]::Pressed -and
-            $script:State.DragDrop.DraggedItem -ne $null) {
+            $null -ne $script:State.DragDrop.DraggedItem) {
 
             $dragData = New-Object System.Windows.DataObject([System.Windows.DataFormats]::Serializable, $script:State.DragDrop.DraggedItem)
             [System.Windows.DragDrop]::DoDragDrop($sender, $dragData, [System.Windows.DragDropEffects]::Move)
@@ -234,7 +234,7 @@ function Initialize-FavoritesDragDrop {
 
         Clear-DropHighlight
 
-        if ($script:State.DragDrop.DraggedItem -ne $null) {
+        if ($null -ne $script:State.DragDrop.DraggedItem) {
             $itemsSource = $sender.ItemsSource
             $draggedItem = $script:State.DragDrop.DraggedItem
             $position = $e.GetPosition($sender)
@@ -318,7 +318,7 @@ function Get-DataGridRowFromPoint {
 
     # First try hit testing to find row from actual content
     $element = $grid.InputHitTest($point)
-    while ($element -ne $null) {
+    while ($null -ne $element) {
         if ($element -is [System.Windows.Controls.DataGridRow]) {
             return $element
         }

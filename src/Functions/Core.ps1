@@ -389,7 +389,7 @@ function Invoke-WindowClosing {
     foreach ($tab in $script:UI.PSTabControl.Items) {
         if ($tab -ne $script:UI.PSAddTab) {
             $process = $tab.Tag["Process"]
-            if ($process -ne $null) {
+            if ($null -ne $process) {
                 try {
                     $process.Kill()
                 }

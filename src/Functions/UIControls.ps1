@@ -14,7 +14,7 @@ function New-Window {
             [xml]$xaml = (Get-Content $filePath)
         }
 
-        $window = New-Object System.Collections.Hashtable
+        $window = @{}
         $nodeReader = [System.Xml.XmlNodeReader]::New($xaml)
         $xamlReader = [Windows.Markup.XamlReader]::Load($nodeReader)
         [void]$window.Add('Window', $xamlReader)
