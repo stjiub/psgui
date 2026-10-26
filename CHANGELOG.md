@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.0 - 2026-10-26
 
 - Fix: opening a legacy data file that contained a single command loaded nothing
 - Fix: Enter no longer stops running the selected command after opening or importing a different data file
