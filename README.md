@@ -122,8 +122,6 @@ PSGUI exists to run PowerShell, so treat its data file like a script:
 - Commands are launched with `-ExecutionPolicy Bypass` so that unsigned scripts you point it at can run.
 - Settings, history, favorites and logs are stored unencrypted under `%APPDATA%\PSGUI`. History records the parameters you ran commands with, so avoid putting secrets in parameters.
 
-See [SECURITY.md](SECURITY.md) for how to report a vulnerability.
-
 ## Project layout
 
 ```
