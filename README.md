@@ -57,8 +57,8 @@ Your commands live in a data file, `%APPDATA%\PSGUI\data.json` by default. A new
 | Column | Meaning |
 | --- | --- |
 | Name, Description, Category | What you see in the list. Each category becomes a tab |
-| Command | A function, cmdlet or script to run. Its parameters become the form |
-| SkipParameterSelect | Run immediately without showing the form |
+| Command | What to run. For the parameter form this must be a function PSGUI can find in a fresh session, such as one exported by a module on `PSModulePath` |
+| SkipParameterSelect | Run immediately without showing the form. The command text is used as-is, so this also works for cmdlets, scripts and one-liners, which have no form |
 | PreCommand / PostCommand | Run before or after the command, in the same session |
 | Transcript / PSTask | Log the run with `Start-Transcript` or PSTask logging |
 | PSTaskMode / PSTaskVisibilityLevel | Passed to `Set-PSTaskMode` and `Set-PSTaskVisibilityLevel` |
@@ -66,6 +66,14 @@ Your commands live in a data file, `%APPDATA%\PSGUI\data.json` by default. A new
 | LogParameterNames | Comma-separated parameter names whose values are added to the log file name |
 
 Select a row and press **Run** (or Enter). **Ctrl+S** saves.
+
+### Try the demo
+
+`docs/demo` has a small module of sample commands (`PSGUIDemo`) and a data file that uses them. The launcher runs PSGUI against a temporary profile, so your own settings, history and data file are not touched:
+
+```powershell
+./docs/demo/Start-PSGUIDemo.ps1
+```
 
 ### Data file format
 
