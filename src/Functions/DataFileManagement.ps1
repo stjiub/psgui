@@ -158,11 +158,11 @@ function Save-DataFile {
         # Save in new format with CommandListId
         $fileStructure = @{
             CommandListId = $script:State.CurrentCommandListId
-            Commands = $populatedRows
+            Commands = @($populatedRows)
         }
 
         $json = ConvertTo-Json $fileStructure -Depth 3
-        Set-Content -Path $filePath -Value $json
+        Set-Content -Path $filePath -Value $json -Encoding UTF8
         Set-UnsavedChanges $false
         Write-Status "Data saved"
 
