@@ -9,7 +9,7 @@
 - Change: sources moved to `src/`, shipped files to `assets/`, and `build.ps1` replaces the psake script
 - Remove: the unused `SnippetsPath` setting
 - Add: Pester tests, PSScriptAnalyzer settings, GitHub Actions CI and tag-driven releases
-- Add: README, contributing guide, security policy and third-party notices
+- Add: README, contributing guide and third-party notices
 
 ## 1.4.2
 
