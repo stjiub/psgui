@@ -722,3 +722,36 @@ function Invoke-GridFilter {
 
     $grid.Items.Refresh()
 }
+
+# Run or delete the selected command from the keyboard, or commit edits when in edit mode
+function Register-GridKeyHandler {
+    param (
+        [System.Windows.Controls.DataGrid]$Grid
+    )
+
+    $Grid.Add_PreviewKeyDown({
+        param($sender,$e)
+        if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
+            Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
+        }
+        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
+            if (-not $script:State.TabsReadOnly) {
+                $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
+                $e.Handled = $true
+            }
+            else {
+                $e.Handled = $true
+                Invoke-MainRunClick -TabControl $script:UI.TabControl
+            }
+        }
+    })
+}
+
+# Every tab's grid needs its own cell edit handler for edits to propagate to the other tabs
+function Register-GridCellEditHandler {
+    param (
+        [System.Windows.Controls.DataGrid]$Grid
+    )
+
+    $Grid.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
+}

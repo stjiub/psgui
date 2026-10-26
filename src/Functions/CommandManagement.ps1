@@ -226,25 +226,8 @@ function Restore-DeletedCommand {
                 $tabs.Add($item.Category, $categoryTab)
 
                 # Assign event handlers to the new tab
-                $categoryTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-                $categoryTab.Content.Add_PreviewKeyDown({
-                    param($sender,$e)
-                    if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
-                        Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
-                    }
-                    elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
-                        # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
-                        if (-not $script:State.TabsReadOnly) {
-                            $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
-                            $e.Handled = $true
-                        }
-                        # If Edit Mode is disabled (TabsReadOnly is true), run the command
-                        else {
-                            $e.Handled = $true
-                            Invoke-MainRunClick -TabControl $script:UI.TabControl
-                        }
-                    }
-                })
+                Register-GridCellEditHandler -Grid $categoryTab.Content
+                Register-GridKeyHandler -Grid $categoryTab.Content
                 Sort-TabControl -TabControl $tabControl
             }
             $categoryTab.Content.ItemsSource.Add($item)
@@ -383,25 +366,8 @@ function Invoke-CellEditEndingHandler {
             $tabs.Add($newCategory, $newTab)
 
             # Assign the CellEditEnding event to the new tab
-            $newTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-            $newTab.Content.Add_PreviewKeyDown({
-                param($sender,$e)
-                if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
-                    Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
-                }
-                elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
-                    # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
-                    if (-not $script:State.TabsReadOnly) {
-                        $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
-                        $e.Handled = $true
-                    }
-                    # If Edit Mode is disabled (TabsReadOnly is true), run the command
-                    else {
-                        $e.Handled = $true
-                        Invoke-MainRunClick -TabControl $script:UI.TabControl
-                    }
-                }
-            })
+            Register-GridCellEditHandler -Grid $newTab.Content
+            Register-GridKeyHandler -Grid $newTab.Content
         }
         $newTab.Content.ItemsSource.Add($editedObject)
         Sort-TabControl -TabControl $tabControl

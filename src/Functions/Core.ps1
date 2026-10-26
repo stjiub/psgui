@@ -33,25 +33,8 @@ function Start-MainWindow {
     # Create tabs and grids
     $script:UI.Tabs = @{}
     $allTab = New-DataTab -Name "All" -ItemsSource $itemsSource -TabControl $script:UI.TabControl
-    $allTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-    $allTab.Content.Add_PreviewKeyDown({
-        param($sender,$e)
-        if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
-            Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
-        }
-        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
-            # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
-            if (-not $script:State.TabsReadOnly) {
-                $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
-                $e.Handled = $true
-            }
-            # If Edit Mode is disabled (TabsReadOnly is true), run the command
-            else {
-                $e.Handled = $true
-                Invoke-MainRunClick -TabControl $script:UI.TabControl
-            }
-        }
-    })
+    Register-GridCellEditHandler -Grid $allTab.Content
+    Register-GridKeyHandler -Grid $allTab.Content
     [void]$script:UI.Tabs.Add("All", $allTab)
 
     $favItemsSource = [System.Collections.ObjectModel.ObservableCollection[FavoriteRowData]]::new()
@@ -70,24 +53,7 @@ function Start-MainWindow {
             Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
         }
     })
-    $favTab.Content.Add_PreviewKeyDown({
-        param($sender,$e)
-        if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
-            Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
-        }
-        elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
-            # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
-            if (-not $script:State.TabsReadOnly) {
-                $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
-                $e.Handled = $true
-            }
-            # If Edit Mode is disabled (TabsReadOnly is true), run the command
-            else {
-                $e.Handled = $true
-                Invoke-MainRunClick -TabControl $script:UI.TabControl
-            }
-        }
-    })
+    Register-GridKeyHandler -Grid $favTab.Content
 
     # Add drag/drop event handlers for reordering favorites
     Initialize-FavoritesDragDrop -Grid $favTab.Content
@@ -100,25 +66,8 @@ function Start-MainWindow {
     foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique)) {
         $itemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
         $tab = New-DataTab -Name $category -ItemsSource $itemsSource -TabControl $script:UI.TabControl
-        $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs }) # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
-        $tab.Content.Add_PreviewKeyDown({
-            param($sender,$e)
-            if ($e.Key -eq [System.Windows.Input.Key]::Delete) {
-                Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs
-            }
-            elseif ($e.Key -eq [System.Windows.Input.Key]::Enter -and $sender.SelectedItem) {
-                # If Edit Mode is enabled (TabsReadOnly is false), commit any pending edits
-                if (-not $script:State.TabsReadOnly) {
-                    $sender.CommitEdit([System.Windows.Controls.DataGridEditingUnit]::Row, $true)
-                    $e.Handled = $true
-                }
-                # If Edit Mode is disabled (TabsReadOnly is true), run the command
-                else {
-                    $e.Handled = $true
-                    Invoke-MainRunClick -TabControl $script:UI.TabControl
-                }
-            }
-        })
+        Register-GridCellEditHandler -Grid $tab.Content # We need to assign the cell edit handler to each tab's grid so that it works for all tabs
+        Register-GridKeyHandler -Grid $tab.Content
         [void]$script:UI.Tabs.Add($category, $tab)
     }
     Sort-TabControl -TabControl $script:UI.TabControl

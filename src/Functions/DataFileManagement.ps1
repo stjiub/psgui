@@ -273,8 +273,8 @@ function Load-NewDataFile {
         foreach ($category in ($json | Select-Object -ExpandProperty Category -Unique | Where-Object { $_ -ne $null -and $_ -ne "" })) {
             $categoryItemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]($json | Where-Object { $_.Category -eq $category })
             $tab = New-DataTab -Name $category -ItemsSource $categoryItemsSource -TabControl $script:UI.TabControl
-            $tab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-            $tab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+            Register-GridCellEditHandler -Grid $tab.Content
+            Register-GridKeyHandler -Grid $tab.Content
             $script:UI.Tabs.Add($category, $tab)
         }
 
@@ -337,8 +337,8 @@ function Import-DataFile {
                     # Create new category tab
                     $categoryItemsSource = [System.Collections.ObjectModel.ObservableCollection[RowData]]::new()
                     $categoryTab = New-DataTab -Name $item.Category -ItemsSource $categoryItemsSource -TabControl $script:UI.TabControl
-                    $categoryTab.Content.Add_CellEditEnding({ param($sender,$e) Invoke-CellEditEndingHandler -Sender $sender -E $e -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs })
-                    $categoryTab.Content.Add_PreviewKeyDown({ param($sender,$e) if ($e.Key -eq [System.Windows.Input.Key]::Delete) { Remove-CommandRow -TabControl $script:UI.TabControl -Tabs $script:UI.Tabs } })
+                    Register-GridCellEditHandler -Grid $categoryTab.Content
+                    Register-GridKeyHandler -Grid $categoryTab.Content
                     $script:UI.Tabs.Add($item.Category, $categoryTab)
                 }
                 if ($categoryTab -and $categoryTab.Content -and $categoryTab.Content.ItemsSource) {
