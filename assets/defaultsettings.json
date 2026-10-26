@@ -8,7 +8,6 @@
     "SettingsPath": "%APPDATA%\\PSGUI\\settings.json",
     "FavoritesPath": "%APPDATA%\\PSGUI\\favorites.json",
     "DefaultHistoryPath": "%APPDATA%\\PSGUI\\history.json",
-    "SnippetsPath": "%APPDATA%\\PSGUI\\snippets.json",
     "ShowDebugTab": false,
     "DefaultDataFile": "%APPDATA%\\PSGUI\\data.json",
     "CommandHistoryLimit": 50,
