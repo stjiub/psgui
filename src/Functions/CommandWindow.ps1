@@ -560,7 +560,7 @@ function Compile-Command {
         $command.CleanCommand += $command.PreCommand + "; "
     }
 
-    $args = @{}
+    $paramValues = @{}
     $command.Full += "$($command.Root)"
     $command.CleanCommand += "$($command.Root)"
 
@@ -571,7 +571,7 @@ function Compile-Command {
 
         if (Test-AttributeType -Parameter $param -TypeName "ValidateSet") {
             if ($selection.SelectedItem) {
-                $args[$paramName] = $selection.SelectedItem.ToString()
+                $paramValues[$paramName] = $selection.SelectedItem.ToString()
             }
         }
         elseif (Test-AttributeType -Parameter $param -TypeName "switch") {
@@ -586,16 +586,16 @@ function Compile-Command {
             }
         }
         else {
-            $args[$paramName] = $selection.Text
+            $paramValues[$paramName] = $selection.Text
         }
 
         if ($isSwitch) {
             $command.Full += " -$paramName"
             $command.CleanCommand += " -$paramName"
         }
-        elseif (-not [String]::IsNullOrWhiteSpace($args[$paramName])) {
-            $command.Full += " -$paramName `"$($args[$paramName])`""
-            $command.CleanCommand += " -$paramName `"$($args[$paramName])`""
+        elseif (-not [String]::IsNullOrWhiteSpace($paramValues[$paramName])) {
+            $command.Full += " -$paramName `"$($paramValues[$paramName])`""
+            $command.CleanCommand += " -$paramName `"$($paramValues[$paramName])`""
         }
     }
 
